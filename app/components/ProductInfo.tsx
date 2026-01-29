@@ -349,7 +349,8 @@ export default function ProductInfo({ product, storeId, domain }: ProductInfoPro
                     {isColor ? (
                       // Selector visual para colores
                       <div className="color-options">
-                        {Array.from(values.entries()).map(([value, variantList]: [string, any]) => {
+                        {Array.from(values.entries()).map((entry) => {
+                          const [value, variantList] = entry as [string, any];
                           // Obtener los valores de otros atributos seleccionados
                           const otherSelectedValues = getOtherSelectedValues(attributeKey);
                           
