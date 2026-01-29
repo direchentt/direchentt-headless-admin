@@ -399,7 +399,9 @@ export default function ProductInfo({ product, storeId, domain }: ProductInfoPro
                       // Selector de botones para tallas y otros
                       <div className="size-options">
                         {Array.from(values.entries())
-                          .sort(([a], [b]) => {
+                          .sort((entryA, entryB) => {
+                            const [a] = entryA as [any, any];
+                            const [b] = entryB as [any, any];
                             // Asegurar que a y b sean strings
                             const aStr = String(a);
                             const bStr = String(b);
@@ -425,7 +427,8 @@ export default function ProductInfo({ product, storeId, domain }: ProductInfoPro
                             
                             return aStr.localeCompare(bStr);
                           })
-                          .map(([value, variantList]: [string, any]) => {
+                          .map((entry) => {
+                            const [value, variantList] = entry as [string, any];
                             // Obtener los valores de otros atributos seleccionados
                             const otherSelectedValues = getOtherSelectedValues(attributeKey);
                             
