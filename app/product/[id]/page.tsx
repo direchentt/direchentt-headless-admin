@@ -15,7 +15,7 @@ export default async function ProductPage({ params, searchParams }: any) {
   if (!storeLocal) return notFound();
 
   const [product, categories, products] = await Promise.all([
-    fetchTN(`products/${id}`, storeLocal.storeId, storeLocal.accessToken),
+    fetchTN(`products/${id}?expand=variants`, storeLocal.storeId, storeLocal.accessToken),
     fetchTN('categories', storeLocal.storeId, storeLocal.accessToken),
     fetchTN('products', storeLocal.storeId, storeLocal.accessToken, 'limit=20&published=true')
   ]);

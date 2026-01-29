@@ -35,6 +35,7 @@ interface NewArrivalsProps {
   products: Product[];
   categories: Category[];
   storeId: string;
+  domain?: string;
 }
 
 // Helper para extraer nombre de forma segura
@@ -74,7 +75,7 @@ const isNewProduct = (product: Product): boolean => {
   return createdDate > thirtyDaysAgo;
 };
 
-export default function NewArrivals({ products, categories, storeId }: NewArrivalsProps) {
+export default function NewArrivals({ products, categories, storeId, domain }: NewArrivalsProps) {
   const [activeTab, setActiveTab] = useState<number | null>(null);
   const [quickShopProduct, setQuickShopProduct] = useState<any>(null);
 
@@ -212,14 +213,25 @@ export default function NewArrivals({ products, categories, storeId }: NewArriva
                   </div>
                 </div>
                 {/* Cuadraditos de variantes con imagen */}
-                {images.length > 1 && (
+                {images && images.length > 1 && (
                   <div className="product-variants">
-                    {images.slice(0, 4).map((img, i) => (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <span key={i} className="variant-thumb">
-                        <img src={img.src} alt="" />
-                      </span>
-                    ))}
+                    {images
+                      .filter((img) => img && img.src) // Filtrar imágenes válidas
+                      .slice(0, 4)
+                      .map((img, i) => (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <span key={img.id || i} className="variant-thumb">
+                          <img 
+                            src={img.src} 
+                            alt="" 
+                            referrerPolicy="no-referrer"
+                            crossOrigin="anonymous"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        </span>
+                      ))}
                   </div>
                 )}
               </div>
@@ -232,6 +244,7 @@ export default function NewArrivals({ products, categories, storeId }: NewArriva
       <QuickShop
         product={quickShopProduct}
         storeId={storeId}
+        domain={domain}
         isOpen={!!quickShopProduct}
         onClose={() => setQuickShopProduct(null)}
       />

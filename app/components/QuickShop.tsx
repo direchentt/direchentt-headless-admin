@@ -6,17 +6,47 @@ import { useStore } from '../context/StoreContext';
 interface QuickShopProps {
   product: any;
   storeId: string;
+  domain?: string;
   isOpen: boolean;
   onClose: () => void;
 }
 
-export default function QuickShop({ product, storeId, isOpen, onClose }: QuickShopProps) {
+export default function QuickShop({ product, storeId, domain, isOpen, onClose }: QuickShopProps) {
   const { addToCart } = useStore();
   const [selectedVariantId, setSelectedVariantId] = useState<number | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  const [expandedProduct, setExpandedProduct] = useState<any>(null);
+  const [isLoadingProduct, setIsLoadingProduct] = useState(false);
 
-  const variants = product?.variants || [];
-  const images = product?.images || [];
+  // Obtener datos expandidos del producto cuando se abre el modal
+  useEffect(() => {
+    if (isOpen && product?.id && storeId) {
+      setIsLoadingProduct(true);
+      
+      fetch(`/api/products/${product.id}?shop=${storeId}&expand=true`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.product) {
+            console.log('📦 Producto expandido obtenido:', data.product);
+            setExpandedProduct(data.product);
+          } else {
+            setExpandedProduct(product); // Fallback al producto original
+          }
+        })
+        .catch(error => {
+          console.error('Error obteniendo producto expandido:', error);
+          setExpandedProduct(product); // Fallback al producto original
+        })
+        .finally(() => {
+          setIsLoadingProduct(false);
+        });
+    }
+  }, [isOpen, product?.id, storeId, product]);
+
+  // Usar producto expandido si está disponible, sino el original
+  const currentProduct = expandedProduct || product;
+  const variants = currentProduct?.variants || [];
+  const images = currentProduct?.images || [];
   
   // Encontrar variante seleccionada
   const selectedVariant = variants.find((v: any) => v.id === selectedVariantId) || variants[0];
@@ -77,6 +107,7 @@ export default function QuickShop({ product, storeId, isOpen, onClose }: QuickSh
       variantDescription = selectedVariant.name || 'Variante seleccionada';
     }
 
+    // Agregar al carrito local
     addToCart({
       productId: product.id,
       variantId: selectedVariant.id,
@@ -90,7 +121,7 @@ export default function QuickShop({ product, storeId, isOpen, onClose }: QuickSh
     setTimeout(() => {
       setIsAdding(false);
       onClose();
-    }, 500);
+    }, 800);
   };
 
   if (!isOpen) return null;
@@ -127,92 +158,221 @@ export default function QuickShop({ product, storeId, isOpen, onClose }: QuickSh
             </h3>
             <p className="quickshop-price">$ {price.toLocaleString('es-AR')}</p>
 
-            {/* Selector de variantes mejorado */}
+            {/* Selector de variantes basado en datos reales de TiendaNube */}
             {variants.length > 1 && (() => {
-              // Función para generar nombres descriptivos de variantes
-              const getVariantDisplayName = (variant: any) => {
-                // Si tiene atributos, usarlos para crear el nombre
-                if (variant.attributes && Object.keys(variant.attributes).length > 0) {
-                  const attributeNames = Object.values(variant.attributes).join(' - ');
-                  if (attributeNames && attributeNames !== '' && !attributeNames.includes('undefined')) {
-                    return attributeNames;
-                  }
-                }
-                
-                // Si tiene nombre propio, usarlo
-                if (variant.name && variant.name !== '' && !variant.name.includes('Opción')) {
-                  return variant.name;
-                }
-                
-                // Si tiene SKU, usarlo
-                if (variant.sku && variant.sku !== '') {
-                  return `SKU: ${variant.sku}`;
-                }
-                
-                // Como último recurso, usar la posición
-                return `Opción ${variant.position || 1}`;
-              };
-
-              // Extraer todos los tipos de atributos únicos
-              const attributeTypes = new Map();
-              variants.forEach((variant: any) => {
-                if (variant.attributes) {
-                  Object.entries(variant.attributes).forEach(([key, value]: [string, any]) => {
-                    if (value && value !== '' && value !== null && value !== undefined) {
-                      if (!attributeTypes.has(key)) {
-                        attributeTypes.set(key, new Set());
-                      }
-                      attributeTypes.get(key).add(value);
-                    }
-                  });
-                }
+              // Debug completo de las variantes que llegan
+              console.log('=== QUICKSHOP DEBUGGING ===');
+              console.log('Producto actual:', currentProduct);
+              console.log('Es producto expandido:', !!expandedProduct);
+              console.log('Loading:', isLoadingProduct);
+              console.log('Total variants:', variants.length);
+              
+              variants.forEach((variant: any, index: number) => {
+                console.log(`--- Variant ${index + 1} ---`, {
+                  id: variant.id,
+                  name: variant.name,
+                  sku: variant.sku,
+                  position: variant.position,
+                  image_id: variant.image_id,
+                  attributes: variant.attributes,
+                  // Explorar todas las propiedades disponibles
+                  allProperties: Object.keys(variant)
+                });
               });
 
-              // Función para obtener el nombre legible de un atributo
-              const getAttributeLabel = (key: string) => {
-                const labels: { [key: string]: string } = {
-                  'size': 'Talla',
-                  'color': 'Color',
-                  'talla': 'Talla',
-                  'Size': 'Talla',
+              // Intentar extraer atributos de cualquier estructura disponible
+              const attributeGroups = new Map();
+              let hasValidAttributes = false;
+              
+              variants.forEach((variant: any) => {
+                // Buscar atributos en diferentes ubicaciones
+                const possibleSources = [
+                  variant.attributes,
+                  variant.attribute_values,
+                  variant.properties,
+                  variant.values,
+                  variant.options,
+                  variant.specs
+                ];
+                
+                possibleSources.forEach((source, sourceIndex) => {
+                  if (source && typeof source === 'object' && Object.keys(source).length > 0) {
+                    console.log(`Atributos encontrados en source ${sourceIndex} para variant ${variant.id}:`, source);
+                    
+                    // Los atributos pueden ser arrays de objetos con idiomas
+                    if (Array.isArray(source)) {
+                      source.forEach((attrObj: any, index: number) => {
+                        if (attrObj && typeof attrObj === 'object') {
+                          // Extraer el valor en español o el primer valor disponible
+                          const value = attrObj.es || attrObj.en || Object.values(attrObj)[0];
+                          if (value && value !== '' && value !== null && value !== undefined && value !== 'null') {
+                            hasValidAttributes = true;
+                            
+                            // Usar el índice como key del atributo (0 = primer atributo, 1 = segundo, etc.)
+                            const key = index === 0 ? 'Color' : (index === 1 ? 'Protección' : `Atributo ${index + 1}`);
+                            
+                            if (!attributeGroups.has(key)) {
+                              attributeGroups.set(key, {
+                                name: key,
+                                values: new Map(),
+                                isColor: key.toLowerCase().includes('color') || index === 0
+                              });
+                            }
+                            
+                            if (!attributeGroups.get(key).values.has(value)) {
+                              attributeGroups.get(key).values.set(value, []);
+                            }
+                            attributeGroups.get(key).values.get(value).push(variant);
+                          }
+                        }
+                      });
+                    } else {
+                      // Manejar como objeto normal
+                      Object.entries(source).forEach(([key, value]: [string, any]) => {
+                        // Si el valor es un objeto multiidioma, extraer el texto
+                        let finalValue = value;
+                        if (value && typeof value === 'object' && !Array.isArray(value)) {
+                          finalValue = value.es || value.en || Object.values(value)[0];
+                        }
+                        
+                        if (finalValue && finalValue !== '' && finalValue !== null && finalValue !== undefined && finalValue !== 'null') {
+                          hasValidAttributes = true;
+                          
+                          if (!attributeGroups.has(key)) {
+                            attributeGroups.set(key, {
+                              name: key,
+                              values: new Map(),
+                              isColor: key.toLowerCase().includes('color') || key.toLowerCase().includes('colour') || key.toLowerCase() === 'color'
+                            });
+                          }
+                          
+                          if (!attributeGroups.get(key).values.has(finalValue)) {
+                            attributeGroups.get(key).values.set(finalValue, []);
+                          }
+                          attributeGroups.get(key).values.get(finalValue).push(variant);
+                        }
+                      });
+                    }
+                  }
+                });
+              });
+
+              console.log('Grupos de atributos encontrados:', Array.from(attributeGroups.entries()));
+              console.log('Tiene atributos válidos:', hasValidAttributes);
+
+              // Función para obtener nombre de atributo en español
+              const getAttributeDisplayName = (key: string) => {
+                const translations: { [key: string]: string } = {
                   'Color': 'Color',
-                  'material': 'Material',
-                  'style': 'Estilo',
-                  'fit': 'Corte'
+                  'color': 'Color',
+                  'Colour': 'Color',
+                  'colour': 'Color',
+                  'Talle': 'Talla',
+                  'talle': 'Talla',
+                  'Size': 'Talla',
+                  'size': 'Talla',
+                  'Material': 'Material',
+                  'material': 'Material'
                 };
-                return labels[key] || key.charAt(0).toUpperCase() + key.slice(1);
+                return translations[key] || key.charAt(0).toUpperCase() + key.slice(1);
               };
 
-              // Si hay atributos estructurados, mostrar selectores por atributo
-              if (attributeTypes.size > 0) {
+              // Función para obtener el valor seleccionado de un atributo
+              const getSelectedAttributeValue = (attributeKey: string, attributeData: any) => {
+                if (!selectedVariant) return null;
+                
+                const { values } = attributeData;
+                for (const [value, variantList] of values.entries()) {
+                  if (variantList.some((variant: any) => variant.id === selectedVariant.id)) {
+                    return value;
+                  }
+                }
+                return null;
+              };
+
+              // Función para obtener los valores seleccionados de todos los atributos excepto el actual
+              const getOtherSelectedValues = (currentAttributeKey: string) => {
+                const otherValues: { [key: string]: string } = {};
+                
+                Array.from(attributeGroups.entries()).forEach(([key, data]) => {
+                  if (key !== currentAttributeKey) {
+                    const selectedVal = getSelectedAttributeValue(key, data);
+                    if (selectedVal) {
+                      otherValues[key] = selectedVal;
+                    }
+                  }
+                });
+                
+                return otherValues;
+              };
+
+              // Función para encontrar la variante que coincida con una combinación específica de atributos
+              const findVariantByAttributes = (targetAttributes: { [key: string]: string }) => {
+                return variants.find((variant: any) => {
+                  // Para cada atributo objetivo, verificar si esta variante lo tiene
+                  return Object.entries(targetAttributes).every(([attrKey, attrValue]) => {
+                    const attributeData = attributeGroups.get(attrKey);
+                    if (!attributeData) return false;
+                    
+                    const variantsWithValue = attributeData.values.get(attrValue);
+                    if (!variantsWithValue) return false;
+                    
+                    return variantsWithValue.some((v: any) => v.id === variant.id);
+                  });
+                });
+              };
+
+              if (hasValidAttributes && attributeGroups.size > 0) {
+                console.log('✅ Renderizando selectores estructurados');
                 return (
                   <div className="quickshop-selectors">
-                    {Array.from(attributeTypes.entries()).map(([attributeKey, values]) => {
-                      const showImages = attributeKey.toLowerCase().includes('color') && 
-                        variants.some((v: any) => v.image_id && images.find((img: any) => img.id === v.image_id));
+                    {Array.from(attributeGroups.entries()).map(([attributeKey, attributeData]) => {
+                      const { name, values, isColor } = attributeData;
+                      const displayName = getAttributeDisplayName(name);
+                      
+                      console.log(`Renderizando atributo: ${displayName}`, { values: Array.from(values.keys()), isColor });
+                      
+                      // Obtener el valor seleccionado para este atributo
+                      const selectedValue = getSelectedAttributeValue(attributeKey, attributeData);
                       
                       return (
                         <div key={attributeKey} className="attribute-selector">
                           <label className="quickshop-label">
-                            {getAttributeLabel(attributeKey)}:
+                            {displayName}:
+                            {selectedValue && (
+                              <span style={{ fontWeight: 'normal', marginLeft: '6px', color: '#666' }}>
+                                {selectedValue}
+                              </span>
+                            )}
                           </label>
                           
-                          {showImages ? (
-                            // Selector con imágenes para colores
+                          {isColor ? (
+                            // Selector visual para colores
                             <div className="color-options">
-                              {Array.from(values).map((value: any) => {
-                                const variant = variants.find((v: any) => 
-                                  v.attributes && v.attributes[attributeKey] === value
-                                );
-                                if (!variant) return null;
+                              {Array.from(values.entries()).map(([value, variantList]: [string, any]) => {
+                                // Obtener los valores de otros atributos seleccionados
+                                const otherSelectedValues = getOtherSelectedValues(attributeKey);
                                 
+                                // Encontrar la variante que coincida con este color + otros atributos seleccionados
+                                const targetVariant = findVariantByAttributes({
+                                  ...otherSelectedValues,
+                                  [attributeKey]: value
+                                });
+                                
+                                // Si no encontramos una variante específica, usar la primera del grupo
+                                const variant = targetVariant || variantList[0];
                                 const variantImg = getVariantImage(variant);
+                                
+                                // null o undefined significa stock ilimitado en TiendaNube
+                                const hasStock = variant.stock === null || variant.stock === undefined || variant.stock > 0;
+                                
                                 return (
                                   <button
-                                    key={variant.id}
-                                    className={`color-swatch ${selectedVariantId === variant.id ? 'active' : ''}`}
-                                    onClick={() => setSelectedVariantId(variant.id)}
-                                    title={value}
+                                    key={`${attributeKey}-${value}`}
+                                    className={`color-swatch ${selectedVariantId === variant.id ? 'active' : ''} ${!hasStock ? 'out-of-stock' : ''}`}
+                                    onClick={() => hasStock && setSelectedVariantId(variant.id)}
+                                    title={hasStock ? value : `${value} - Sin stock`}
+                                    disabled={!hasStock}
                                   >
                                     {variantImg ? (
                                       // eslint-disable-next-line @next/next/no-img-element
@@ -225,29 +385,74 @@ export default function QuickShop({ product, storeId, isOpen, onClose }: QuickSh
                                     ) : (
                                       <span className="color-name">{value}</span>
                                     )}
+                                    {!hasStock && (
+                                      <div className="no-stock-overlay">
+                                        <span className="no-stock-line"></span>
+                                      </div>
+                                    )}
                                   </button>
                                 );
                               })}
                             </div>
                           ) : (
-                            // Selector de botones para tallas y otros atributos
+                            // Selector de botones para tallas y otros
                             <div className="size-options">
-                              {Array.from(values).sort().map((value: any) => {
-                                const variant = variants.find((v: any) => 
-                                  v.attributes && v.attributes[attributeKey] === value
-                                );
-                                if (!variant) return null;
-                                
-                                return (
-                                  <button
-                                    key={variant.id}
-                                    className={`size-btn ${selectedVariantId === variant.id ? 'active' : ''}`}
-                                    onClick={() => setSelectedVariantId(variant.id)}
-                                  >
-                                    {value}
-                                  </button>
-                                );
-                              })}
+                              {Array.from(values.entries())
+                                .sort(([a], [b]) => {
+                                  // Asegurar que a y b sean strings
+                                  const aStr = String(a);
+                                  const bStr = String(b);
+                                  
+                                  // Ordenar tallas de manera lógica
+                                  const sizeOrder = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+                                  const indexA = sizeOrder.indexOf(aStr);
+                                  const indexB = sizeOrder.indexOf(bStr);
+                                  
+                                  if (indexA !== -1 && indexB !== -1) {
+                                    return indexA - indexB;
+                                  } else if (indexA !== -1) {
+                                    return -1;
+                                  } else if (indexB !== -1) {
+                                    return 1;
+                                  }
+                                  
+                                  const numA = parseInt(aStr);
+                                  const numB = parseInt(bStr);
+                                  if (!isNaN(numA) && !isNaN(numB)) {
+                                    return numA - numB;
+                                  }
+                                  
+                                  return aStr.localeCompare(bStr);
+                                })
+                                .map(([value, variantList]: [string, any]) => {
+                                  // Obtener los valores de otros atributos seleccionados
+                                  const otherSelectedValues = getOtherSelectedValues(attributeKey);
+                                  
+                                  // Encontrar la variante que coincida con este valor + otros atributos seleccionados
+                                  const targetVariant = findVariantByAttributes({
+                                    ...otherSelectedValues,
+                                    [attributeKey]: value
+                                  });
+                                  
+                                  // Si no encontramos una variante específica, usar la primera del grupo
+                                  const variant = targetVariant || variantList[0];
+                                  
+                                  // null o undefined significa stock ilimitado en TiendaNube
+                                  const hasStock = variant.stock === null || variant.stock === undefined || variant.stock > 0;
+                                  
+                                  return (
+                                    <button
+                                      key={`${attributeKey}-${value}`}
+                                      className={`size-btn ${selectedVariantId === variant.id ? 'active' : ''} ${!hasStock ? 'out-of-stock' : ''}`}
+                                      onClick={() => hasStock && setSelectedVariantId(variant.id)}
+                                      disabled={!hasStock}
+                                      title={!hasStock ? 'Sin stock' : ''}
+                                    >
+                                      {value}
+                                      {!hasStock && <span className="no-stock-indicator"> ✕</span>}
+                                    </button>
+                                  );
+                                })}
                             </div>
                           )}
                         </div>
@@ -256,22 +461,51 @@ export default function QuickShop({ product, storeId, isOpen, onClose }: QuickSh
                   </div>
                 );
               } else {
-                // Si no hay atributos, mostrar dropdown con nombres descriptivos
+                // Fallback: dropdown con nombres mejorados
+                console.log('⚠️ Sin atributos estructurados, usando fallback');
+                
                 return (
                   <div className="quickshop-selectors">
                     <div className="attribute-selector">
-                      <label className="quickshop-label">Variante:</label>
+                      <label className="quickshop-label">
+                        {isLoadingProduct ? 'Cargando...' : 'Variantes:'}
+                      </label>
                       <div className="variant-dropdown">
                         <select 
                           value={selectedVariantId || ''} 
                           onChange={(e) => setSelectedVariantId(Number(e.target.value))}
                           className="variant-select"
+                          disabled={isLoadingProduct}
                         >
-                          {variants.map((variant: any) => (
-                            <option key={variant.id} value={variant.id}>
-                              {getVariantDisplayName(variant)}
-                            </option>
-                          ))}
+                          {variants.map((variant: any, index: number) => {
+                            let displayName = 'Sin información';
+                            
+                            // Estrategias mejoradas para crear nombres
+                            if (variant.name && !variant.name.includes('Opción') && variant.name.trim() !== '') {
+                              displayName = variant.name;
+                            } else if (variant.sku) {
+                              const skuParts = variant.sku.split('-');
+                              const lastPart = skuParts[skuParts.length - 1];
+                              
+                              if (/^(XS|S|M|L|XL|XXL|XXXL)$/i.test(lastPart)) {
+                                displayName = `Talla ${lastPart.toUpperCase()}`;
+                              } else if (/^\d{1,2}$/.test(lastPart)) {
+                                displayName = `Talla ${lastPart}`;
+                              } else if (lastPart && lastPart.length <= 4) {
+                                displayName = `Variante ${lastPart}`;
+                              } else {
+                                displayName = `Opción ${index + 1}`;
+                              }
+                            } else {
+                              displayName = `Opción ${index + 1}`;
+                            }
+                            
+                            return (
+                              <option key={variant.id} value={variant.id}>
+                                {displayName}
+                              </option>
+                            );
+                          })}
                         </select>
                       </div>
                     </div>
@@ -447,6 +681,33 @@ export default function QuickShop({ product, storeId, isOpen, onClose }: QuickSh
           transform: translateY(-2px);
           box-shadow: 0 4px 12px rgba(0,0,0,0.25);
         }
+        .color-swatch.out-of-stock {
+          opacity: 0.4;
+          cursor: not-allowed;
+          filter: grayscale(0.8);
+        }
+        .color-swatch.out-of-stock:hover {
+          border-color: #ddd;
+          transform: none;
+          box-shadow: none;
+        }
+        .no-stock-overlay {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .no-stock-line {
+          width: 100%;
+          height: 2px;
+          background: #e74c3c;
+          transform: rotate(-45deg);
+          box-shadow: 0 0 2px rgba(0,0,0,0.5);
+        }
 
         /* Selectores de talla y otros atributos */
         .size-options {
@@ -475,6 +736,23 @@ export default function QuickShop({ product, storeId, isOpen, onClose }: QuickSh
           background: #000;
           color: #fff;
           border-color: #000;
+        }
+        .size-btn.out-of-stock {
+          opacity: 0.4;
+          color: #999;
+          border-color: #ddd;
+          cursor: not-allowed;
+          text-decoration: line-through;
+          background-color: #f5f5f5;
+        }
+        .size-btn.out-of-stock:hover {
+          border-color: #ddd;
+          transform: none;
+        }
+        .no-stock-indicator {
+          margin-left: 4px;
+          font-size: 10px;
+          color: #e74c3c;
         }
 
         /* Dropdown para variantes sin estructura */

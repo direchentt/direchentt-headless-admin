@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 
 interface ProductInfoProps {
@@ -23,43 +23,121 @@ const safeGetName = (name: unknown): string => {
 export default function ProductInfo({ product, storeId, domain }: ProductInfoProps) {
   const { addToCart } = useStore();
   const variants = product.variants || [];
-  const [selectedSize, setSelectedSize] = useState<string | null>(null);
+  const images = product.images || [];
+  const [selectedVariantId, setSelectedVariantId] = useState<number | null>(null);
   const [isAdding, setIsAdding] = useState(false);
 
-  // Extraer tallas únicas con tipado correcto
-  const sizes: string[] = [...new Set(variants.map((v: any) => v.attributes?.size || v.name).filter(Boolean))] as string[];
+  // Seleccionar primera variante automáticamente
+  useEffect(() => {
+    if (variants.length > 0 && !selectedVariantId) {
+      setSelectedVariantId(variants[0].id);
+    }
+  }, [variants, selectedVariantId]);
   
   // Encontrar variante seleccionada
-  const selectedVariant = variants.find((v: any) => 
-    (v.attributes?.size || v.name) === selectedSize
-  ) || variants[0];
+  const selectedVariant = variants.find((v: any) => v.id === selectedVariantId) || variants[0];
 
   const price = selectedVariant?.price || product.price || 0;
   const comparePrice = selectedVariant?.compare_at_price || product.compare_at_price;
   const hasDiscount = comparePrice && comparePrice > price;
 
+  // Obtener imagen de la variante
+  const getVariantImage = (variant: any) => {
+    if (!variant) return images[0]?.src || '';
+    const variantImage = images.find((img: any) => img.id === variant.image_id);
+    return variantImage?.src || images[0]?.src || '';
+  };
+
   const handleAddToCart = () => {
     if (!selectedVariant) return;
     
     setIsAdding(true);
+
+    // Crear descripción de variante más descriptiva
+    let variantDescription = '';
+    if (selectedVariant.attributes && Object.keys(selectedVariant.attributes).length > 0) {
+      const attributes = Object.entries(selectedVariant.attributes)
+        .map(([key, value]) => {
+          const labelMap: { [key: string]: string } = {
+            'size': 'Talla',
+            'color': 'Color',
+            'talla': 'Talla',
+            'Size': 'Talla',
+            'Color': 'Color'
+          };
+          const label = labelMap[key] || key;
+          return `${label}: ${value}`;
+        })
+        .join(', ');
+      variantDescription = attributes;
+    } else {
+      variantDescription = selectedVariant.name || 'Variante seleccionada';
+    }
+    
+    console.log('Agregando al carrito:', {
+      storeId,
+      domain,
+      variantId: selectedVariant.id,
+      productId: product.id
+    });
     
     addToCart({
       productId: product.id,
       variantId: selectedVariant.id,
       name: safeGetName(product.name),
-      variant: selectedSize || 'Default',
+      variant: variantDescription,
       price: price,
       quantity: 1,
-      image: product.images?.[0]?.src || ''
+      image: getVariantImage(selectedVariant)
     });
 
     setTimeout(() => setIsAdding(false), 500);
   };
 
   const handleBuyNow = () => {
-    // Redirigir a TiendaNube para checkout
-    const variantParam = selectedVariant ? `?variant=${selectedVariant.id}` : '';
-    window.open(`https://${domain}/products/${product.id}${variantParam}`, '_blank');
+    if (!selectedVariant) return;
+    
+    // Agregar al carrito local para tracking
+    handleAddToCart();
+    
+    // Usar el dominio real de la tienda
+    // Si domain no está definido, usar storeId.mitiendanube.com
+    const tiendanubeUrl = domain || `${storeId}.mitiendanube.com`;
+    
+    console.log('🔍 Domain check:', { domain, storeId, tiendanubeUrl });
+    
+    // Extraer el handle del producto de diferentes fuentes posibles
+    let productHandle = product.handle;
+    
+    // Si canonical_url es un objeto, extraer el valor en español
+    if (!productHandle && product.canonical_url) {
+      if (typeof product.canonical_url === 'object') {
+        const canonicalUrl = product.canonical_url.es || product.canonical_url.en || '';
+        productHandle = canonicalUrl.split('/').pop();
+      } else if (typeof product.canonical_url === 'string') {
+        productHandle = product.canonical_url.split('/').pop();
+      }
+    }
+    
+    // Si no hay handle, usar el ID del producto
+    if (!productHandle || productHandle === '[object Object]') {
+      productHandle = product.id;
+    }
+    
+    // Redirigir directamente al producto en TiendaNube con la variante seleccionada
+    const productUrl = `https://${tiendanubeUrl}/products/${productHandle}?variant=${selectedVariant.id}`;
+    
+    console.log('🛒 Redirigiendo a TiendaNube:', {
+      productUrl,
+      domain,
+      tiendanubeUrl,
+      productHandle,
+      productId: product.id,
+      variantId: selectedVariant.id,
+      canonicalUrl: product.canonical_url
+    });
+    
+    window.location.href = productUrl;
   };
 
   return (
@@ -108,45 +186,297 @@ export default function ProductInfo({ product, storeId, domain }: ProductInfoPro
         </div>
       </details>
 
-      {/* SELECTOR DE TALLAS */}
-      {sizes.length > 0 && (
-        <div className="size-selector">
-          <label className="size-label">Size</label>
-          <div className="size-grid">
-            {sizes.map((size: string) => {
-              const sizeVariant = variants.find((v: any) => 
-                (v.attributes?.size || v.name) === size
-              );
-              const isOutOfStock = sizeVariant?.stock === 0;
+      {/* SELECTOR DE VARIANTES CON DETECCIÓN INTELIGENTE */}
+      {variants.length > 1 && (() => {
+        // Intentar extraer atributos de cualquier estructura disponible
+        const attributeGroups = new Map();
+        let hasValidAttributes = false;
+        
+        variants.forEach((variant: any) => {
+          // Buscar atributos en diferentes ubicaciones
+          const possibleSources = [
+            variant.attributes,
+            variant.attribute_values,
+            variant.properties,
+            variant.values,
+            variant.options,
+            variant.specs
+          ];
+          
+          possibleSources.forEach((source) => {
+            if (source && typeof source === 'object' && Object.keys(source).length > 0) {
+              // Los atributos pueden ser arrays de objetos con idiomas
+              if (Array.isArray(source)) {
+                source.forEach((attrObj: any, index: number) => {
+                  if (attrObj && typeof attrObj === 'object') {
+                    // Extraer el valor en español o el primer valor disponible
+                    const value = attrObj.es || attrObj.en || Object.values(attrObj)[0];
+                    if (value && value !== '' && value !== null && value !== undefined && value !== 'null') {
+                      hasValidAttributes = true;
+                      
+                      // Usar el índice como key del atributo (0 = primer atributo, 1 = segundo, etc.)
+                      const key = index === 0 ? 'Color' : (index === 1 ? 'Protección' : `Atributo ${index + 1}`);
+                      
+                      if (!attributeGroups.has(key)) {
+                        attributeGroups.set(key, {
+                          name: key,
+                          values: new Map(),
+                          isColor: key.toLowerCase().includes('color') || index === 0
+                        });
+                      }
+                      
+                      if (!attributeGroups.get(key).values.has(value)) {
+                        attributeGroups.get(key).values.set(value, []);
+                      }
+                      attributeGroups.get(key).values.get(value).push(variant);
+                    }
+                  }
+                });
+              } else {
+                // Manejar como objeto normal
+                Object.entries(source).forEach(([key, value]: [string, any]) => {
+                  // Si el valor es un objeto multiidioma, extraer el texto
+                  let finalValue = value;
+                  if (value && typeof value === 'object' && !Array.isArray(value)) {
+                    finalValue = value.es || value.en || Object.values(value)[0];
+                  }
+                  
+                  if (finalValue && finalValue !== '' && finalValue !== null && finalValue !== undefined && finalValue !== 'null') {
+                    hasValidAttributes = true;
+                    
+                    if (!attributeGroups.has(key)) {
+                      attributeGroups.set(key, {
+                        name: key,
+                        values: new Map(),
+                        isColor: key.toLowerCase().includes('color') || key.toLowerCase().includes('colour') || key.toLowerCase() === 'color'
+                      });
+                    }
+                    
+                    if (!attributeGroups.get(key).values.has(finalValue)) {
+                      attributeGroups.get(key).values.set(finalValue, []);
+                    }
+                    attributeGroups.get(key).values.get(finalValue).push(variant);
+                  }
+                });
+              }
+            }
+          });
+        });
+
+        // Función para obtener nombre de atributo en español
+        const getAttributeDisplayName = (key: string) => {
+          const translations: { [key: string]: string } = {
+            'Color': 'Color',
+            'color': 'Color',
+            'Colour': 'Color',
+            'colour': 'Color',
+            'Talle': 'Talla',
+            'talle': 'Talla',
+            'Size': 'Talla',
+            'size': 'Talla',
+            'Material': 'Material',
+            'material': 'Material'
+          };
+          return translations[key] || key.charAt(0).toUpperCase() + key.slice(1);
+        };
+
+        // Función para obtener el valor seleccionado de un atributo
+        const getSelectedAttributeValue = (attributeKey: string, attributeData: any) => {
+          if (!selectedVariant) return null;
+          
+          const { values } = attributeData;
+          for (const [value, variantList] of values.entries()) {
+            if (variantList.some((variant: any) => variant.id === selectedVariant.id)) {
+              return value;
+            }
+          }
+          return null;
+        };
+
+        // Función para obtener los valores seleccionados de todos los atributos excepto el actual
+        const getOtherSelectedValues = (currentAttributeKey: string) => {
+          const otherValues: { [key: string]: string } = {};
+          
+          Array.from(attributeGroups.entries()).forEach(([key, data]) => {
+            if (key !== currentAttributeKey) {
+              const selectedVal = getSelectedAttributeValue(key, data);
+              if (selectedVal) {
+                otherValues[key] = selectedVal;
+              }
+            }
+          });
+          
+          return otherValues;
+        };
+
+        // Función para encontrar la variante que coincida con una combinación específica de atributos
+        const findVariantByAttributes = (targetAttributes: { [key: string]: string }) => {
+          return variants.find((variant: any) => {
+            // Para cada atributo objetivo, verificar si esta variante lo tiene
+            return Object.entries(targetAttributes).every(([attrKey, attrValue]) => {
+              const attributeData = attributeGroups.get(attrKey);
+              if (!attributeData) return false;
               
-              return (
-                <button
-                  key={size}
-                  className={`size-btn ${selectedSize === size ? 'active' : ''} ${isOutOfStock ? 'out-of-stock' : ''}`}
-                  onClick={() => !isOutOfStock && setSelectedSize(size)}
-                  disabled={isOutOfStock}
-                >
-                  {size}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
+              const variantsWithValue = attributeData.values.get(attrValue);
+              if (!variantsWithValue) return false;
+              
+              return variantsWithValue.some((v: any) => v.id === variant.id);
+            });
+          });
+        };
+
+        if (hasValidAttributes && attributeGroups.size > 0) {
+          return (
+            <div className="variant-selectors">
+              {Array.from(attributeGroups.entries()).map(([attributeKey, attributeData]) => {
+                const { name, values, isColor } = attributeData;
+                const displayName = getAttributeDisplayName(name);
+                
+                // Obtener el valor seleccionado para este atributo
+                const selectedValue = getSelectedAttributeValue(attributeKey, attributeData);
+                
+                return (
+                  <div key={attributeKey} className="variant-attribute">
+                    <label className="variant-label">
+                      {displayName}:
+                      {selectedValue && (
+                        <span style={{ fontWeight: 'normal', marginLeft: '6px', color: '#666' }}>
+                          {selectedValue}
+                        </span>
+                      )}
+                    </label>
+                    
+                    {isColor ? (
+                      // Selector visual para colores
+                      <div className="color-options">
+                        {Array.from(values.entries()).map(([value, variantList]: [string, any]) => {
+                          // Obtener los valores de otros atributos seleccionados
+                          const otherSelectedValues = getOtherSelectedValues(attributeKey);
+                          
+                          // Encontrar la variante que coincida con este color + otros atributos seleccionados
+                          const targetVariant = findVariantByAttributes({
+                            ...otherSelectedValues,
+                            [attributeKey]: value
+                          });
+                          
+                          // Si no encontramos una variante específica, usar la primera del grupo
+                          const variant = targetVariant || variantList[0];
+                          const variantImg = getVariantImage(variant);
+                          
+                          // null o undefined significa stock ilimitado en TiendaNube
+                          const hasStock = variant.stock === null || variant.stock === undefined || variant.stock > 0;
+                          
+                          return (
+                            <button
+                              key={`${attributeKey}-${value}`}
+                              className={`color-swatch ${selectedVariantId === variant.id ? 'active' : ''} ${!hasStock ? 'out-of-stock' : ''}`}
+                              onClick={() => hasStock && setSelectedVariantId(variant.id)}
+                              title={hasStock ? value : `${value} - Sin stock`}
+                              disabled={!hasStock}
+                            >
+                              {variantImg ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img 
+                                  src={variantImg} 
+                                  alt={value}
+                                  referrerPolicy="no-referrer"
+                                  crossOrigin="anonymous"
+                                />
+                              ) : (
+                                <span className="color-name">{value}</span>
+                              )}
+                              {!hasStock && (
+                                <div className="no-stock-overlay">
+                                  <span className="no-stock-line"></span>
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      // Selector de botones para tallas y otros
+                      <div className="size-options">
+                        {Array.from(values.entries())
+                          .sort(([a], [b]) => {
+                            // Asegurar que a y b sean strings
+                            const aStr = String(a);
+                            const bStr = String(b);
+                            
+                            // Ordenar tallas de manera lógica
+                            const sizeOrder = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+                            const indexA = sizeOrder.indexOf(aStr);
+                            const indexB = sizeOrder.indexOf(bStr);
+                            
+                            if (indexA !== -1 && indexB !== -1) {
+                              return indexA - indexB;
+                            } else if (indexA !== -1) {
+                              return -1;
+                            } else if (indexB !== -1) {
+                              return 1;
+                            }
+                            
+                            const numA = parseInt(aStr);
+                            const numB = parseInt(bStr);
+                            if (!isNaN(numA) && !isNaN(numB)) {
+                              return numA - numB;
+                            }
+                            
+                            return aStr.localeCompare(bStr);
+                          })
+                          .map(([value, variantList]: [string, any]) => {
+                            // Obtener los valores de otros atributos seleccionados
+                            const otherSelectedValues = getOtherSelectedValues(attributeKey);
+                            
+                            // Encontrar la variante que coincida con este valor + otros atributos seleccionados
+                            const targetVariant = findVariantByAttributes({
+                              ...otherSelectedValues,
+                              [attributeKey]: value
+                            });
+                            
+                            // Si no encontramos una variante específica, usar la primera del grupo
+                            const variant = targetVariant || variantList[0];
+                            
+                            // null o undefined significa stock ilimitado en TiendaNube
+                            const hasStock = variant.stock === null || variant.stock === undefined || variant.stock > 0;
+                            
+                            return (
+                              <button
+                                key={`${attributeKey}-${value}`}
+                                className={`size-btn ${selectedVariantId === variant.id ? 'active' : ''} ${!hasStock ? 'out-of-stock' : ''}`}
+                                onClick={() => hasStock && setSelectedVariantId(variant.id)}
+                                disabled={!hasStock}
+                                title={!hasStock ? 'Sin stock' : ''}
+                              >
+                                {value}
+                                {!hasStock && <span className="no-stock-indicator"> ✕</span>}
+                              </button>
+                            );
+                          })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        }
+        return null;
+      })()}
 
       {/* BOTONES DE ACCIÓN */}
       <div className="action-buttons">
         <button 
           className="btn-buy-now"
           onClick={handleBuyNow}
-          disabled={sizes.length > 0 && !selectedSize}
+          disabled={variants.length > 1 && !selectedVariantId}
         >
           Compra ahora
         </button>
         <button 
           className={`btn-add-cart ${isAdding ? 'adding' : ''}`}
           onClick={handleAddToCart}
-          disabled={sizes.length > 0 && !selectedSize}
+          disabled={variants.length > 1 && !selectedVariantId}
         >
           {isAdding ? '✓ Agregado' : 'Agregar al carrito'}
         </button>
@@ -266,6 +596,110 @@ export default function ProductInfo({ product, storeId, domain }: ProductInfoPro
           margin-bottom: 0;
         }
 
+        /* SELECTORES DE VARIANTES */
+        .variant-selectors {
+          margin: 24px 0;
+        }
+
+        .variant-attribute {
+          margin-bottom: 25px;
+        }
+
+        .variant-attribute:last-child {
+          margin-bottom: 0;
+        }
+
+        .variant-label {
+          font-size: 12px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          margin-bottom: 12px;
+          display: block;
+          color: #333;
+        }
+
+        /* Selectores de color con imágenes */
+        .color-options {
+          display: flex;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+        .color-swatch {
+          width: 60px;
+          height: 60px;
+          border: 2px solid #ddd;
+          background: #fff;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          padding: 0;
+          overflow: hidden;
+          border-radius: 8px;
+          position: relative;
+        }
+        .color-swatch img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        .color-swatch .color-name {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          height: 100%;
+          font-size: 10px;
+          font-weight: 600;
+          text-align: center;
+          text-transform: uppercase;
+          padding: 4px;
+        }
+        .color-swatch:hover:not(:disabled) {
+          border-color: #666;
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .color-swatch.active {
+          border-color: #000;
+          border-width: 3px;
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+        .color-swatch.out-of-stock {
+          opacity: 0.4;
+          cursor: not-allowed;
+          filter: grayscale(0.8);
+        }
+        .color-swatch.out-of-stock:hover {
+          border-color: #ddd;
+          transform: none;
+          box-shadow: none;
+        }
+        .no-stock-overlay {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .no-stock-line {
+          width: 100%;
+          height: 2px;
+          background: #e74c3c;
+          transform: rotate(-45deg);
+          box-shadow: 0 0 2px rgba(0,0,0,0.5);
+        }
+
+        /* Selectores de talla y otros atributos */
+        .size-options {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
         /* SELECTOR DE TALLAS */
         .size-selector {
           margin: 24px 0;
@@ -309,8 +743,22 @@ export default function ProductInfo({ product, storeId, domain }: ProductInfoPro
 
         .size-btn.out-of-stock {
           opacity: 0.4;
+          color: #999;
+          border-color: #ddd;
           cursor: not-allowed;
           text-decoration: line-through;
+          background-color: #f5f5f5;
+        }
+
+        .size-btn.out-of-stock:hover {
+          border-color: #ddd;
+          transform: none;
+        }
+        
+        .no-stock-indicator {
+          margin-left: 4px;
+          font-size: 10px;
+          color: #e74c3c;
         }
 
         /* BOTONES */

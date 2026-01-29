@@ -50,7 +50,8 @@ export default async function Home({ searchParams }: any) {
       <NewArrivals 
         products={products} 
         categories={categories} 
-        storeId={storeLocal.storeId} 
+        storeId={storeLocal.storeId}
+        domain={storeLocal.domain}
       />
 
       {/* Banner Split - Mujer / Hombre */}

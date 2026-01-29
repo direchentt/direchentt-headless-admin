@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getStoreData, fetchTN } from '../../../../lib/backend';
+import { getStoreData, fetchTN, fetchProductWithVariants } from '../../../../lib/backend';
 import { processProduct, getRelatedProducts } from '../../../../lib/product-utils';
 
 export async function GET(
@@ -11,12 +11,28 @@ export async function GET(
     
     const { searchParams } = new URL(request.url);
     const shopId = searchParams.get('shop') || '5112334';
+    const expand = searchParams.get('expand') === 'true';
 
     const storeLocal = await getStoreData(shopId);
     if (!storeLocal) {
       return NextResponse.json({ error: 'Store not found' }, { status: 404 });
     }
 
+    // Si se solicita expandido (para QuickShop), usar la función especializada
+    if (expand) {
+      const expandedProduct = await fetchProductWithVariants(id, storeLocal.storeId, storeLocal.accessToken);
+      
+      if (!expandedProduct) {
+        return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        product: expandedProduct
+      });
+    }
+
+    // Llamada normal para la página de producto
     const [product, allProducts] = await Promise.all([
       fetchTN(`products/${id}`, storeLocal.storeId, storeLocal.accessToken),
       fetchTN('products', storeLocal.storeId, storeLocal.accessToken, 'limit=50&published=true')

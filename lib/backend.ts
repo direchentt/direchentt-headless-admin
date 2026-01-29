@@ -101,6 +101,77 @@ export async function fetchTN(endpoint: string, shopId: string, token: string, q
 }
 
 /**
+ * Obtiene un producto específico con todas sus variantes y atributos expandidos
+ * @param productId ID del producto
+ * @param shopId ID de la tienda
+ * @param token Token de acceso Bearer
+ * @returns Producto con variantes completas o null en caso de error
+ */
+export async function fetchProductWithVariants(productId: string, shopId: string, token: string) {
+  const cacheKey = `${shopId}-product-${productId}-expanded`;
+  const now = Date.now();
+  
+  if (apiCache.has(cacheKey)) {
+    const cached = apiCache.get(cacheKey)!;
+    if (now - cached.timestamp < CACHE_TTL) {
+      return cached.data;
+    }
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+  try {
+    // Intentar con expand=variants primero
+    let res = await fetch(`https://api.tiendanube.com/v1/${shopId}/products/${productId}?expand=variants`, {
+      headers: { 
+        'Authentication': `bearer ${token}`, 
+        'User-Agent': 'Direchentt' 
+      },
+      signal: controller.signal,
+      next: { revalidate: 60 }
+    });
+    
+    // Si falla, intentar sin expand
+    if (!res.ok) {
+      res = await fetch(`https://api.tiendanube.com/v1/${shopId}/products/${productId}`, {
+        headers: { 
+          'Authentication': `bearer ${token}`, 
+          'User-Agent': 'Direchentt' 
+        },
+        signal: controller.signal,
+        next: { revalidate: 60 }
+      });
+    }
+    
+    clearTimeout(timeoutId);
+    const product = res.ok ? await res.json() : null;
+    
+    if (product) {
+      // Log para debug
+      console.log(`📦 Producto ${productId} obtenido para QuickShop:`, {
+        id: product.id,
+        variants_count: product.variants?.length,
+        first_variant: product.variants?.[0],
+        variant_attributes: product.variants?.[0]?.attributes
+      });
+      
+      apiCache.set(cacheKey, { data: product, timestamp: now });
+    }
+    
+    return product;
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      console.warn(`⏳ Timeout obteniendo producto ${productId} expandido`);
+    } else {
+      console.error(`❌ Error obteniendo producto ${productId} expandido:`, error.message);
+    }
+    return null;
+  }
+}
+
+/**
  * Extrae el nombre de una categoría de TiendaNube
  * Los nombres pueden ser string o objeto {es: "...", en: "..."}
  */
