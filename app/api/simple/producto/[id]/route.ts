@@ -47,10 +47,11 @@ export async function GET(
       totalRelacionados: relatedProducts.length
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error en API simple producto:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
     return NextResponse.json(
-      { exito: false, error: 'Error al obtener producto', detalle: error.message },
+      { exito: false, error: 'Error al obtener producto', detalle: errorMessage },
       { status: 500 }
     );
   }

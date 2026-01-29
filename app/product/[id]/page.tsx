@@ -84,7 +84,7 @@ export default async function ProductPage({ params, searchParams }: any) {
       )}
 
       <Footer logo={storeLocal.logo} storeName={storeLocal.name || 'DIRECHENTT'} />
-      <ModalsWrapper products={products?.result || []} />
+      <ModalsWrapper products={products?.result || []} storeId={storeLocal.storeId} />
 
       <style dangerouslySetInnerHTML={{__html: `
         .pdp-page {

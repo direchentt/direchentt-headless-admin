@@ -9,9 +9,7 @@ const nextConfig: NextConfig = {
   },
   serverExternalPackages: ['mongodb'],
   devIndicators: {
-    appIsrStatus: true,
-    buildActivity: true,
-    buildActivityPosition: 'bottom-right'
+    position: 'bottom-right'
   },
   // Re-habilitar headers de CORS para evitar problemas de conexión de assets
   async headers() {

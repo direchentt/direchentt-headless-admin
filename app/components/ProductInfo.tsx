@@ -15,8 +15,8 @@ export default function ProductInfo({ product, storeId, domain }: ProductInfoPro
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
 
-  // Extraer tallas únicas
-  const sizes = [...new Set(variants.map((v: any) => v.attributes?.size || v.name).filter(Boolean))];
+  // Extraer tallas únicas con tipado correcto
+  const sizes: string[] = [...new Set(variants.map((v: any) => v.attributes?.size || v.name).filter(Boolean))] as string[];
   
   // Encontrar variante seleccionada
   const selectedVariant = variants.find((v: any) => 

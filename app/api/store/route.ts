@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getStoreData, fetchTN } from '@/lib/backend';
-import { processProduct, getRelatedProducts } from '@/lib/product-utils';
+import { getStoreData } from '@/lib/backend';
 
 // En esta ruta NO van params porque la carpeta no tiene [id]
 export async function GET(request: NextRequest) {
@@ -27,10 +26,11 @@ export async function GET(request: NextRequest) {
       }
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error en API store:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
     return NextResponse.json(
-      { exito: false, error: 'Error al obtener tienda', detalle: error.message },
+      { exito: false, error: 'Error al obtener tienda', detalle: errorMessage },
       { status: 500 }
     );
   }
