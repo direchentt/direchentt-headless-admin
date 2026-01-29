@@ -349,7 +349,8 @@ export default function QuickShop({ product, storeId, domain, isOpen, onClose }:
                           {isColor ? (
                             // Selector visual para colores
                             <div className="color-options">
-                              {Array.from(values.entries()).map(([value, variantList]: [string, any]) => {
+                              {Array.from(values.entries()).map((entry) => {
+                                const [value, variantList] = entry as [string, any];
                                 // Obtener los valores de otros atributos seleccionados
                                 const otherSelectedValues = getOtherSelectedValues(attributeKey);
                                 
@@ -398,7 +399,9 @@ export default function QuickShop({ product, storeId, domain, isOpen, onClose }:
                             // Selector de botones para tallas y otros
                             <div className="size-options">
                               {Array.from(values.entries())
-                                .sort(([a], [b]) => {
+                                .sort((entryA, entryB) => {
+                                  const [a] = entryA as [any, any];
+                                  const [b] = entryB as [any, any];
                                   // Asegurar que a y b sean strings
                                   const aStr = String(a);
                                   const bStr = String(b);
@@ -424,7 +427,8 @@ export default function QuickShop({ product, storeId, domain, isOpen, onClose }:
                                   
                                   return aStr.localeCompare(bStr);
                                 })
-                                .map(([value, variantList]: [string, any]) => {
+                                .map((entry) => {
+                                  const [value, variantList] = entry as [string, any];
                                   // Obtener los valores de otros atributos seleccionados
                                   const otherSelectedValues = getOtherSelectedValues(attributeKey);
                                   
