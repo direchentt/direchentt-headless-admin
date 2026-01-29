@@ -2,11 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getStoreData, fetchTN } from '../../../../lib/backend';
 import { processProduct, getRelatedProducts } from '../../../../lib/product-utils';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+// Cambiamos la definición de params a Promise para cumplir con Next.js 15/16
+export async function GET(
+  request: NextRequest, 
+  { params }: { params: Promise<{ id: string }> } 
+) {
   try {
+    // Extraemos el id usando await
+    const { id } = await params;
+    
     const { searchParams } = new URL(request.url);
     const shopId = searchParams.get('shop') || '5112334';
-    const { id } = params;
 
     // Obtener datos de la tienda
     const storeLocal = await getStoreData(shopId);
