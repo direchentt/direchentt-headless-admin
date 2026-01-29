@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getStoreData, fetchTN } from '../../../../lib/backend';
-import { processProduct, getRelatedProducts } from '../../../../lib/product-utils';
+import { getStoreData, fetchTN } from '../../../../../lib/backend';
+import { processProduct, getRelatedProducts } from '../../../../../lib/product-utils';
 
-// Definimos params como Promise para cumplir con el nuevo estándar
+// Definimos params como Promise para cumplir con Next.js 15/16
 export async function GET(
   request: NextRequest, 
   { params }: { params: Promise<{ id: string }> } 
 ) {
   try {
-    // Extraemos el id usando await
-    const { id } = await params;
+    // 1. ESPERAMOS a que los params se resuelvan
+    const resolvedParams = await params;
+    const id = resolvedParams.id;
 
     const { searchParams } = new URL(request.url);
     const shopId = searchParams.get('shop') || '5112334';
