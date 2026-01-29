@@ -1,40 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getStoreData, fetchTN } from '../../../../../lib/backend';
-import { processProduct, getRelatedProducts } from '../../../../../lib/product-utils';
+import { getStoreData, fetchTN } from '../../../../lib/backend';
+import { processProduct, getRelatedProducts } from '../../../../lib/product-utils';
 
-// Definimos params como Promise para cumplir con Next.js 15/16
 export async function GET(
   request: NextRequest, 
   { params }: { params: Promise<{ id: string }> } 
 ) {
   try {
-    // 1. ESPERAMOS a que los params se resuelvan
-    const resolvedParams = await params;
-    const id = resolvedParams.id;
-
+    const { id } = await params; // Next.js 15/16 fix
+    
     const { searchParams } = new URL(request.url);
     const shopId = searchParams.get('shop') || '5112334';
 
-    // Obtener datos de la tienda
     const storeLocal = await getStoreData(shopId);
     if (!storeLocal) {
-      return NextResponse.json({ exito: false, error: 'Tienda no encontrada' }, { status: 404 });
+      return NextResponse.json({ error: 'Store not found' }, { status: 404 });
     }
 
-    // Obtener producto y productos relacionados
     const [product, allProducts] = await Promise.all([
       fetchTN(`products/${id}`, storeLocal.storeId, storeLocal.accessToken),
       fetchTN('products', storeLocal.storeId, storeLocal.accessToken, 'limit=50&published=true')
     ]);
 
     if (!product) {
-      return NextResponse.json({ exito: false, error: 'Producto no encontrado' }, { status: 404 });
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
 
-    // Procesar producto
     const processedProduct = processProduct(product);
 
-    // Obtener productos relacionados
     const relatedProducts = getRelatedProducts(
       allProducts?.result || allProducts || [],
       product.id,
@@ -43,23 +36,20 @@ export async function GET(
     );
 
     return NextResponse.json({
-      exito: true,
-      tienda: {
+      success: true,
+      product: processedProduct,
+      related: relatedProducts,
+      store: {
         id: storeLocal.storeId,
-        nombre: storeLocal.shop_name,
-        logo: storeLocal.logo,
-        dominio: storeLocal.domain,
-        actualizado: storeLocal.updatedAt
-      },
-      producto: processedProduct,
-      relacionados: relatedProducts,
-      totalRelacionados: relatedProducts.length
+        name: storeLocal.shop_name,
+        domain: storeLocal.domain
+      }
     });
 
   } catch (error: any) {
-    console.error('Error en API simple producto:', error);
+    console.error('Error in product API:', error);
     return NextResponse.json(
-      { exito: false, error: 'Error al obtener producto', detalle: error.message },
+      { error: 'Failed to fetch product', details: error.message },
       { status: 500 }
     );
   }

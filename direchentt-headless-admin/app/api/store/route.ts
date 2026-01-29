@@ -1,87 +1,58 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getStoreData, fetchTN } from '../../../lib/backend';
+import { getStoreData, fetchTN } from '../../../../../lib/backend';
+import { processProduct, getRelatedProducts } from '../../../../../lib/product-utils';
 
-export async function GET(request: NextRequest) {
+export async function GET(
+  request: NextRequest, 
+  { params }: { params: Promise<{ id: string }> } 
+) {
   try {
+    const { id } = await params; // Next.js 15/16 fix
+
     const { searchParams } = new URL(request.url);
     const shopId = searchParams.get('shop') || '5112334';
 
-    // Obtener datos de la tienda desde MongoDB
     const storeLocal = await getStoreData(shopId);
     if (!storeLocal) {
-      return NextResponse.json({ error: 'Store not found' }, { status: 404 });
+      return NextResponse.json({ exito: false, error: 'Tienda no encontrada' }, { status: 404 });
     }
 
-    // Obtener información adicional de la tienda desde TiendaNube
-    const [storeInfo, banners] = await Promise.all([
-      fetchTN('store', storeLocal.storeId, storeLocal.accessToken),
-      fetchTN('banners', storeLocal.storeId, storeLocal.accessToken)
+    const [product, allProducts] = await Promise.all([
+      fetchTN(`products/${id}`, storeLocal.storeId, storeLocal.accessToken),
+      fetchTN('products', storeLocal.storeId, storeLocal.accessToken, 'limit=50&published=true')
     ]);
 
-    return NextResponse.json({
-      success: true,
-      store: {
-        // Datos locales (MongoDB)
-        id: storeLocal.storeId,
-        accessToken: storeLocal.accessToken ? 'present' : 'missing',
-        logo: storeLocal.logo,
-        domain: storeLocal.domain,
-        localName: storeLocal.shop_name,
-        updatedAt: storeLocal.updated_at,
-        
-        // Datos de TiendaNube
-        ...storeInfo,
-        banners: banners || []
-      }
-    });
+    if (!product) {
+      return NextResponse.json({ exito: false, error: 'Producto no encontrado' }, { status: 404 });
+    }
 
-  } catch (error: any) {
-    console.error('Error in store API:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch store info', details: error.message },
-      { status: 500 }
+    const processedProduct = processProduct(product);
+
+    const relatedProducts = getRelatedProducts(
+      allProducts?.result || allProducts || [],
+      product.id,
+      product.category_id,
+      4
     );
-  }
-}
-
-export async function PUT(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const shopId = searchParams.get('shop') || '5112334';
-    const body = await request.json();
-
-    // Obtener datos de la tienda
-    const storeLocal = await getStoreData(shopId);
-    if (!storeLocal) {
-      return NextResponse.json({ error: 'Store not found' }, { status: 404 });
-    }
-
-    // Actualizar tienda en TiendaNube
-    const updateResult = await fetch(`https://api.tiendanube.com/v1/${storeLocal.storeId}/store`, {
-      method: 'PUT',
-      headers: {
-        'Authentication': `bearer ${storeLocal.accessToken}`,
-        'User-Agent': 'Direchentt',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(body)
-    });
-
-    if (!updateResult.ok) {
-      throw new Error('Failed to update store');
-    }
-
-    const updatedStore = await updateResult.json();
 
     return NextResponse.json({
-      success: true,
-      store: updatedStore
+      exito: true,
+      tienda: {
+        id: storeLocal.storeId,
+        nombre: storeLocal.shop_name,
+        logo: storeLocal.logo,
+        dominio: storeLocal.domain,
+        actualizado: storeLocal.updatedAt
+      },
+      producto: processedProduct,
+      relacionados: relatedProducts,
+      totalRelacionados: relatedProducts.length
     });
 
   } catch (error: any) {
-    console.error('Error updating store:', error);
+    console.error('Error en API simple producto:', error);
     return NextResponse.json(
-      { error: 'Failed to update store', details: error.message },
+      { exito: false, error: 'Error al obtener producto', detalle: error.message },
       { status: 500 }
     );
   }
