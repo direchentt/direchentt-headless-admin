@@ -9,6 +9,17 @@ interface ProductInfoProps {
   domain: string;
 }
 
+// Helper para extraer nombre de forma segura
+const safeGetName = (name: unknown): string => {
+  if (!name) return 'Producto';
+  if (typeof name === 'string') return name;
+  if (typeof name === 'object' && name !== null) {
+    const obj = name as Record<string, unknown>;
+    return String(obj.es || obj.en || Object.values(obj)[0] || 'Producto');
+  }
+  return 'Producto';
+};
+
 export default function ProductInfo({ product, storeId, domain }: ProductInfoProps) {
   const { addToCart } = useStore();
   const variants = product.variants || [];
@@ -35,11 +46,11 @@ export default function ProductInfo({ product, storeId, domain }: ProductInfoPro
     addToCart({
       productId: product.id,
       variantId: selectedVariant.id,
-      name: product.name,
+      name: safeGetName(product.name),
       variant: selectedSize || 'Default',
       price: price,
       quantity: 1,
-      image: product.images?.[0]?.src || '/placeholder.jpg'
+      image: product.images?.[0]?.src || ''
     });
 
     setTimeout(() => setIsAdding(false), 500);
@@ -55,7 +66,7 @@ export default function ProductInfo({ product, storeId, domain }: ProductInfoPro
     <div className="product-info">
       {/* NOMBRE Y PRECIO */}
       <div className="product-header">
-        <h1 className="product-title">{product.name}</h1>
+        <h1 className="product-title">{safeGetName(product.name)}</h1>
         <div className="product-price-block">
           {hasDiscount && (
             <span className="product-compare-price">${comparePrice.toLocaleString('es-AR')}</span>

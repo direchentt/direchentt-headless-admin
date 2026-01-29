@@ -67,11 +67,11 @@ export async function fetchTN(endpoint: string, shopId: string, token: string, q
   }
 
   const queryPrefix = query ? (query.startsWith('&') ? query : `&${query}`) : '';
-  const perPage = endpoint === 'products' ? 50 : 200;
+  const perPage = endpoint === 'products' ? 200 : 200; // Aumentado a 200 para traer más productos
   
-  // Timeout de 8 segundos para peticiones a la API
+  // Timeout de 10 segundos para peticiones a la API (aumentado)
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 8000);
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
 
   try {
     const res = await fetch(`https://api.tiendanube.com/v1/${shopId}/${endpoint}?per_page=${perPage}${queryPrefix}`, {
@@ -86,6 +86,8 @@ export async function fetchTN(endpoint: string, shopId: string, token: string, q
     clearTimeout(timeoutId);
     const data = res.ok ? await res.json() : [];
     apiCache.set(cacheKey, { data, timestamp: now });
+    
+    console.log(`📦 Traídos ${data.length} ${endpoint} de TiendaNube`);
     return data;
   } catch (error: any) {
     clearTimeout(timeoutId);
@@ -99,26 +101,46 @@ export async function fetchTN(endpoint: string, shopId: string, token: string, q
 }
 
 /**
+ * Extrae el nombre de una categoría de TiendaNube
+ * Los nombres pueden ser string o objeto {es: "...", en: "..."}
+ */
+function extractCategoryName(name: any): string {
+  if (!name) return 'Categoría';
+  if (typeof name === 'string') return name;
+  if (typeof name === 'object') {
+    return String(name.es || name.en || Object.values(name)[0] || 'Categoría');
+  }
+  return 'Categoría';
+}
+
+/**
  * Procesa las categorías para el Header
  * @param categories Categorías raw de TiendaNube
- * @returns Categorías procesadas con nombres en español
+ * @returns Categorías procesadas con nombres normalizados
  */
 export function processCategories(categories: any[]) {
   return (categories || []).map((cat: any) => ({
     ...cat,
-    displayName: typeof cat.name === 'object' 
-      ? (cat.name.es || cat.name.en || 'Categoría')
-      : (cat.name || 'Categoría')
+    name: extractCategoryName(cat.name),
+    description: typeof cat.description === 'object' 
+      ? (cat.description?.es || cat.description?.en || '') 
+      : (cat.description || '')
   }));
 }
 
 /**
  * Procesa productos para mostrar solo los publicados con variantes
  * @param products Productos raw de TiendaNube
- * @returns Productos filtrados y procesados
+ * @returns Productos filtrados y procesados, ordenados de más nuevo a más viejo
  */
 export function processProducts(products: any[]) {
-  return (products || []).filter((p: any) => p?.published && p?.variants?.length > 0);
+  return (products || [])
+    .filter((p: any) => p?.published && p?.variants?.length > 0)
+    .sort((a: any, b: any) => {
+      const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return dateB - dateA; // Más nuevo primero
+    });
 }
 
 /**

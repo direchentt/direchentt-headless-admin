@@ -3,20 +3,21 @@ import HeroSlider from './components/HeroSlider';
 import FeaturedSection from './components/FeaturedSection';
 import BannerGrid from './components/BannerGrid';
 import ProductGrid from './components/ProductGrid';
+import NewArrivals from './components/NewArrivals';
 import Footer from './components/Footer';
 import ModalsWrapper from './components/ModalsWrapper';
-import { getStoreData, fetchTN, processProducts, processBanners } from '../lib/backend';
+import { getStoreData, fetchTN, processProducts, processCategories, processBanners } from '../lib/backend';
 
 export default async function Home({ searchParams }: any) {
   const params = await searchParams;
   const storeLocal = await getStoreData(params.shop || "5112334");
   if (!storeLocal) return null;
 
-  let apiQuery = "";
+  let apiQuery = "published=true&sort_by=created-descending";
   if (params.category) apiQuery += `&category=${params.category}`;
-  if (params.sort) apiQuery += `&sort_by=${params.sort}`;
+  if (params.sort) apiQuery = `published=true&sort_by=${params.sort}`;
 
-  const [productsRaw, categories, banners] = await Promise.all([
+  const [productsRaw, categoriesRaw, banners] = await Promise.all([
     fetchTN('products', storeLocal.storeId, storeLocal.accessToken, apiQuery),
     fetchTN('categories', storeLocal.storeId, storeLocal.accessToken),
     fetchTN('banners', storeLocal.storeId, storeLocal.accessToken)
@@ -24,6 +25,7 @@ export default async function Home({ searchParams }: any) {
 
   // Procesar datos usando funciones de utilidad
   const products = processProducts(productsRaw);
+  const categories = processCategories(categoriesRaw);
   const bannerImages = processBanners(banners, 'hero');
 
   return (
@@ -44,22 +46,12 @@ export default async function Home({ searchParams }: any) {
       {/* Grid de 3 categorías principales */}
       <FeaturedSection storeId={storeLocal.storeId} categories={categories} />
       
-      {/* Sección NOVEDADES */}
-      <section style={{ padding: '80px 0', backgroundColor: '#fff' }}>
-        <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 20px' }}>
-          <h2 style={{ 
-            fontSize: '12px', 
-            fontWeight: '800', 
-            textAlign: 'center', 
-            marginBottom: '50px',
-            letterSpacing: '4px',
-            textTransform: 'uppercase'
-          }}>
-            NOVEDADES
-          </h2>
-          <ProductGrid products={products.slice(0, 8)} storeId={storeLocal.storeId} />
-        </div>
-      </section>
+      {/* NEW ARRIVALS - Estilo Scuffers con tabs */}
+      <NewArrivals 
+        products={products} 
+        categories={categories} 
+        storeId={storeLocal.storeId} 
+      />
 
       {/* Banner Split - Mujer / Hombre */}
       <BannerGrid storeId={storeLocal.storeId} variant="split" />

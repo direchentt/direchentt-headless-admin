@@ -10,6 +10,17 @@ interface ProductDetailClientProps {
   domain: string;
 }
 
+// Helper para extraer nombre de forma segura
+const safeGetName = (name: unknown): string => {
+  if (!name) return 'Producto';
+  if (typeof name === 'string') return name;
+  if (typeof name === 'object' && name !== null) {
+    const obj = name as Record<string, unknown>;
+    return String(obj.es || obj.en || Object.values(obj)[0] || 'Producto');
+  }
+  return 'Producto';
+};
+
 export default function ProductDetailClient({
   product,
   storeId,
@@ -24,7 +35,7 @@ export default function ProductDetailClient({
         <div className="pdp-gallery-section">
           <ImageCarousel
             images={product.images || []}
-            productName={product.name}
+            productName={safeGetName(product.name)}
             variantName={selectedVariant}
           />
         </div>

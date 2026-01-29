@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useStore } from '../context/StoreContext';
 
@@ -11,118 +12,202 @@ interface HeaderProps {
 }
 
 export default function Header({ logo, storeId, domain, categories }: HeaderProps) {
-  const { setSearchOpen, setAuthOpen, setCartOpen, cartCount, isLoggedIn, user } = useStore();
+  const { setSearchOpen, setAuthOpen, setCartOpen, cartCount, isLoggedIn } = useStore();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<number[]>([]);
+
+  const toggleCategory = (catId: number) => {
+    setExpandedCategories(prev => 
+      prev.includes(catId) 
+        ? prev.filter(id => id !== catId)
+        : [...prev, catId]
+    );
+  };
+
+  const parentCategories = categories.filter((c: any) => !c.parent);
+
+  const getCategoryName = (cat: any): string => {
+    if (!cat.name) return 'Categoría';
+    if (typeof cat.name === 'string') return cat.name;
+    if (typeof cat.name === 'object') {
+      return String(cat.name.es || cat.name.en || Object.values(cat.name)[0] || 'Categoría');
+    }
+    return 'Categoría';
+  };
+
+  const getSubcategories = (parentId: number) => {
+    return categories.filter((c: any) => c.parent === parentId);
+  };
 
   return (
     <>
       <header className="scuffers-header">
         <div className="header-container">
-          {/* BURGER MENU */}
-          <input type="checkbox" id="menu-toggle" className="menu-checkbox" />
-          <label htmlFor="menu-toggle" className="burger-icon">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M2 5h16M2 10h16M2 15h16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-          </label>
+          {/* LEFT SIDE - Burger (mobile) + Desktop Nav */}
+          <div className="header-left">
+            {/* Burger solo mobile */}
+            <button 
+              className="burger-icon"
+              onClick={() => setMenuOpen(true)}
+              aria-label="Menú"
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M2 5h16M2 10h16M2 15h16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </button>
 
-          {/* LOGO */}
+            {/* Desktop Navigation */}
+            <nav className="desktop-nav">
+              <Link href={`/?shop=${storeId}`} className="desktop-link">Shop</Link>
+              {parentCategories.slice(0, 4).map((cat: any) => (
+                <Link 
+                  key={cat.id}
+                  href={`/categoria/${cat.id}?shop=${storeId}`} 
+                  className="desktop-link"
+                >
+                  {getCategoryName(cat)}
+                </Link>
+              ))}
+            </nav>
+          </div>
+
+          {/* CENTER - Logo */}
           <Link href={`/?shop=${storeId}`} className="logo-link">
             {logo ? (
-              <img src={logo} alt="DIRECHENTT" className="logo-img" />
+              <img src={logo} alt="Logo" className="logo-img" />
             ) : (
               <span className="logo-text">DIRECHENTT</span>
             )}
           </Link>
 
-          {/* HEADER ACTIONS */}
-          <div className="header-actions">
-            <button 
-              onClick={() => setSearchOpen(true)}
-              className="icon-btn" 
-              aria-label="Buscar"
-            >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M9 17A8 8 0 1 0 9 1a8 8 0 0 0 0 16zM18 18l-4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          {/* RIGHT SIDE - Actions */}
+          <div className="header-right">
+            <span className="country-label">País</span>
+            <button onClick={() => setSearchOpen(true)} className="icon-btn" aria-label="Buscar">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <circle cx="9" cy="9" r="7" stroke="currentColor" strokeWidth="1.5"/>
+                <path d="M15 15l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
               </svg>
             </button>
-            <button 
-              onClick={() => setAuthOpen(true)}
-              className="icon-btn" 
-              aria-label="Cuenta"
-            >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M16 17v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <button onClick={() => setAuthOpen(true)} className="icon-btn" aria-label="Cuenta">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M16 17v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <circle cx="10" cy="6" r="4" stroke="currentColor" strokeWidth="1.5"/>
               </svg>
               {isLoggedIn && <span className="user-indicator" />}
             </button>
-            <button 
-              onClick={() => setCartOpen(true)}
-              className="icon-btn cart-btn" 
-              aria-label="Carrito"
-            >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M3 3h2l.4 2M7 13h10l2-7H6l-1.6-8M7 13L5.4 5M7 13l-1.293 1.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-10 0a2 2 0 100 4 2 2 0 000-4z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <button onClick={() => setCartOpen(true)} className="icon-btn" aria-label="Carrito">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M5 1L4 5H19l-2 9H6L4 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <circle cx="8" cy="17" r="1.5" stroke="currentColor" strokeWidth="1.5"/>
+                <circle cx="15" cy="17" r="1.5" stroke="currentColor" strokeWidth="1.5"/>
               </svg>
               {cartCount > 0 && <span className="cart-count">{cartCount}</span>}
             </button>
           </div>
-
-          {/* DRAWER MENU */}
-          <div className="drawer-menu">
-            <div className="drawer-content">
-              <div className="drawer-header">
-                <label htmlFor="menu-toggle" className="close-btn">✕ CERRAR</label>
-              </div>
-              <nav className="drawer-nav">
-                {/* Enlace al sitio principal */}
-                <div className="nav-item">
-                  <a 
-                    href="https://www.direchentt.com.ar" 
-                    className="nav-title site-main-link" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                  >
-                    🏠 IR AL SITIO PRINCIPAL
-                  </a>
-                </div>
-                
-                {/* Categorías locales */}
-                {categories.filter((c: any) => !c.parent).map((cat: any) => (
-                  <div key={cat.id} className="nav-item">
-                    <Link href={`/categoria/${cat.id}?shop=${storeId}`} className="nav-title">
-                      {typeof cat.name === 'object' 
-                        ? (cat.name.es?.toUpperCase() || cat.name.en?.toUpperCase() || 'Categoría')
-                        : (cat.name?.toUpperCase() || 'Categoría')
-                      }
-                    </Link>
-                    {categories.filter((s: any) => s.parent === cat.id).length > 0 && (
-                      <div className="nav-submenu">
-                        {categories.filter((s: any) => s.parent === cat.id).map((sub: any) => (
-                          <Link key={sub.id} href={`/categoria/${sub.id}?shop=${storeId}`} className="nav-sub">
-                            {typeof sub.name === 'object' 
-                              ? (sub.name.es || sub.name.en || 'Subcategoría')
-                              : (sub.name || 'Subcategoría')
-                            }
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </nav>
-            </div>
-            <label htmlFor="menu-toggle" className="drawer-overlay"></label>
-          </div>
         </div>
       </header>
 
+      {/* DRAWER OVERLAY */}
+      <div 
+        className={`drawer-overlay ${menuOpen ? 'open' : ''}`} 
+        onClick={() => setMenuOpen(false)} 
+      />
+
+      {/* DRAWER MENU - Estilo Scuffers */}
+      <div className={`drawer-menu ${menuOpen ? 'open' : ''}`}>
+        {/* Drawer Header - Solo botón cerrar */}
+        <div className="drawer-header">
+          <button className="close-btn" onClick={() => setMenuOpen(false)}>
+            ✕ CERRAR
+          </button>
+        </div>
+
+        {/* Drawer Navigation */}
+        <nav className="drawer-nav">
+          {/* Links destacados */}
+          <Link href={`/?shop=${storeId}`} className="nav-link featured" onClick={() => setMenuOpen(false)}>
+            NOVEDADES
+          </Link>
+          <Link href={`/?shop=${storeId}`} className="nav-link featured" onClick={() => setMenuOpen(false)}>
+            BEST SELLERS
+          </Link>
+          <Link href={`/?shop=${storeId}`} className="nav-link featured" onClick={() => setMenuOpen(false)}>
+            BACK IN STOCK
+          </Link>
+
+          {/* Categorías con desplegables */}
+          {parentCategories.map((cat: any) => {
+            const subs = getSubcategories(cat.id);
+            const isExpanded = expandedCategories.includes(cat.id);
+            const hasSubs = subs.length > 0;
+
+            return (
+              <div key={cat.id} className="nav-category">
+                <div className="nav-category-header">
+                  <Link 
+                    href={`/categoria/${cat.id}?shop=${storeId}`} 
+                    className="nav-link"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    {getCategoryName(cat).toUpperCase()}
+                  </Link>
+                  {hasSubs && (
+                    <button 
+                      className={`expand-btn ${isExpanded ? 'expanded' : ''}`}
+                      onClick={() => toggleCategory(cat.id)}
+                    >
+                      +
+                    </button>
+                  )}
+                </div>
+                
+                {hasSubs && (
+                  <div className={`nav-submenu ${isExpanded ? 'open' : ''}`}>
+                    {subs.map((sub: any) => (
+                      <Link 
+                        key={sub.id}
+                        href={`/categoria/${sub.id}?shop=${storeId}`}
+                        className="nav-sublink"
+                        onClick={() => setMenuOpen(false)}
+                      >
+                        {getCategoryName(sub)}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </nav>
+
+        {/* Drawer Footer */}
+        <div className="drawer-footer">
+          <a 
+            href="https://www.direchentt.com.ar" 
+            className="footer-link" 
+            target="_blank" 
+            rel="noopener noreferrer"
+          >
+            SOBRE NOSOTROS
+          </a>
+          <Link href="#" className="footer-link">LA CASA</Link>
+          <div className="footer-expandable">
+            <span className="footer-link-text">SOPORTE</span>
+            <span className="expand-icon">+</span>
+          </div>
+          <Link href="#" className="footer-link">PAÍS</Link>
+        </div>
+      </div>
+
       <style dangerouslySetInnerHTML={{__html: `
+        /* ========== HEADER ========== */
         .scuffers-header {
           position: sticky;
           top: 0;
           background: #ffffff;
-          border-bottom: 1px solid #f0f0f0;
-          height: 70px;
+          border-bottom: 1px solid rgba(0,0,0,0.08);
+          height: 60px;
           display: flex;
           align-items: center;
           z-index: 1000;
@@ -130,73 +215,109 @@ export default function Header({ logo, storeId, domain, categories }: HeaderProp
         }
         .header-container {
           width: 100%;
-          max-width: 100%;
-          padding: 0 20px;
-          display: grid;
-          grid-template-columns: 50px 1fr 140px;
+          max-width: 1400px;
+          margin: 0 auto;
+          padding: 0 15px;
+          display: flex;
           align-items: center;
-          gap: 10px;
+          justify-content: space-between;
         }
-        @media (min-width: 768px) {
+        @media (min-width: 1024px) {
           .header-container {
             padding: 0 30px;
-            grid-template-columns: 50px 1fr 160px;
-            max-width: 1400px;
-            margin: 0 auto;
           }
         }
-        .menu-checkbox {
-          display: none;
+
+        /* LEFT - Burger + Desktop Nav */
+        .header-left {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          flex: 1;
         }
         .burger-icon {
-          cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
           width: 40px;
           height: 40px;
-          padding: 0;
+          background: none;
+          border: none;
+          cursor: pointer;
           color: #000;
           transition: opacity 0.2s;
         }
-        .burger-icon:hover {
-          opacity: 0.6;
+        .burger-icon:hover { opacity: 0.6; }
+        @media (min-width: 1024px) {
+          .burger-icon { display: none; }
         }
+
+        /* Desktop Navigation */
+        .desktop-nav {
+          display: none;
+          align-items: center;
+          gap: 25px;
+        }
+        @media (min-width: 1024px) {
+          .desktop-nav { display: flex; }
+        }
+        .desktop-link {
+          font-size: 13px;
+          font-weight: 500;
+          color: #000;
+          text-decoration: none;
+          letter-spacing: 0.3px;
+          transition: opacity 0.2s;
+          white-space: nowrap;
+        }
+        .desktop-link:hover { opacity: 0.5; }
+
+        /* CENTER - Logo */
         .logo-link {
           text-decoration: none;
           color: #000;
-          text-align: center;
           display: flex;
           align-items: center;
           justify-content: center;
         }
         .logo-img {
-          height: 28px;
+          height: 26px;
           width: auto;
-          max-width: 150px;
+          max-width: 140px;
         }
         @media (min-width: 768px) {
-          .logo-img {
-            height: 32px;
-          }
+          .logo-img { height: 30px; }
         }
         .logo-text {
           font-weight: 700;
-          font-size: 22px;
-          letter-spacing: 0.5px;
+          font-size: 20px;
+          letter-spacing: 1px;
           color: #000;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
-        .header-actions {
-          display: flex;
-          gap: 8px;
-          align-items: center;
-          justify-content: flex-end;
         }
         @media (min-width: 768px) {
-          .header-actions {
-            gap: 12px;
-          }
+          .logo-text { font-size: 24px; }
+        }
+
+        /* RIGHT - Actions */
+        .header-right {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          flex: 1;
+          justify-content: flex-end;
+        }
+        @media (min-width: 1024px) {
+          .header-right { gap: 12px; }
+        }
+        .country-label {
+          display: none;
+          font-size: 12px;
+          font-weight: 500;
+          color: #000;
+          margin-right: 10px;
+        }
+        @media (min-width: 1024px) {
+          .country-label { display: block; }
         }
         .icon-btn {
           display: flex;
@@ -205,7 +326,6 @@ export default function Header({ logo, storeId, domain, categories }: HeaderProp
           width: 40px;
           height: 40px;
           color: #000;
-          text-decoration: none;
           border: none;
           background: none;
           cursor: pointer;
@@ -213,19 +333,17 @@ export default function Header({ logo, storeId, domain, categories }: HeaderProp
           transition: opacity 0.2s;
           position: relative;
         }
-        .icon-btn:hover {
-          opacity: 0.6;
-        }
+        .icon-btn:hover { opacity: 0.6; }
         .cart-count {
           position: absolute;
-          top: 2px;
-          right: 2px;
+          top: 4px;
+          right: 4px;
           background: #000;
           color: #fff;
           font-size: 9px;
-          font-weight: 800;
-          width: 16px;
-          height: 16px;
+          font-weight: 700;
+          min-width: 15px;
+          height: 15px;
           border-radius: 50%;
           display: flex;
           align-items: center;
@@ -241,128 +359,208 @@ export default function Header({ logo, storeId, domain, categories }: HeaderProp
           border-radius: 50%;
           border: 2px solid #fff;
         }
-        .drawer-menu {
+
+        /* ========== DRAWER OVERLAY ========== */
+        .drawer-overlay {
           position: fixed;
           inset: 0;
-          visibility: hidden;
-          z-index: 2000;
-          pointer-events: none;
-        }
-        .menu-checkbox:checked ~ .drawer-menu {
-          visibility: visible;
-          pointer-events: all;
-        }
-        .drawer-overlay {
-          position: absolute;
-          inset: 0;
-          background: rgba(0, 0, 0, 0.4);
-          cursor: pointer;
+          background: rgba(0, 0, 0, 0.35);
+          z-index: 1999;
           opacity: 0;
-          transition: opacity 0.3s ease;
+          visibility: hidden;
+          transition: all 0.35s ease;
         }
-        .menu-checkbox:checked ~ .drawer-menu .drawer-overlay {
+        .drawer-overlay.open {
           opacity: 1;
+          visibility: visible;
         }
-        .drawer-content {
-          position: absolute;
-          left: 0;
+
+        /* ========== DRAWER MENU ========== */
+        .drawer-menu {
+          position: fixed;
           top: 0;
-          width: 85%;
-          max-width: 320px;
+          left: 0;
+          width: 100%;
+          max-width: 420px;
           height: 100vh;
+          height: 100dvh;
           background: #fff;
+          z-index: 2000;
           transform: translateX(-100%);
-          transition: transform 0.3s ease;
-          padding: 25px 20px;
-          overflow-y: auto;
-          z-index: 2001;
-          box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+          transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
         }
-        .menu-checkbox:checked ~ .drawer-menu .drawer-content {
+        .drawer-menu.open {
           transform: translateX(0);
         }
+
+        /* ========== DRAWER HEADER ========== */
         .drawer-header {
-          margin-bottom: 40px;
-          padding-bottom: 20px;
-          border-bottom: 1px solid #e5e5e5;
+          padding: 20px 25px;
+          border-bottom: 1px solid rgba(0,0,0,0.08);
         }
         .close-btn {
           font-size: 11px;
-          font-weight: 800;
-          cursor: pointer;
+          font-weight: 700;
           letter-spacing: 1.5px;
+          background: none;
+          border: none;
+          cursor: pointer;
           color: #000;
-          display: block;
+          padding: 0;
           transition: opacity 0.2s;
         }
         .close-btn:hover {
-          opacity: 0.6;
-        }
-        .drawer-nav {
-          display: flex;
-          flex-direction: column;
-          gap: 0;
-        }
-        .nav-item {
-          border-bottom: 1px solid #e5e5e5;
-          padding: 18px 0;
-        }
-        .nav-item:last-child {
-          border-bottom: none;
-        }
-        .nav-title {
-          display: block;
-          font-size: 13px;
-          font-weight: 700;
-          text-decoration: none;
-          color: #000;
-          letter-spacing: 1px;
-          margin-bottom: 12px;
-          transition: opacity 0.2s;
-        }
-        .nav-title:hover {
-          opacity: 0.6;
-        }
-        .nav-submenu {
-          padding-left: 0;
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
-        .nav-sub {
-          font-size: 13px;
-          color: #666;
-          text-decoration: none;
-          display: block;
-          padding-left: 15px;
-          transition: color 0.2s;
-        }
-        .nav-sub:hover {
-          color: #000;
-        }
-        .site-main-link {
-          background: linear-gradient(135deg, #000 0%, #333 100%);
-          color: #fff !important;
-          padding: 12px 15px;
-          border-radius: 6px;
-          text-align: center;
-          font-weight: 800;
-          letter-spacing: 1.5px;
-          margin-bottom: 0 !important;
-          box-shadow: 0 3px 12px rgba(0,0,0,0.2);
-          transition: all 0.3s ease;
-        }
-        .site-main-link:hover {
-          background: linear-gradient(135deg, #333 0%, #555 100%);
-          transform: translateY(-1px);
-          opacity: 1 !important;
-          color: #fff !important;
+          opacity: 0.5;
         }
 
-        @media (max-width: 768px) {
-          .burger-icon {
-            display: flex;
-          }
+        /* ========== DRAWER NAVIGATION ========== */
+        .drawer-nav {
+          flex: 1;
+          overflow-y: auto;
+          padding: 25px 25px 40px;
+        }
+
+        /* Links generales */
+        .nav-link {
+          display: block;
+          font-size: 13px;
+          font-weight: 500;
+          color: #000;
+          text-decoration: none;
+          padding: 15px 0;
+          letter-spacing: 0.8px;
+          transition: opacity 0.2s;
+          border-bottom: 1px solid rgba(0,0,0,0.06);
+        }
+        .nav-link:hover {
+          opacity: 0.5;
+        }
+        .nav-link.featured {
+          font-weight: 700;
+        }
+
+        /* Category con dropdown */
+        .nav-category {
+          border-bottom: 1px solid rgba(0,0,0,0.06);
+        }
+        .nav-category:last-child {
+          border-bottom: none;
+        }
+        .nav-category-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        .nav-category-header .nav-link {
+          flex: 1;
+          border-bottom: none;
+        }
+        .expand-btn {
+          width: 44px;
+          height: 44px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: none;
+          border: none;
+          cursor: pointer;
+          font-size: 20px;
+          font-weight: 300;
+          color: #000;
+          transition: transform 0.3s ease;
+        }
+        .expand-btn:hover {
+          opacity: 0.5;
+        }
+        .expand-btn.expanded {
+          transform: rotate(45deg);
+        }
+
+        /* Submenu */
+        .nav-submenu {
+          max-height: 0;
+          overflow: hidden;
+          transition: max-height 0.35s ease;
+          padding-left: 0;
+        }
+        .nav-submenu.open {
+          max-height: 600px;
+        }
+        .nav-sublink {
+          display: block;
+          font-size: 12px;
+          font-weight: 400;
+          color: #666;
+          text-decoration: none;
+          padding: 12px 0 12px 18px;
+          transition: all 0.2s;
+          border-left: 2px solid transparent;
+        }
+        .nav-sublink:hover {
+          color: #000;
+          border-left-color: #000;
+        }
+
+        /* ========== DRAWER FOOTER ========== */
+        .drawer-footer {
+          padding: 25px;
+          border-top: 1px solid rgba(0,0,0,0.08);
+          margin-top: auto;
+          background: #fafafa;
+        }
+        .footer-link {
+          display: block;
+          font-size: 12px;
+          font-weight: 500;
+          color: #000;
+          text-decoration: none;
+          padding: 12px 0;
+          letter-spacing: 0.5px;
+          border-bottom: 1px solid rgba(0,0,0,0.06);
+          transition: opacity 0.2s;
+        }
+        .footer-link:last-child {
+          border-bottom: none;
+        }
+        .footer-link:hover {
+          opacity: 0.5;
+        }
+        .footer-expandable {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 12px 0;
+          border-bottom: 1px solid rgba(0,0,0,0.06);
+          cursor: pointer;
+        }
+        .footer-link-text {
+          font-size: 12px;
+          font-weight: 500;
+          color: #000;
+          letter-spacing: 0.5px;
+        }
+        .expand-icon {
+          font-size: 16px;
+          font-weight: 300;
+          color: #666;
+        }
+
+        /* ========== SCROLLBAR STYLING ========== */
+        .drawer-nav::-webkit-scrollbar {
+          width: 4px;
+        }
+        .drawer-nav::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .drawer-nav::-webkit-scrollbar-thumb {
+          background: rgba(0,0,0,0.15);
+          border-radius: 2px;
+        }
+        .drawer-nav::-webkit-scrollbar-thumb:hover {
+          background: rgba(0,0,0,0.25);
         }
       `}} />
     </>
