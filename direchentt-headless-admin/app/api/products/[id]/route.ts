@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getStoreData, fetchTN } from '../../../../../lib/backend';
-import { processProduct, getRelatedProducts } from '../../../../../lib/product-utils';
+import { getStoreData, fetchTN } from '../../../../lib/backend';
+import { processProduct, getRelatedProducts } from '../../../../lib/product-utils';
 
 // Definimos params como Promise para cumplir con el nuevo estándar
 export async function GET(
