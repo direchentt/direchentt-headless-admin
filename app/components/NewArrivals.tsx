@@ -220,7 +220,7 @@ export default function NewArrivals({ products, categories, storeId, domain }: N
                       .slice(0, 4)
                       .map((img, i) => (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <span key={img.id || i} className="variant-thumb">
+                        <span key={i} className="variant-thumb">
                           <img 
                             src={img.src} 
                             alt="" 
