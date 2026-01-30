@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Lee el token de la API desde variables de entorno
-const TIENDANUBE_TOKEN = process.env.TIENDANUBE_TOKEN;
-const TIENDANUBE_STORE_ID = process.env.TIENDANUBE_STORE_ID; // Debes tener esto en tu .env.local
 
-if (!TIENDANUBE_TOKEN || !TIENDANUBE_STORE_ID) {
-  throw new Error('Faltan TIENDANUBE_TOKEN o TIENDANUBE_STORE_ID en .env.local');
-}
-
-const API_BASE = `https://api.tiendanube.com/v1/${TIENDANUBE_STORE_ID}`;
 
 export async function POST(req: NextRequest) {
   try {
+    const TIENDANUBE_TOKEN = process.env.TIENDANUBE_TOKEN;
+    const TIENDANUBE_STORE_ID = process.env.TIENDANUBE_STORE_ID;
+    if (!TIENDANUBE_TOKEN || !TIENDANUBE_STORE_ID) {
+      return NextResponse.json({ error: 'Faltan TIENDANUBE_TOKEN o TIENDANUBE_STORE_ID en .env.local' }, { status: 500 });
+    }
+    const API_BASE = `https://api.tiendanube.com/v1/${TIENDANUBE_STORE_ID}`;
+
     const { variantId, quantity, email } = await req.json();
     if (!variantId || !quantity) {
       return NextResponse.json({ error: 'Faltan parámetros' }, { status: 400 });
