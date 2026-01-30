@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
+import { useAddToCart } from '../hooks/useAddToCart';
 
 interface ProductInfoProps {
   product: any;
@@ -21,7 +22,8 @@ const safeGetName = (name: unknown): string => {
 };
 
 export default function ProductInfo({ product, storeId, domain }: ProductInfoProps) {
-  const { addToCart } = useStore();
+  const { addToCart: addToLocalCart } = useStore();
+  const { addToCart, isLoading: isAddingToCart } = useAddToCart();
   const variants = product.variants || [];
   const images = product.images || [];
   const [selectedVariantId, setSelectedVariantId] = useState<number | null>(null);
@@ -53,7 +55,7 @@ export default function ProductInfo({ product, storeId, domain }: ProductInfoPro
     
     setIsAdding(true);
 
-    // Crear descripción de variante más descriptiva
+    // Crear descripción de variante más descriptiva para el carrito local
     let variantDescription = '';
     if (selectedVariant.attributes && Object.keys(selectedVariant.attributes).length > 0) {
       const attributes = Object.entries(selectedVariant.attributes)
@@ -81,7 +83,8 @@ export default function ProductInfo({ product, storeId, domain }: ProductInfoPro
       productId: product.id
     });
     
-    addToCart({
+    // Agregar al carrito local para tracking
+    addToLocalCart({
       productId: product.id,
       variantId: selectedVariant.id,
       name: safeGetName(product.name),
@@ -91,53 +94,54 @@ export default function ProductInfo({ product, storeId, domain }: ProductInfoPro
       image: getVariantImage(selectedVariant)
     });
 
+    // Usar el proxy para agregar a TiendaNube y redirigir al carrito
+    addToCart(selectedVariant.id.toString(), 1);
+
     setTimeout(() => setIsAdding(false), 500);
   };
 
   const handleBuyNow = () => {
     if (!selectedVariant) return;
     
+    // Crear descripción de variante para el carrito local
+    let variantDescription = '';
+    if (selectedVariant.attributes && Object.keys(selectedVariant.attributes).length > 0) {
+      const attributes = Object.entries(selectedVariant.attributes)
+        .map(([key, value]) => {
+          const labelMap: { [key: string]: string } = {
+            'size': 'Talla',
+            'color': 'Color',
+            'talla': 'Talla',
+            'Size': 'Talla',
+            'Color': 'Color'
+          };
+          const label = labelMap[key] || key;
+          return `${label}: ${value}`;
+        })
+        .join(', ');
+      variantDescription = attributes;
+    } else {
+      variantDescription = selectedVariant.name || 'Variante seleccionada';
+    }
+    
     // Agregar al carrito local para tracking
-    handleAddToCart();
-    
-    // Usar el dominio real de la tienda
-    // Si domain no está definido, usar storeId.mitiendanube.com
-    const tiendanubeUrl = domain || `${storeId}.mitiendanube.com`;
-    
-    console.log('🔍 Domain check:', { domain, storeId, tiendanubeUrl });
-    
-    // Extraer el handle del producto de diferentes fuentes posibles
-    let productHandle = product.handle;
-    
-    // Si canonical_url es un objeto, extraer el valor en español
-    if (!productHandle && product.canonical_url) {
-      if (typeof product.canonical_url === 'object') {
-        const canonicalUrl = product.canonical_url.es || product.canonical_url.en || '';
-        productHandle = canonicalUrl.split('/').pop();
-      } else if (typeof product.canonical_url === 'string') {
-        productHandle = product.canonical_url.split('/').pop();
-      }
-    }
-    
-    // Si no hay handle, usar el ID del producto
-    if (!productHandle || productHandle === '[object Object]') {
-      productHandle = product.id;
-    }
-    
-    // Redirigir directamente al producto en TiendaNube con la variante seleccionada
-    const productUrl = `https://${tiendanubeUrl}/products/${productHandle}?variant=${selectedVariant.id}`;
-    
-    console.log('🛒 Redirigiendo a TiendaNube:', {
-      productUrl,
-      domain,
-      tiendanubeUrl,
-      productHandle,
+    addToLocalCart({
       productId: product.id,
       variantId: selectedVariant.id,
-      canonicalUrl: product.canonical_url
+      name: safeGetName(product.name),
+      variant: variantDescription,
+      price: price,
+      quantity: 1,
+      image: getVariantImage(selectedVariant)
     });
     
-    window.location.href = productUrl;
+    console.log('🛒 Comprando ahora vía proxy:', {
+      variantId: selectedVariant.id,
+      productId: product.id
+    });
+    
+    // Usar el proxy para agregar a TiendaNube y redirigir al carrito
+    addToCart(selectedVariant.id.toString(), 1);
   };
 
   return (

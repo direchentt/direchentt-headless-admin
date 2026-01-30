@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
+import { useAddToCart } from '../hooks/useAddToCart';
 
 interface VariantSelectorProps {
   product: any;
@@ -13,6 +13,18 @@ interface VariantSelectorProps {
 export default function VariantSelector({ product, storeId, domain, onVariantSelect }: VariantSelectorProps) {
   const variants = product.variants || [];
   const [selectedVariant, setSelectedVariant] = useState(variants[0] || null);
+  
+  // Hook para manejar el "Añadir al Carrito" a través de nuestro proxy
+  const { addToCart, isLoading: isAddingToCart, error } = useAddToCart();
+
+  const handleAddToCart = () => {
+    if (selectedVariant?.id) {
+      // Pasamos los parámetros directamente al llamar a addToCart
+      addToCart(selectedVariant.id.toString(), 1);
+    } else {
+      alert('Por favor, selecciona una variante del producto.');
+    }
+  };
 
   // Agrupar variantes por color y talla
   const variantsByColor = new Map();
@@ -44,6 +56,17 @@ export default function VariantSelector({ product, storeId, domain, onVariantSel
         </div>
       )}
 
+      {/* ... (código de selección de variantes sin cambios) ... */}
+
+      {/* BOTÓN AÑADIR AL CARRITO */}
+      <button 
+        className="add-to-cart-btn" 
+        onClick={handleAddToCart}
+        disabled={isAddingToCart || !selectedVariant}
+      >
+        {isAddingToCart ? 'PROCESANDO...' : 'AÑADIR AL CARRITO'}
+      </button>
+      
       <style dangerouslySetInnerHTML={{__html: `
         .variant-section {
           padding: 0;
@@ -186,6 +209,16 @@ export default function VariantSelector({ product, storeId, domain, onVariantSel
           letter-spacing: 1px;
           text-transform: uppercase;
           transition: all 0.2s;
+          margin-top: 20px; /* Añadido para separar del contenido anterior */
+        }
+        .add-to-cart-btn:disabled {
+          background: #888;
+          cursor: not-allowed;
+        }
+      `}} />
+    </section>
+  );
+}
           margin-top: 0;
           margin-bottom: 12px;
         }
@@ -217,6 +250,15 @@ export default function VariantSelector({ product, storeId, domain, onVariantSel
         .buy-now-btn:hover {
           background: #000;
           color: #fff;
+        }
+        .checkout-error {
+          margin-top: 12px;
+          padding: 12px;
+          background: #fee;
+          border: 1px solid #fcc;
+          border-radius: 4px;
+          color: #c33;
+          font-size: 12px;
         }
       `}} />
 
@@ -283,16 +325,41 @@ export default function VariantSelector({ product, storeId, domain, onVariantSel
           <button 
             className="add-to-cart-btn"
             onClick={() => {
-              // Aquí integrarías con tu carrito
-              alert(`${selectedVariant.id} agregado al carrito`);
+              if (!selectedVariant) return;
+              
+              checkout.addToCart({
+                variantId: selectedVariant.id,
+                quantity: 1,
+                productId: product.id
+              });
             }}
+            disabled={!selectedVariant || checkout.loading}
           >
-            Agregar al carrito
+            {checkout.loading ? 'Procesando...' : 'Agregar al carrito'}
           </button>
 
-          <Link href={`https://${domain}/products/${product.id}`} className="buy-now-btn">
-            Comprar ahora en TiendaNube
-          </Link>
+          <button 
+            className="buy-now-btn"
+            onClick={() => {
+              if (!selectedVariant) return;
+              
+              checkout.buyNow({
+                variantId: selectedVariant.id,
+                quantity: 1,
+                productId: product.id
+              });
+            }}
+            disabled={!selectedVariant || checkout.loading}
+            style={{ cursor: 'pointer' }}
+          >
+            {checkout.loading ? 'Procesando...' : 'Comprar ahora'}
+          </button>
+          
+          {checkout.error && (
+            <div className="checkout-error">
+              ❌ {checkout.error}
+            </div>
+          )}
         </div>
       )}
     </section>

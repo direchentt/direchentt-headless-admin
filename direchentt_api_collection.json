@@ -1,0 +1,102 @@
+{
+	"info": {
+		"_postman_id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+		"name": "Direchentt Headless API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Obtener Todos los Productos",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:3000/api/products",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"products"
+					]
+				},
+				"description": "Recupera la lista completa de productos desde la API de TiendaNube a través de tu backend."
+			},
+			"response": []
+		},
+		{
+			"name": "2. Simular Checkout (Headless)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"productId\": \"308877801\",\n  \"variantId\": \"1386747186\", \n  \"quantity\": 1\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:3000/api/checkout-simple",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"checkout-simple"
+					]
+				},
+				"description": "Simula el proceso de agregar un producto al carrito y obtener las URLs de checkout funcionales."
+			},
+			"response": []
+		},
+		{
+			"name": "[PROXY] Agregar a Carrito de TiendaNube",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "Cookie",
+						"value": "{{POSTMAN_COOKIE}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"variantId\": \"1386747186\",\n    \"quantity\": 1\n}"
+				},
+				"url": {
+					"raw": "http://localhost:3000/api/proxy-tiendanube",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"proxy-tiendanube"
+					]
+				},
+				"description": "Endpoint que actúa como proxy para agregar productos al carrito de TiendaNube."
+			},
+			"response": []
+		}
+	]
+}

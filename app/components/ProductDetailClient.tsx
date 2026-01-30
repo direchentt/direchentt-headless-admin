@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import ImageCarousel from './ImageCarousel';
-import VariantSelector from './VariantSelector';
+import ProductActions from './ProductActions';
 
 interface ProductDetailClientProps {
   product: any;
@@ -42,7 +42,7 @@ export default function ProductDetailClient({
 
         {/* INFORMACIÓN Y COMPRA */}
         <div className="pdp-info-section">
-          <VariantSelector
+          <ProductActions
             product={product}
             storeId={storeId}
             domain={domain}
