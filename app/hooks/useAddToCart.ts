@@ -11,33 +11,18 @@ export const useAddToCart = () => {
     setError(null);
 
     try {
-      console.log('🛒 Enviando POST a /comprar/ con:', { variantId, quantity });
+      console.log('🛒 Agregando al carrito de TiendaNube:', { variantId, quantity });
       
-      // Crear un formulario que haga POST a /comprar/ de TiendaNube
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = 'https://www.direchentt.com.ar/comprar/';
-      form.style.display = 'none';
+      // Usar el endpoint de TiendaNube para agregar al carrito y redirigir directamente al checkout
+      // Este formato es compatible con TiendaNube y funciona cross-domain
+      const checkoutUrl = `https://www.direchentt.com.ar/cart/add/${variantId}:${quantity}?from_store=1&country=AR`;
       
-      // TiendaNube espera estos parámetros exactos
-      const addToCartField = document.createElement('input');
-      addToCartField.type = 'hidden';
-      addToCartField.name = 'add_to_cart';
-      addToCartField.value = variantId;
-      form.appendChild(addToCartField);
+      console.log('✅ Redirigiendo a checkout de TiendaNube:', checkoutUrl);
       
-      const quantityField = document.createElement('input');
-      quantityField.type = 'hidden';
-      quantityField.name = 'quantity';
-      quantityField.value = quantity.toString();
-      form.appendChild(quantityField);
+      // Redirección directa - más confiable que form.submit()
+      window.location.href = checkoutUrl;
       
-      // Agregar al DOM, enviar y limpiar
-      document.body.appendChild(form);
-      console.log('✅ Enviando formulario a TiendaNube /comprar/');
-      form.submit();
-      
-      // No removemos el form porque el navegador se va a redirigir
+      // No seteamos isLoading a false porque la página se va a redirigir
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Ocurrió un error inesperado';
       console.error('❌ Error en useAddToCart:', errorMessage);
