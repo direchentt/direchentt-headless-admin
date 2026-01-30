@@ -1,20 +1,30 @@
+
 import { NextRequest, NextResponse } from 'next/server';
+import { getStoreData } from '../../../lib/backend';
 
 
 
 export async function POST(req: NextRequest) {
   try {
-    const TIENDANUBE_TOKEN = process.env.TIENDANUBE_TOKEN;
-    const TIENDANUBE_STORE_ID = process.env.TIENDANUBE_STORE_ID;
-    if (!TIENDANUBE_TOKEN || !TIENDANUBE_STORE_ID) {
-      return NextResponse.json({ error: 'Faltan TIENDANUBE_TOKEN o TIENDANUBE_STORE_ID en .env.local' }, { status: 500 });
-    }
-    const API_BASE = `https://api.tiendanube.com/v1/${TIENDANUBE_STORE_ID}`;
+    let TIENDANUBE_TOKEN = process.env.TIENDANUBE_TOKEN;
+    let TIENDANUBE_STORE_ID = process.env.TIENDANUBE_STORE_ID;
 
-    const { variantId, quantity, email } = await req.json();
+    const { variantId, quantity, email, storeId } = await req.json();
     if (!variantId || !quantity) {
       return NextResponse.json({ error: 'Faltan parámetros' }, { status: 400 });
     }
+
+    // Si no hay token o storeId en env, buscar en MongoDB
+    if (!TIENDANUBE_TOKEN || !TIENDANUBE_STORE_ID) {
+      const storeData = await getStoreData(storeId || '5112334');
+      if (!storeData || !storeData.accessToken || !storeData.storeId) {
+        return NextResponse.json({ error: 'No se encontró accessToken/storeId en MongoDB ni en .env.local' }, { status: 500 });
+      }
+      TIENDANUBE_TOKEN = storeData.accessToken;
+      TIENDANUBE_STORE_ID = storeData.storeId;
+    }
+
+    const API_BASE = `https://api.tiendanube.com/v1/${TIENDANUBE_STORE_ID}`;
 
     // 1. Crear carrito
     const cartRes = await fetch(`${API_BASE}/carts`, {
