@@ -46,14 +46,3 @@ export async function POST(request: Request) {
     }, { status: 500 });
   }
 }
-
-// Función helper para obtener el cliente MongoDB (necesaria si no está exportada)
-async function getMongoClient() {
-  const { MongoClient } = require('mongodb');
-  const uri = process.env.MONGODB_URI || "";
-  if (!uri) throw new Error("MONGODB_URI no definida");
-  
-  const client = new MongoClient(uri);
-  await client.connect();
-  return client;
-}
