@@ -209,159 +209,17 @@ export default function VariantSelector({ product, storeId, domain, onVariantSel
           letter-spacing: 1px;
           text-transform: uppercase;
           transition: all 0.2s;
-          margin-top: 20px; /* Añadido para separar del contenido anterior */
-        }
-        .add-to-cart-btn:disabled {
-          background: #888;
-          cursor: not-allowed;
-        }
-      `}} />
-    </section>
-  );
-}
-          margin-top: 0;
-          margin-bottom: 12px;
+          margin-top: 20px;
         }
         .add-to-cart-btn:hover {
           background: #333;
           box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
         .add-to-cart-btn:disabled {
-          background: #ccc;
+          background: #888;
           cursor: not-allowed;
         }
-        .buy-now-btn {
-          width: 100%;
-          padding: 16px;
-          background: #fff;
-          color: #000;
-          border: 2px solid #000;
-          border-radius: 4px;
-          font-size: 13px;
-          font-weight: 700;
-          cursor: pointer;
-          letter-spacing: 1px;
-          text-transform: uppercase;
-          transition: all 0.2s;
-          text-decoration: none;
-          display: inline-block;
-          text-align: center;
-        }
-        .buy-now-btn:hover {
-          background: #000;
-          color: #fff;
-        }
-        .checkout-error {
-          margin-top: 12px;
-          padding: 12px;
-          background: #fee;
-          border: 1px solid #fcc;
-          border-radius: 4px;
-          color: #c33;
-          font-size: 12px;
-        }
       `}} />
-
-      {/* SELECTOR DE VARIANTES - CON IMÁGENES */}
-      {variants.length > 0 && (
-        <div className="variant-group">
-          <label className="variant-label">Selecciona Variante</label>
-          <div className="variant-grid">
-            {variants.map((variant: any) => {
-              const color = variant.attributes?.color || 'Sin color';
-              const size = variant.attributes?.size || '';
-              const label = size ? `${color} / ${size}` : color;
-              const isActive = selectedVariant?.id === variant.id;
-              
-              // Buscar imagen de la variante en diferentes locaciones
-              const variantImage = 
-                variant.image?.src || 
-                variant.images?.[0]?.src ||
-                (variant.image && typeof variant.image === 'string' ? variant.image : '') ||
-                product.images?.[0]?.src || '/placeholder.jpg';
-              
-              return (
-                <button
-                  key={variant.id}
-                  className={`variant-btn ${isActive ? 'active' : ''}`}
-                  onClick={() => {
-                    setSelectedVariant(variant);
-                    if (onVariantSelect) {
-                      onVariantSelect(label);
-                    }
-                  }}
-                  title={label}
-                  aria-label={`Seleccionar ${label}`}
-                  aria-current={isActive}
-                  style={{
-                    backgroundImage: `url('${variantImage}')`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                  } as React.CSSProperties}
-                >
-                  <span className="variant-btn-label">{label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* DESCRIPCIÓN Y BOTONES */}
-      {selectedVariant && (
-        <div className="variant-group">
-          {product.description && (
-            <div className="variant-description" dangerouslySetInnerHTML={{
-              __html: typeof product.description === 'object' 
-                ? (product.description.es || product.description.en || '<p>Sin descripción</p>')
-                : (typeof product.description === 'string' && product.description.includes('<') 
-                  ? product.description 
-                  : `<p>${product.description}</p>`)
-
-            }} />
-          )}
-
-          {/* BOTONES DE ACCIÓN */}
-          <button 
-            className="add-to-cart-btn"
-            onClick={() => {
-              if (!selectedVariant) return;
-              
-              checkout.addToCart({
-                variantId: selectedVariant.id,
-                quantity: 1,
-                productId: product.id
-              });
-            }}
-            disabled={!selectedVariant || checkout.loading}
-          >
-            {checkout.loading ? 'Procesando...' : 'Agregar al carrito'}
-          </button>
-
-          <button 
-            className="buy-now-btn"
-            onClick={() => {
-              if (!selectedVariant) return;
-              
-              checkout.buyNow({
-                variantId: selectedVariant.id,
-                quantity: 1,
-                productId: product.id
-              });
-            }}
-            disabled={!selectedVariant || checkout.loading}
-            style={{ cursor: 'pointer' }}
-          >
-            {checkout.loading ? 'Procesando...' : 'Comprar ahora'}
-          </button>
-          
-          {checkout.error && (
-            <div className="checkout-error">
-              ❌ {checkout.error}
-            </div>
-          )}
-        </div>
-      )}
     </section>
   );
 }

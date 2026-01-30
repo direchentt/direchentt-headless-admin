@@ -3,10 +3,10 @@
 import { useState } from 'react';
 
 export default function TestIntegrationPage() {
-  const [testResults, setTestResults] = useState(null);
+  const [testResults, setTestResults] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [checkoutTest, setCheckoutTest] = useState(null);
-  const [simpleTest, setSimpleTest] = useState(null);
+  const [checkoutTest, setCheckoutTest] = useState<any>(null);
+  const [simpleTest, setSimpleTest] = useState<any>(null);
 
   const runIntegrationTest = async () => {
     setLoading(true);
@@ -16,7 +16,7 @@ export default function TestIntegrationPage() {
       setTestResults(data);
     } catch (error) {
       console.error('Error:', error);
-      setTestResults({ success: false, error: error.message });
+      setTestResults({ success: false, error: error instanceof Error ? error.message : 'Error desconocido' });
     }
     setLoading(false);
   };
@@ -64,7 +64,7 @@ export default function TestIntegrationPage() {
       setCheckoutTest(data);
     } catch (error) {
       console.error('Error:', error);
-      setCheckoutTest({ success: false, error: error.message });
+      setCheckoutTest({ success: false, error: error instanceof Error ? error.message : 'Error desconocido' });
     }
     setLoading(false);
   };
@@ -111,7 +111,7 @@ export default function TestIntegrationPage() {
       setSimpleTest(data);
     } catch (error) {
       console.error('Error:', error);
-      setSimpleTest({ success: false, error: error.message });
+      setSimpleTest({ success: false, error: error instanceof Error ? error.message : 'Error desconocido' });
     }
     setLoading(false);
   };
@@ -175,8 +175,8 @@ export default function TestIntegrationPage() {
                 {Object.entries(testResults.results.tests.urls).map(([key, url]) => (
                   <li key={key}>
                     <strong>{key}:</strong> 
-                    <a href={url} target="_blank" rel="noopener noreferrer" style={{ color: '#007cba', marginLeft: '10px' }}>
-                      {url}
+                    <a href={url as string} target="_blank" rel="noopener noreferrer" style={{ color: '#007cba', marginLeft: '10px' }}>
+                      {url as string}
                     </a>
                   </li>
                 ))}
@@ -184,7 +184,7 @@ export default function TestIntegrationPage() {
 
               <h4>💡 Recomendaciones:</h4>
               <ul>
-                {testResults.recommendations.map((rec, index) => (
+                {testResults.recommendations.map((rec: string, index: number) => (
                   <li key={index}>{rec}</li>
                 ))}
               </ul>
@@ -270,7 +270,7 @@ export default function TestIntegrationPage() {
                   🚀 Estrategia Principal
                 </a>
                 
-                {checkoutTest.fallbackUrls && checkoutTest.fallbackUrls.map((url, index) => (
+                {checkoutTest.fallbackUrls && checkoutTest.fallbackUrls.map((url: string, index: number) => (
                   <a 
                     key={index}
                     href={url} 

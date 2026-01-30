@@ -38,7 +38,7 @@ export async function getStoreData(shopId: string) {
     }
     return store;
   } catch (error: any) {
-    console.error("❌ Error conectando a MongoDB:", error.message);
+    console.error("❌ Error conectando a MongoDB:", error instanceof Error ? error.message : error);
     return null;
   }
 }
@@ -91,10 +91,10 @@ export async function fetchTN(endpoint: string, shopId: string, token: string, q
     return data;
   } catch (error: any) {
     clearTimeout(timeoutId);
-    if (error.name === 'AbortError') {
+    if (error instanceof Error && error.name === 'AbortError') {
       console.warn(`⏳ Timeout en fetchTN (${endpoint}) - Saltando...`);
     } else {
-      console.error(`❌ Error en fetchTN (${endpoint}):`, error.message);
+      console.error(`❌ Error en fetchTN (${endpoint}):`, error instanceof Error ? error.message : error);
     }
     return [];
   }
@@ -162,10 +162,10 @@ export async function fetchProductWithVariants(productId: string, shopId: string
     return product;
   } catch (error: any) {
     clearTimeout(timeoutId);
-    if (error.name === 'AbortError') {
+    if (error instanceof Error && error.name === 'AbortError') {
       console.warn(`⏳ Timeout obteniendo producto ${productId} expandido`);
     } else {
-      console.error(`❌ Error obteniendo producto ${productId} expandido:`, error.message);
+      console.error(`❌ Error obteniendo producto ${productId} expandido:`, error instanceof Error ? error.message : error);
     }
     return null;
   }
@@ -254,7 +254,7 @@ export function getLocalBanners(): string[] {
     console.log(`🖼️ ${bannerUrls.length} banners locales cargados`);
     return bannerUrls;
   } catch (error: any) {
-    console.error('❌ Error leyendo banners locales:', error.message);
+    console.error('❌ Error leyendo banners locales:', error instanceof Error ? error.message : error);
     return [];
   }
 }

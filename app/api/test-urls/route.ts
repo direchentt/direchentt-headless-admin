@@ -45,7 +45,7 @@ export async function POST(request: Request) {
           signal: AbortSignal.timeout(5000)
         });
 
-        const result = {
+        const result: any = {
           name: testUrl.name,
           url: testUrl.url,
           status: response.status,
@@ -66,7 +66,7 @@ export async function POST(request: Request) {
         console.log(`✅ ${testUrl.name}: ${response.status} ${response.statusText}`);
 
       } catch (error) {
-        const result = {
+        const result: any = {
           name: testUrl.name,
           url: testUrl.url,
           status: 'ERROR',

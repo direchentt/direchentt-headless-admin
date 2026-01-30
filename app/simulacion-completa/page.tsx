@@ -67,7 +67,7 @@ export default function SimulacionCompleta() {
       log(`❌ LOCALHOST: Error - ${error}`);
       setResultados(prev => ({
         ...prev,
-        localhost: { success: false, error: error.message }
+        localhost: { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
       }));
     }
   };

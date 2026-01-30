@@ -18,7 +18,7 @@ export default function ComparisonTest() {
         }
       })
       .catch(error => {
-        addResult(`❌ Error obteniendo productos: ${error.message}`);
+        addResult(`❌ Error obteniendo productos: ${error instanceof Error ? error.message : 'Error desconocido'}`);
       });
   }, []);
 
