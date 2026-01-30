@@ -65,7 +65,7 @@ export async function GET(request: Request) {
     console.error('Error debug:', error);
     return NextResponse.json({
       success: false,
-      error: error.message
+      error: error instanceof Error ? error.message : 'Error desconocido'
     });
   }
 }
