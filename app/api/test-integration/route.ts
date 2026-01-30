@@ -41,7 +41,16 @@ export async function GET(request: Request) {
     });
 
     // 2. Probar conectividad con la tienda
-    const testResults = {
+    const testResults: {
+      storeData: {
+        storeId: string;
+        shopName: string;
+        domain: string;
+        hasAccessToken: boolean;
+        updatedAt: any;
+      };
+      tests: any;
+    } = {
       storeData: {
         storeId: storeData.storeId,
         shopName: storeData.shop_name,
