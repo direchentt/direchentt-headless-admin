@@ -16,7 +16,7 @@ export default function VariantSelector({ product, storeId, domain, onVariantSel
   // Si tienes el email del usuario, pásalo aquí. Si no, puedes dejarlo undefined.
   const userEmail = undefined; // <-- reemplaza esto si tienes el email
 
-  const { addToCart, isLoading: isAddingToCart, error } = useAddToCart();
+  const { addToCart, isLoading: isAddingToCart, error } = useAddToCart(storeId);
 
   const handleAddToCart = async () => {
     if (selectedVariant?.id) {

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-export const useAddToCart = () => {
+export const useAddToCart = (storeId?: string) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -14,7 +14,7 @@ export const useAddToCart = () => {
       const res = await fetch('/api/checkout-tiendanube', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ variantId, quantity, email }),
+        body: JSON.stringify({ variantId, quantity, email, storeId }),
       });
       const data = await res.json();
       if (!res.ok || !data.checkoutUrl) {
