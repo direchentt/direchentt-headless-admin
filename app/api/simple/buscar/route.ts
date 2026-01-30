@@ -51,11 +51,11 @@ export async function GET(request: NextRequest) {
       hayMas: resultados.length >= limite
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error en API simple búsqueda:', error);
     return NextResponse.json({
       exito: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Error desconocido',
       ayuda: 'Usa: /api/simple/buscar?shop=ID&q=TERMINO&categoria=CAT&precioMin=MIN&precioMax=MAX&limite=N'
     }, { status: 500 });
   }

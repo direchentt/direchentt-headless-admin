@@ -9,7 +9,7 @@ const SUPPORTED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.
 const uri = process.env.MONGODB_URI || "";
 let cachedClient: MongoClient | null = null;
 
-async function getMongoClient() {
+export async function getMongoClient() {
   if (cachedClient) return cachedClient;
   if (!uri) throw new Error("MONGODB_URI no definida");
   

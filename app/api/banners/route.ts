@@ -36,8 +36,8 @@ export async function GET() {
       banners: bannerUrls,
       count: bannerUrls.length 
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error leyendo banners:', error);
-    return NextResponse.json({ banners: [], error: error.message }, { status: 500 });
+    return NextResponse.json({ banners: [], error: error instanceof Error ? error.message : 'Error desconocido' }, { status: 500 });
   }
 }

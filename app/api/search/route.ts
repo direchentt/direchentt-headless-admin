@@ -40,10 +40,10 @@ export async function GET(request: NextRequest) {
       hasMore: processedResults.length >= parseInt(limit)
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in search API:', error);
     return NextResponse.json(
-      { error: 'Failed to search products', details: error.message },
+      { error: 'Failed to search products', details: error instanceof Error ? error.message : 'Error desconocido' },
       { status: 500 }
     );
   }

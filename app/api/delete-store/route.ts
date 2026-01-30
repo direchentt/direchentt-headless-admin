@@ -43,7 +43,7 @@ export async function DELETE(request: Request) {
     console.error('Error eliminando store:', error);
     return NextResponse.json({
       success: false,
-      error: error.message
+      error: error instanceof Error ? error.message : 'Error desconocido'
     }, { status: 500 });
   }
 }

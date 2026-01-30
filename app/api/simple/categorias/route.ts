@@ -25,11 +25,11 @@ export async function GET(request: NextRequest) {
       totalSubcategorias: categorias.reduce((acc: number, cat: any) => acc + cat.hijos.length, 0)
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error en API simple categorías:', error);
     return NextResponse.json({
       exito: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Error desconocido',
       ayuda: 'Usa: /api/simple/categorias?shop=SHOP_ID'
     }, { status: 500 });
   }

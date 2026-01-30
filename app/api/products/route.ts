@@ -37,10 +37,10 @@ export async function GET(request: NextRequest) {
       }
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in products API:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch products', details: error.message },
+      { error: 'Failed to fetch products', details: error instanceof Error ? error.message : 'Error desconocido' },
       { status: 500 }
     );
   }
@@ -79,10 +79,10 @@ export async function POST(request: NextRequest) {
       product: productResult
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error creating product:', error);
     return NextResponse.json(
-      { error: 'Failed to create product', details: error.message },
+      { error: 'Failed to create product', details: error instanceof Error ? error.message : 'Error desconocido' },
       { status: 500 }
     );
   }

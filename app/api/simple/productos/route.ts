@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     console.error('Error en API simple productos:', error);
     return NextResponse.json({
       exito: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Error desconocido',
       ayuda: 'Usa: /api/simple/productos?shop=ID&categoria=CAT&buscar=TERMINO&limite=N'
     }, { status: 500 });
   }

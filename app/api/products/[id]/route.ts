@@ -62,10 +62,10 @@ export async function GET(
       }
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in product API:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch product', details: error.message },
+      { error: 'Failed to fetch product', details: error instanceof Error ? error.message : 'Error desconocido' },
       { status: 500 }
     );
   }

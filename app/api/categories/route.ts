@@ -34,10 +34,10 @@ export async function GET(request: NextRequest) {
       total: categories.length
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in categories API:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch categories', details: error.message },
+      { error: 'Failed to fetch categories', details: error instanceof Error ? error.message : 'Error desconocido' },
       { status: 500 }
     );
   }
