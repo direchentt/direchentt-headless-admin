@@ -35,12 +35,12 @@ export async function GET(request: Request) {
     }
 
     // Debug info
-    const debugInfo = products.map(product => ({
+    const debugInfo = products.map((product: any) => ({
       mongoId: product._id,
       productId: product.id,
       handle: product.handle,
       name: product.name,
-      variants: product.variants ? product.variants.slice(0, 2).map(v => ({
+      variants: product.variants ? product.variants.slice(0, 2).map((v: any) => ({
         id: v.id,
         sku: v.sku,
         price: v.price
