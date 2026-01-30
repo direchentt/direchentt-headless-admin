@@ -13,14 +13,14 @@ interface VariantSelectorProps {
 export default function VariantSelector({ product, storeId, domain, onVariantSelect }: VariantSelectorProps) {
   const variants = product.variants || [];
   const [selectedVariant, setSelectedVariant] = useState(variants[0] || null);
-  
-  // Hook para manejar el "Añadir al Carrito" a través de nuestro proxy
+  // Si tienes el email del usuario, pásalo aquí. Si no, puedes dejarlo undefined.
+  const userEmail = undefined; // <-- reemplaza esto si tienes el email
+
   const { addToCart, isLoading: isAddingToCart, error } = useAddToCart();
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (selectedVariant?.id) {
-      // Pasamos los parámetros directamente al llamar a addToCart
-      addToCart(selectedVariant.id.toString(), 1);
+      await addToCart(selectedVariant.id.toString(), 1, userEmail);
     } else {
       alert('Por favor, selecciona una variante del producto.');
     }
