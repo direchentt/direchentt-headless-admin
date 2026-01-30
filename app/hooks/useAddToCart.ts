@@ -14,10 +14,11 @@ export const useAddToCart = () => {
       console.log('🛒 Agregando al carrito de TiendaNube:', { variantId, quantity });
       
       // Crear formulario HTML para POST a /comprar/ de TiendaNube
-      // Este es el método estándar que usa TiendaNube
+      // IMPORTANTE: La URL completa con https:// asegura que no se quede en localhost
       const form = document.createElement('form');
       form.method = 'POST';
       form.action = 'https://www.direchentt.com.ar/comprar/';
+      form.target = '_self'; // Redirige en la misma ventana
       
       const addToCartField = document.createElement('input');
       addToCartField.type = 'hidden';
@@ -32,7 +33,8 @@ export const useAddToCart = () => {
       form.appendChild(quantityField);
       
       document.body.appendChild(form);
-      console.log('✅ Enviando formulario a TiendaNube /comprar/');
+      console.log('✅ Formulario creado. Action:', form.action);
+      console.log('✅ Datos:', { add_to_cart: variantId, quantity });
       form.submit();
       
       // No seteamos isLoading a false porque el navegador se va a redirigir
