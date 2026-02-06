@@ -12,8 +12,8 @@ interface ShopTheLookProps {
 export default function ShopTheLook({ mainProduct, relatedProducts, storeId }: ShopTheLookProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Tomamos productos complementarios
-  const complementaryProducts = relatedProducts.slice(0, 4);
+  // Tomamos productos complementarios (Max 3 para total 4)
+  const complementaryProducts = relatedProducts.slice(0, 3);
 
   // Imagen lifestyle (2da imagen o 1ra)
   const lifestyleImage = mainProduct.images[1]?.src || mainProduct.images[0]?.src;

@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useStore } from '../context/StoreContext';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 
 interface SearchModalProps {
   products: any[];
@@ -11,158 +10,164 @@ interface SearchModalProps {
 }
 
 export default function SearchModal({ products, storeId }: SearchModalProps) {
-  const { searchOpen, setSearchOpen } = useStore();
+  const { isSearchOpen, setSearchOpen } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
-  const router = useRouter();
+  const inputRef = useRef<HTMLInputElement>(null);
 
+  // Focus input on open
   useEffect(() => {
-    if (searchOpen) {
+    if (isSearchOpen && inputRef.current) {
+      // Pequeño delay para asegurar que la animación no interfiera con el focus
+      setTimeout(() => inputRef.current?.focus(), 100);
       document.body.style.overflow = 'hidden';
-      // Auto focus logic could go here
     } else {
       document.body.style.overflow = '';
       setSearchTerm('');
     }
-  }, [searchOpen]);
+  }, [isSearchOpen]);
 
-  // Derivar categorías únicas de los productos reales
-  const suggestions = useMemo(() => {
-    const uniqueCategories = new Set<string>();
+  // Close on ESC
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSearchOpen(false);
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [setSearchOpen]);
+
+  // --- DATA LOGIC ---
+
+  // 1. "Lo más buscado" (Simulado o derivado de categorias top)
+  const popularSearches = useMemo(() => {
+    // Extraemos categorias unicas de los productos
+    const cats = new Set<string>();
     products.forEach(p => {
-      if (p.categories) {
-        p.categories.forEach((c: any) => {
-          const name = typeof c.name === 'object' ? (c.name.es || c.name.en) : c.name;
-          if (name) uniqueCategories.add(name);
-        });
-      }
+      p.categories?.forEach((c: any) => {
+        const name = typeof c.name === 'object' ? (c.name.es || c.name.en) : c.name;
+        if (name) cats.add(name.toLowerCase());
+      });
     });
-    return Array.from(uniqueCategories).slice(0, 5); // Top 5
+    // Devolvemos las primeras 5 o hardcodeamos estilo Scuffers si prefieres
+    // Para simular "popular", mezclamos algunas fixed con reales
+    const fixed = ['sudaderas', 'pantalones', 'camisetas', 'gorras'];
+    const real = Array.from(cats);
+    return [...new Set([...fixed, ...real])].slice(0, 6);
   }, [products]);
 
-  // Filtrar productos en tiempo real
-  const filteredProducts = useMemo(() => {
-    if (!searchTerm.trim()) return [];
+  // 2. "Productos Recomendados" (Random trending products)
+  const recommendedProducts = useMemo(() => {
+    // Mezclar productos para que parezca aleatorio/trending
+    return [...products].sort(() => 0.5 - Math.random()).slice(0, 5);
+  }, [products]);
 
-    const lowerTerm = searchTerm.toLowerCase();
+  // 3. Resultados de búsqueda en tiempo real
+  const searchResults = useMemo(() => {
+    if (!searchTerm.trim()) return [];
+    const lower = searchTerm.toLowerCase();
+
     return products.filter(p => {
+      // 1. Check Name
       const name = typeof p.name === 'object' ? (p.name.es || p.name.en) : p.name;
-      return name?.toLowerCase().includes(lowerTerm);
-    }).slice(0, 4); // Max 4 resultados directos
+      if (name?.toLowerCase().includes(lower)) return true;
+
+      // 2. Check Categories
+      if (p.categories) {
+        return p.categories.some((c: any) => {
+          const cName = typeof c.name === 'object' ? (c.name.es || c.name.en) : c.name;
+          return cName?.toLowerCase().includes(lower);
+        });
+      }
+
+      return false;
+    }).slice(0, 8); // Max 8 para grid
   }, [searchTerm, products]);
 
-  // Filtrar categorías sugeridas en tiempo real
-  const filteredCategories = useMemo(() => {
-    if (!searchTerm.trim()) return [];
-    const lowerTerm = searchTerm.toLowerCase();
-    return suggestions.filter(cat => cat.toLowerCase().includes(lowerTerm)).slice(0, 3);
-  }, [searchTerm, suggestions]);
 
-
-  if (!searchOpen) return null;
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchTerm.trim()) {
-      setSearchOpen(false);
-      // Redirigir a search results (asumiendo que existe o usando home con query)
-      // Como no tenemos pagina de busqueda especifica, filtramos en home
-      // Pero idealmente seria /search?q=...
-      // Por ahora cerramos
-      console.log('Searching for:', searchTerm);
-    }
-  };
-
-  const close = () => setSearchOpen(false);
+  if (!isSearchOpen) return null;
 
   return (
-    <div className="search-modal-overlay">
-      <div className="search-modal">
+    <>
+      <div className="search-overlay" onClick={() => setSearchOpen(false)} />
+      <div className="search-drawer">
+        {/* TOP BAR */}
         <div className="search-header">
-          <form onSubmit={handleSearch} className="search-form">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="search-icon">
-              <circle cx="9" cy="9" r="7" stroke="#000" strokeWidth="1.5" />
-              <path d="M15 15l3 3" stroke="#000" strokeWidth="1.5" strokeLinecap="round" />
+          <div className="input-container">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="search-icon">
+              <path d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             <input
+              ref={inputRef}
               type="text"
-              placeholder="Buscar productos..."
+              placeholder="Encuentra tu estilo..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
-              autoFocus
+              onChange={e => setSearchTerm(e.target.value)}
             />
-            {searchTerm && (
-              <button type="button" className="clear-btn" onClick={() => setSearchTerm('')}>✕</button>
-            )}
-          </form>
-          <button className="close-btn" onClick={close}>CANCELAR</button>
+          </div>
+          <button className="close-btn" onClick={() => setSearchOpen(false)}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
         </div>
 
+        {/* CONTENT AREA */}
         <div className="search-content">
-          {/* Si no hay busqueda, mostrar sugerencias populares (categorías) */}
-          {!searchTerm && (
-            <div className="suggestions-section">
-              <h3>SUGERENCIAS POPULARES</h3>
-              <div className="tags-cloud">
-                {suggestions.map((cat, idx) => (
-                  <Link
-                    key={idx}
-                    href={`/?category=${encodeURIComponent(cat)}&shop=${storeId}`} // Simple link a home filtrada o categoria
-                    onClick={close}
-                    className="search-tag"
-                  >
-                    {cat}
-                  </Link>
-                ))}
+          {!searchTerm ? (
+            // STATE A: DISCOVERY (Split Layout)
+            <div className="discovery-layout">
+              <div className="col-left">
+                <h3>Lo más buscado</h3>
+                <ul>
+                  {popularSearches.map(term => (
+                    <li key={term}>
+                      <button onClick={() => setSearchTerm(term)}>{term}</button>
+                    </li>
+                  ))}
+                </ul>
               </div>
-            </div>
-          )}
-
-          {/* Resultados en tiempo real */}
-          {searchTerm && (
-            <div className="results-section">
-              {filteredCategories.length > 0 && (
-                <div className="category-results">
-                  <h3>CATEGORÍAS</h3>
-                  {filteredCategories.map((cat, i) => (
-                    <Link
-                      key={i}
-                      href={`/?category=${encodeURIComponent(cat)}&shop=${storeId}`}
-                      onClick={close}
-                      className="result-link"
-                    >
-                      {cat}
+              <div className="col-right">
+                <h3>Productos recomendados</h3>
+                <div className="rec-grid">
+                  {recommendedProducts.map(prod => (
+                    <Link key={prod.id} href={`/product/${prod.id}?shop=${storeId}`} onClick={() => setSearchOpen(false)} className="rec-card">
+                      <div className="img-wrapper">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={prod.images[0]?.src} alt="" />
+                      </div>
+                      <div className="info">
+                        <p className="name">{typeof prod.name === 'object' ? (prod.name.es || prod.name.en) : prod.name}</p>
+                        <p className="price">$ {prod.variants[0]?.price}</p>
+                      </div>
+                      <button className="add-btn">+</button>
                     </Link>
                   ))}
                 </div>
-              )}
-
-              {filteredProducts.length > 0 ? (
-                <div className="product-results">
-                  <h3>PRODUCTOS - ({filteredProducts.length})</h3>
-                  <div className="search-products-grid">
-                    {filteredProducts.map(prod => (
-                      <Link
-                        key={prod.id}
-                        href={`/product/${prod.id}?shop=${storeId}`}
-                        onClick={close}
-                        className="search-product-item"
-                      >
-                        <div className="sp-image">
+              </div>
+            </div>
+          ) : (
+            // STATE B: SEARCH RESULTS
+            <div className="results-layout">
+              {searchResults.length > 0 ? (
+                <>
+                  <h3>Resultados para &quot;{searchTerm}&quot;</h3>
+                  <div className="results-grid">
+                    {searchResults.map(prod => (
+                      <Link key={prod.id} href={`/product/${prod.id}?shop=${storeId}`} onClick={() => setSearchOpen(false)} className="result-card">
+                        <div className="img-wrapper">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={prod.images[0]?.src} alt="" />
                         </div>
-                        <div className="sp-info">
-                          <h4>{typeof prod.name === 'object' ? (prod.name.es || prod.name.en) : prod.name}</h4>
-                          <p>$ {prod.variants[0]?.price}</p>
+                        <div className="info">
+                          <p className="name">{typeof prod.name === 'object' ? (prod.name.es || prod.name.en) : prod.name}</p>
+                          <p className="price">$ {prod.variants[0]?.price}</p>
                         </div>
                       </Link>
                     ))}
                   </div>
-                </div>
+                </>
               ) : (
                 <div className="no-results">
-                  <p>No encontramos productos para &quot;{searchTerm}&quot;</p>
+                  <p>No encontramos resultados para &quot;{searchTerm}&quot;</p>
                 </div>
               )}
             </div>
@@ -171,163 +176,227 @@ export default function SearchModal({ products, storeId }: SearchModalProps) {
       </div>
 
       <style jsx>{`
-        .search-modal-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(255,255,255,0.98);
-          z-index: 3000;
-          animation: fadeIn 0.2s ease;
-        }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-        .search-modal {
-            max-width: 800px;
-            margin: 0 auto;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .search-header {
-            padding: 20px;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            border-bottom: 1px solid #eee;
-        }
-
-        .search-form {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            background: #f5f5f5;
-            padding: 0 15px;
-            height: 50px;
-            border-radius: 4px;
-        }
-
-        .search-input {
-            flex: 1;
-            border: none;
-            background: none;
-            height: 100%;
-            font-size: 16px;
-            margin: 0 10px;
-            outline: none;
-        }
-
-        .clear-btn {
-            background: none;
-            border: none;
-            font-size: 14px;
-            cursor: pointer;
-            color: #999;
-        }
-
-        .close-btn {
-            background: none;
-            border: none;
-            font-size: 12px;
-            font-weight: 700;
-            letter-spacing: 1px;
-            cursor: pointer;
-        }
-
-        .search-content {
-            flex: 1;
-            padding: 30px 20px;
-            overflow-y: auto;
-        }
-
-        h3 {
-            font-size: 11px;
-            font-weight: 700;
-            color: #999;
-            letter-spacing: 1px;
-            margin-bottom: 20px;
-        }
-
-        .tags-cloud {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .search-tag {
-            padding: 8px 15px;
-            background: #fff;
-            border: 1px solid #eee;
-            border-radius: 20px;
-            text-decoration: none;
-            color: #000;
-            font-size: 13px;
-            transition: all 0.2s;
-        }
-        .search-tag:hover {
-            border-color: #000;
-            background: #000;
-            color: #fff;
-        }
-
-        .result-link {
-            display: block;
-            padding: 10px 0;
-            text-decoration: none;
-            color: #000;
-            font-size: 14px;
-            border-bottom: 1px solid #f9f9f9;
-        }
-        .result-link:hover {
-            color: #666;
-        }
-
-        .search-products-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-        }
-        @media (min-width: 640px) {
-            .search-products-grid {
-                grid-template-columns: repeat(4, 1fr);
+            .search-overlay {
+                position: fixed;
+                inset: 0;
+                background: rgba(0,0,0,0.3);
+                backdrop-filter: blur(2px);
+                z-index: 2000;
+                animation: fade 0.3s;
             }
-        }
+            .search-drawer {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                background: #fff;
+                z-index: 2001;
+                padding: 20px 40px 40px;
+                animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+                max-height: 80vh;
+                overflow-y: auto;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            }
+            @keyframes slideDown {
+                from { transform: translateY(-100%); }
+                to { transform: translateY(0); }
+            }
+            @keyframes fade {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
 
-        .search-product-item {
-            text-decoration: none;
-            color: inherit;
-        }
+            /* HEADER */
+            .search-header {
+                display: flex;
+                align-items: center;
+                border-bottom: 1px solid #eee;
+                padding-bottom: 20px;
+                margin-bottom: 30px;
+            }
+            .input-container {
+                flex: 1;
+                display: flex;
+                align-items: center;
+                gap: 15px;
+            }
+            .search-icon {
+                color: #000;
+                width: 20px;
+                height: 20px;
+            }
+            .input-container input {
+                width: 100%;
+                font-size: 24px;
+                border: none;
+                outline: none;
+                font-weight: 300;
+                color: #000;
+                background: transparent;
+            }
+            .input-container input::placeholder {
+                color: #999;
+            }
+            .close-btn {
+                background: none;
+                border: none;
+                cursor: pointer;
+                transition: transform 0.2s;
+            }
+            .close-btn:hover {
+                transform: rotate(90deg);
+            }
 
-        .sp-image {
-            width: 100%;
-            aspect-ratio: 3/4;
-            background: #f0f0f0;
-            margin-bottom: 10px;
-            overflow: hidden;
-        }
-        .sp-image img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
+            /* DISCOVERY LAYOUT */
+            .discovery-layout {
+                display: flex;
+                gap: 40px;
+            }
+            .col-left {
+                width: 250px;
+                flex-shrink: 0;
+            }
+            .col-right {
+                flex: 1;
+            }
 
-        .sp-info h4 {
-            font-size: 12px;
-            font-weight: 600;
-            margin: 0 0 5px;
-            text-transform: uppercase;
-        }
-        .sp-info p {
-            font-size: 12px;
-            color: #666;
-            margin: 0;
-        }
-        
-        .no-results {
-            text-align: center;
-            color: #666;
-            margin-top: 50px;
-        }
-      `}</style>
-    </div>
+            h3 {
+                font-size: 18px;
+                font-weight: 400;
+                margin-bottom: 20px;
+                color: #000;
+            }
+
+            /* Lo mas buscado list */
+            .col-left ul {
+                list-style: none;
+                padding: 0;
+                margin: 0;
+            }
+            .col-left li {
+                margin-bottom: 12px;
+            }
+            .col-left button {
+                background: none;
+                border: none;
+                padding: 0;
+                font-size: 15px;
+                color: #666;
+                cursor: pointer;
+                text-align: left;
+                transition: color 0.2s;
+            }
+            .col-left button:hover {
+                color: #000;
+                text-decoration: underline;
+            }
+
+            /* Recommended Grid */
+            .rec-grid {
+                display: grid;
+                grid-template-columns: repeat(5, 1fr);
+                gap: 20px;
+            }
+            .rec-card {
+                text-decoration: none;
+                color: inherit;
+                position: relative;
+                group: hover;
+            }
+            .img-wrapper {
+                width: 100%;
+                aspect-ratio: 3/4;
+                background: #f5f5f5;
+                margin-bottom: 10px;
+                position: relative;
+                overflow: hidden;
+            }
+            .img-wrapper img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                transition: transform 0.5s;
+            }
+            .rec-card:hover .img-wrapper img {
+                transform: scale(1.05);
+            }
+            .info .name {
+                font-size: 12px;
+                font-weight: 600;
+                margin: 0 0 4px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .info .price {
+                font-size: 12px;
+                color: #666;
+                margin: 0;
+            }
+            .add-btn {
+                position: absolute;
+                bottom: 60px;
+                right: 10px;
+                width: 30px;
+                height: 30px;
+                background: #fff;
+                border: none;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 18px;
+                cursor: pointer;
+                opacity: 0;
+                transform: translateY(10px);
+                transition: all 0.2s;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .rec-card:hover .add-btn {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
+            /* RESPONSIVE */
+            @media (max-width: 768px) {
+                .discovery-layout {
+                    flex-direction: column;
+                }
+                .col-left {
+                    width: 100%;
+                    margin-bottom: 30px;
+                }
+                .rec-grid {
+                    grid-template-columns: repeat(2, 1fr);
+                }
+                .search-drawer {
+                    padding: 20px;
+                }
+                .input-container input {
+                    font-size: 18px;
+                }
+            }
+
+            /* RESULTS GRID */
+            .results-grid {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 20px;
+            }
+            .result-card {
+                text-decoration: none;
+                color: inherit;
+            }
+            .result-card .img-wrapper {
+                aspect-ratio: 3/4;
+                margin-bottom: 10px;
+            }
+            .result-card .img-wrapper img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
+        `}</style>
+    </>
   );
 }
