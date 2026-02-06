@@ -6,7 +6,10 @@ import ProductGrid from './components/ProductGrid';
 import NewArrivals from './components/NewArrivals';
 import Footer from './components/Footer';
 import ModalsWrapper from './components/ModalsWrapper';
+import ShopTheLook from './components/ShopTheLook';
+import CrazyCarousel from './components/CrazyCarousel';
 import { getStoreData, fetchTN, processProducts, processCategories, processBanners } from '../lib/backend';
+import { getRelatedProducts } from '../lib/product-utils';
 
 export default async function Home({ searchParams }: any) {
   const params = await searchParams;
@@ -28,42 +31,65 @@ export default async function Home({ searchParams }: any) {
   const categories = processCategories(categoriesRaw);
   const bannerImages = processBanners(banners, 'hero');
 
+  // Seleccionar producto para Shop The Look (por ejemplo, el 5to producto si existe)
+  const shopTheLookProduct = products[4] || products[0];
+  const shopTheLookRelated = shopTheLookProduct
+    ? getRelatedProducts(products, shopTheLookProduct.id, shopTheLookProduct.category_id)
+    : [];
+
   return (
     <main style={{ backgroundColor: '#ffffff', color: '#000', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' }}>
       {/* Modales globales */}
       <ModalsWrapper products={products} storeId={storeLocal.storeId} />
-      
-      <Header 
-        logo={storeLocal.logo} 
-        storeId={storeLocal.storeId} 
+
+      <Header
+        logo={storeLocal.logo}
+        storeId={storeLocal.storeId}
         domain={storeLocal.domain}
         categories={categories}
       />
-      
+
       {/* Hero Slider con banners locales */}
       <HeroSlider banners={bannerImages} />
-      
+
       {/* Grid de 3 categorías principales */}
       <FeaturedSection storeId={storeLocal.storeId} categories={categories} />
-      
+
       {/* NEW ARRIVALS - Estilo Scuffers con tabs */}
-      <NewArrivals 
-        products={products} 
-        categories={categories} 
+      <NewArrivals
+        products={products}
+        categories={categories}
         storeId={storeLocal.storeId}
         domain={storeLocal.domain}
       />
 
+      {/* Carrousel LOCO / CREATIVO con Marquee */}
+      {products.length > 0 && (
+        <CrazyCarousel
+          products={products.slice(0, 10)}
+          storeId={storeLocal.storeId}
+        />
+      )}
+
       {/* Banner Split - Mujer / Hombre */}
       <BannerGrid storeId={storeLocal.storeId} variant="split" />
+
+      {/* SHOP THE LOOK en Home */}
+      {shopTheLookProduct && (
+        <ShopTheLook
+          mainProduct={shopTheLookProduct}
+          relatedProducts={shopTheLookRelated}
+          storeId={storeLocal.storeId}
+        />
+      )}
 
       {/* Sección BEST SELLERS */}
       <section style={{ padding: '80px 0', backgroundColor: '#f8f8f8' }}>
         <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 20px' }}>
-          <h2 style={{ 
-            fontSize: '12px', 
-            fontWeight: '800', 
-            textAlign: 'center', 
+          <h2 style={{
+            fontSize: '12px',
+            fontWeight: '800',
+            textAlign: 'center',
             marginBottom: '50px',
             letterSpacing: '4px',
             textTransform: 'uppercase'
@@ -74,16 +100,13 @@ export default async function Home({ searchParams }: any) {
         </div>
       </section>
 
-      {/* Banner Full Width - Collection */}
-      <BannerGrid storeId={storeLocal.storeId} variant="full" />
-
       {/* Sección ÚLTIMOS PRODUCTOS */}
       <section style={{ padding: '80px 0', backgroundColor: '#fff' }}>
         <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 20px' }}>
-          <h2 style={{ 
-            fontSize: '12px', 
-            fontWeight: '800', 
-            textAlign: 'center', 
+          <h2 style={{
+            fontSize: '12px',
+            fontWeight: '800',
+            textAlign: 'center',
             marginBottom: '50px',
             letterSpacing: '4px',
             textTransform: 'uppercase'
@@ -95,34 +118,34 @@ export default async function Home({ searchParams }: any) {
       </section>
 
       {/* Newsletter Banner */}
-      <section style={{ 
-        padding: '80px 20px', 
+      <section style={{
+        padding: '80px 20px',
         backgroundColor: '#000',
         color: '#fff',
         textAlign: 'center'
       }}>
         <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-          <h3 style={{ 
-            fontSize: '11px', 
-            fontWeight: '800', 
+          <h3 style={{
+            fontSize: '11px',
+            fontWeight: '800',
             letterSpacing: '3px',
             marginBottom: '20px'
           }}>
             NEWSLETTER
           </h3>
-          <p style={{ 
-            fontSize: '24px', 
-            fontWeight: '300', 
+          <p style={{
+            fontSize: '24px',
+            fontWeight: '300',
             marginBottom: '30px',
             lineHeight: '1.4'
           }}>
             Suscribite y obtené un 10% de descuento
           </p>
           <form style={{ display: 'flex', gap: '0', maxWidth: '450px', margin: '0 auto' }}>
-            <input 
-              type="email" 
-              placeholder="Tu email" 
-              style={{ 
+            <input
+              type="email"
+              placeholder="Tu email"
+              style={{
                 flex: 1,
                 padding: '16px 20px',
                 border: 'none',
@@ -130,9 +153,9 @@ export default async function Home({ searchParams }: any) {
                 outline: 'none'
               }}
             />
-            <button 
+            <button
               type="submit"
-              style={{ 
+              style={{
                 padding: '16px 30px',
                 background: '#fff',
                 color: '#000',
@@ -148,9 +171,9 @@ export default async function Home({ searchParams }: any) {
           </form>
         </div>
       </section>
-      
-      <Footer 
-        logo={storeLocal.logo} 
+
+      <Footer
+        logo={storeLocal.logo}
         storeName={storeLocal.name || 'DIRECHENTT'}
       />
     </main>

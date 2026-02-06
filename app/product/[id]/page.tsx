@@ -5,8 +5,10 @@ import Footer from '../../components/Footer';
 import ImageGallery from '../../components/ImageGallery';
 import ProductInfo from '../../components/ProductInfo';
 import ModalsWrapper from '../../components/ModalsWrapper';
+import ShopTheLook from '../../components/ShopTheLook';
+import ProductCarousel from '../../components/ProductCarousel';
 import { getStoreData, fetchTN } from '../../../lib/backend';
-import { processProduct, getRelatedProducts } from '../../../lib/product-utils';
+import { processProduct, getRelatedProducts, getCrossSellProducts, getBestSellers } from '../../../lib/product-utils';
 
 export default async function ProductPage({ params, searchParams }: any) {
   const { id } = await params;
@@ -17,19 +19,29 @@ export default async function ProductPage({ params, searchParams }: any) {
   const [product, categories, products] = await Promise.all([
     fetchTN(`products/${id}?expand=variants`, storeLocal.storeId, storeLocal.accessToken),
     fetchTN('categories', storeLocal.storeId, storeLocal.accessToken),
-    fetchTN('products', storeLocal.storeId, storeLocal.accessToken, 'limit=20&published=true')
+    fetchTN('products', storeLocal.storeId, storeLocal.accessToken, 'limit=60&published=true')
   ]);
-  
+
   if (!product) return notFound();
 
-  const relatedProducts = getRelatedProducts(products?.result || [], product.id, product.category_id);
+  const allProducts = Array.isArray(products) ? products : (products?.result || []);
+
+  const relatedProducts = getRelatedProducts(allProducts, product.id, product.category_id);
+  const crossSellGroups = getCrossSellProducts(allProducts, product.category_id);
+  const bestSellers = getBestSellers(allProducts);
+
   const processedProduct = processProduct(product);
+  // Helper para obtener nombre de categoría
+  const getCategoryName = (catId: number) => {
+    const cat = categories.find((c: any) => c.id == catId);
+    return cat ? (cat.name.es || cat.name.en || cat.name) : 'Destacados';
+  };
 
   return (
     <main className="pdp-page">
-      <Header 
-        logo={storeLocal.logo} 
-        storeId={storeLocal.storeId} 
+      <Header
+        logo={storeLocal.logo}
+        storeId={storeLocal.storeId}
         domain={storeLocal.domain}
         categories={categories || []}
       />
@@ -38,55 +50,66 @@ export default async function ProductPage({ params, searchParams }: any) {
         {/* GALERÍA DE IMÁGENES */}
         <div className="pdp-gallery-col">
           <ImageGallery
-            images={processedProduct.images || []}
-            productName={processedProduct.name}
+            images={processProduct(product).images || []}
+            productName={processProduct(product).name}
           />
         </div>
 
         {/* INFORMACIÓN DEL PRODUCTO */}
         <div className="pdp-info-col">
           <ProductInfo
-            product={processedProduct}
+            product={processProduct(product)}
             storeId={storeLocal.storeId}
             domain={storeLocal.domain}
           />
         </div>
       </div>
 
-      {/* PRODUCTOS RELACIONADOS */}
-      {relatedProducts && relatedProducts.length > 0 && (
-        <section className="related-section">
-          <h2 className="related-title">Podría gustarte</h2>
-          <div className="related-grid">
-            {relatedProducts.slice(0, 4).map((related: any) => {
-              const relName = typeof related.name === 'object' 
-                ? (related.name.es || related.name.en) 
-                : related.name;
-              const relPrice = related.variants?.[0]?.price || 0;
-              const relImage = related.images?.[0]?.src || '/placeholder.jpg';
-              
-              return (
-                <Link 
-                  key={related.id} 
-                  href={`/product/${related.id}?shop=${shop}`}
-                  className="related-card"
-                >
-                  <div className="related-image">
-                    <img src={relImage} alt={relName} />
-                  </div>
-                  <h3 className="related-name">{relName}</h3>
-                  <p className="related-price">${relPrice.toLocaleString('es-AR')}</p>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
-      )}
+      {/* SHOP THE LOOK */}
+      <ShopTheLook
+        mainProduct={processedProduct}
+        relatedProducts={relatedProducts}
+        storeId={storeLocal.storeId}
+      />
+
+      {/* CARRUSELES DE PRODUCTOS */}
+      <div className="related-section">
+
+        {/* 1. Mismos productos de la categoría */}
+        {relatedProducts.length > 0 && (
+          <ProductCarousel
+            title="Podría gustarte"
+            products={relatedProducts}
+            storeId={storeLocal.storeId}
+          />
+        )}
+
+        {/* 2. Productos de otras categorías (Cross-Sell) */}
+        {crossSellGroups.map((group: any, index: number) => (
+          <ProductCarousel
+            key={group.categoryId}
+            title={index === 0 ? 'Completa tu look' : getCategoryName(group.categoryId)}
+            products={group.products}
+            storeId={storeLocal.storeId}
+          />
+        ))}
+
+        {/* 3. Carrusel extra: Más Vendidos (Simulado con aleatorios) */}
+        {bestSellers.length > 0 && (
+          <ProductCarousel
+            title="Más Vendidos"
+            products={bestSellers}
+            storeId={storeLocal.storeId}
+          />
+        )}
+
+      </div>
 
       <Footer logo={storeLocal.logo} storeName={storeLocal.name || 'DIRECHENTT'} />
-      <ModalsWrapper products={products?.result || []} storeId={storeLocal.storeId} />
+      <ModalsWrapper products={allProducts} storeId={storeLocal.storeId} />
 
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         .pdp-page {
           background: #fff;
           min-height: 100vh;
@@ -126,80 +149,11 @@ export default async function ProductPage({ params, searchParams }: any) {
           }
         }
 
-        /* ========== PRODUCTOS RELACIONADOS ========== */
+        /* ========== SECCIÓN RELACIONADOS ========== */
         .related-section {
-          padding: 60px 20px;
+          padding: 40px 0;
           border-top: 1px solid #e5e5e5;
-        }
-
-        @media (min-width: 768px) {
-          .related-section {
-            padding: 80px 40px;
-          }
-        }
-
-        .related-title {
-          font-size: 18px;
-          font-weight: 700;
-          margin: 0 0 30px 0;
-          letter-spacing: 0.5px;
-        }
-
-        @media (min-width: 768px) {
-          .related-title {
-            font-size: 20px;
-            margin-bottom: 40px;
-          }
-        }
-
-        .related-grid {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 16px;
-        }
-
-        @media (min-width: 768px) {
-          .related-grid {
-            grid-template-columns: repeat(4, 1fr);
-            gap: 20px;
-          }
-        }
-
-        .related-card {
-          text-decoration: none;
-          color: inherit;
-        }
-
-        .related-image {
-          width: 100%;
-          aspect-ratio: 3/4;
-          overflow: hidden;
-          background: #f5f5f5;
-          margin-bottom: 12px;
-        }
-
-        .related-image img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          transition: transform 0.4s ease;
-        }
-
-        .related-card:hover .related-image img {
-          transform: scale(1.05);
-        }
-
-        .related-name {
-          font-size: 13px;
-          font-weight: 600;
-          margin: 0 0 6px 0;
-          line-height: 1.4;
-        }
-
-        .related-price {
-          font-size: 14px;
-          font-weight: 700;
-          margin: 0;
+          background: #fff;
         }
       `}} />
     </main>

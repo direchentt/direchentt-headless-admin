@@ -1,8 +1,9 @@
 'use client';
 
+import { useState, useEffect, useMemo } from 'react';
 import { useStore } from '../context/StoreContext';
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 interface SearchModalProps {
   products: any[];
@@ -10,263 +11,323 @@ interface SearchModalProps {
 }
 
 export default function SearchModal({ products, storeId }: SearchModalProps) {
-  const { isSearchOpen, setSearchOpen, searchQuery, setSearchQuery, searchResults, performSearch } = useStore();
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [localQuery, setLocalQuery] = useState('');
+  const { searchOpen, setSearchOpen } = useStore();
+  const [searchTerm, setSearchTerm] = useState('');
+  const router = useRouter();
 
   useEffect(() => {
-    if (isSearchOpen && inputRef.current) {
-      inputRef.current.focus();
+    if (searchOpen) {
+      document.body.style.overflow = 'hidden';
+      // Auto focus logic could go here
+    } else {
+      document.body.style.overflow = '';
+      setSearchTerm('');
     }
-  }, [isSearchOpen]);
+  }, [searchOpen]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      performSearch(localQuery, products);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [localQuery, products]);
+  // Derivar categorías únicas de los productos reales
+  const suggestions = useMemo(() => {
+    const uniqueCategories = new Set<string>();
+    products.forEach(p => {
+      if (p.categories) {
+        p.categories.forEach((c: any) => {
+          const name = typeof c.name === 'object' ? (c.name.es || c.name.en) : c.name;
+          if (name) uniqueCategories.add(name);
+        });
+      }
+    });
+    return Array.from(uniqueCategories).slice(0, 5); // Top 5
+  }, [products]);
 
-  // Cerrar con ESC
-  useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setSearchOpen(false);
-    };
-    window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
-  }, [setSearchOpen]);
+  // Filtrar productos en tiempo real
+  const filteredProducts = useMemo(() => {
+    if (!searchTerm.trim()) return [];
 
-  if (!isSearchOpen) return null;
+    const lowerTerm = searchTerm.toLowerCase();
+    return products.filter(p => {
+      const name = typeof p.name === 'object' ? (p.name.es || p.name.en) : p.name;
+      return name?.toLowerCase().includes(lowerTerm);
+    }).slice(0, 4); // Max 4 resultados directos
+  }, [searchTerm, products]);
 
-  const getProductName = (product: any) => {
-    return typeof product.name === 'object' 
-      ? (product.name.es || product.name.en || 'Producto')
-      : (product.name || 'Producto');
+  // Filtrar categorías sugeridas en tiempo real
+  const filteredCategories = useMemo(() => {
+    if (!searchTerm.trim()) return [];
+    const lowerTerm = searchTerm.toLowerCase();
+    return suggestions.filter(cat => cat.toLowerCase().includes(lowerTerm)).slice(0, 3);
+  }, [searchTerm, suggestions]);
+
+
+  if (!searchOpen) return null;
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchTerm.trim()) {
+      setSearchOpen(false);
+      // Redirigir a search results (asumiendo que existe o usando home con query)
+      // Como no tenemos pagina de busqueda especifica, filtramos en home
+      // Pero idealmente seria /search?q=...
+      // Por ahora cerramos
+      console.log('Searching for:', searchTerm);
+    }
   };
 
-  const getProductImage = (product: any) => {
-    return product.images?.[0]?.src || '';
-  };
+  const close = () => setSearchOpen(false);
 
   return (
-    <>
-      <div className="search-modal-overlay" onClick={() => setSearchOpen(false)} />
+    <div className="search-modal-overlay">
       <div className="search-modal">
-        <div className="search-modal-header">
-          <div className="search-input-wrapper">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M9 17A8 8 0 1 0 9 1a8 8 0 0 0 0 16zM18 18l-4-4" stroke="#999" strokeWidth="1.5" strokeLinecap="round"/>
+        <div className="search-header">
+          <form onSubmit={handleSearch} className="search-form">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="search-icon">
+              <circle cx="9" cy="9" r="7" stroke="#000" strokeWidth="1.5" />
+              <path d="M15 15l3 3" stroke="#000" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
             <input
-              ref={inputRef}
               type="text"
               placeholder="Buscar productos..."
-              value={localQuery}
-              onChange={(e) => setLocalQuery(e.target.value)}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
               className="search-input"
+              autoFocus
             />
-            {localQuery && (
-              <button className="search-clear" onClick={() => setLocalQuery('')}>✕</button>
+            {searchTerm && (
+              <button type="button" className="clear-btn" onClick={() => setSearchTerm('')}>✕</button>
             )}
-          </div>
-          <button className="search-close" onClick={() => setSearchOpen(false)}>
-            CERRAR
-          </button>
+          </form>
+          <button className="close-btn" onClick={close}>CANCELAR</button>
         </div>
 
-        <div className="search-results">
-          {localQuery && searchResults.length === 0 && (
-            <p className="search-no-results">No se encontraron resultados para "{localQuery}"</p>
-          )}
-          
-          {searchResults.map((product) => (
-            <Link 
-              key={product.id} 
-              href={`/product/${product.id}?shop=${storeId}`}
-              className="search-result-item"
-              onClick={() => setSearchOpen(false)}
-            >
-              <div className="search-result-image">
-                {getProductImage(product) ? (
-                  <img src={getProductImage(product)} alt={getProductName(product)} />
-                ) : (
-                  <div className="search-result-placeholder">Sin imagen</div>
-                )}
-              </div>
-              <div className="search-result-info">
-                <h4>{getProductName(product).toUpperCase()}</h4>
-                <p>$ {product.variants?.[0]?.price || 0}</p>
-              </div>
-            </Link>
-          ))}
-
-          {!localQuery && (
-            <div className="search-suggestions">
-              <p className="search-suggestions-title">BÚSQUEDAS POPULARES</p>
-              <div className="search-suggestions-list">
-                {['Remeras', 'Pantalones', 'Buzos', 'Accesorios'].map(term => (
-                  <button 
-                    key={term} 
-                    className="search-suggestion"
-                    onClick={() => setLocalQuery(term)}
+        <div className="search-content">
+          {/* Si no hay busqueda, mostrar sugerencias populares (categorías) */}
+          {!searchTerm && (
+            <div className="suggestions-section">
+              <h3>SUGERENCIAS POPULARES</h3>
+              <div className="tags-cloud">
+                {suggestions.map((cat, idx) => (
+                  <Link
+                    key={idx}
+                    href={`/?category=${encodeURIComponent(cat)}&shop=${storeId}`} // Simple link a home filtrada o categoria
+                    onClick={close}
+                    className="search-tag"
                   >
-                    {term}
-                  </button>
+                    {cat}
+                  </Link>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Resultados en tiempo real */}
+          {searchTerm && (
+            <div className="results-section">
+              {filteredCategories.length > 0 && (
+                <div className="category-results">
+                  <h3>CATEGORÍAS</h3>
+                  {filteredCategories.map((cat, i) => (
+                    <Link
+                      key={i}
+                      href={`/?category=${encodeURIComponent(cat)}&shop=${storeId}`}
+                      onClick={close}
+                      className="result-link"
+                    >
+                      {cat}
+                    </Link>
+                  ))}
+                </div>
+              )}
+
+              {filteredProducts.length > 0 ? (
+                <div className="product-results">
+                  <h3>PRODUCTOS - ({filteredProducts.length})</h3>
+                  <div className="search-products-grid">
+                    {filteredProducts.map(prod => (
+                      <Link
+                        key={prod.id}
+                        href={`/product/${prod.id}?shop=${storeId}`}
+                        onClick={close}
+                        className="search-product-item"
+                      >
+                        <div className="sp-image">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={prod.images[0]?.src} alt="" />
+                        </div>
+                        <div className="sp-info">
+                          <h4>{typeof prod.name === 'object' ? (prod.name.es || prod.name.en) : prod.name}</h4>
+                          <p>$ {prod.variants[0]?.price}</p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="no-results">
+                  <p>No encontramos productos para &quot;{searchTerm}&quot;</p>
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
 
-      <style dangerouslySetInnerHTML={{__html: `
+      <style jsx>{`
         .search-modal-overlay {
           position: fixed;
           inset: 0;
-          background: rgba(0,0,0,0.5);
-          z-index: 9998;
+          background: rgba(255,255,255,0.98);
+          z-index: 3000;
           animation: fadeIn 0.2s ease;
         }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
         .search-modal {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          background: #fff;
-          z-index: 9999;
-          max-height: 80vh;
-          overflow-y: auto;
-          animation: slideDown 0.3s ease;
+            max-width: 800px;
+            margin: 0 auto;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
         }
-        @keyframes slideDown {
-          from { transform: translateY(-100%); }
-          to { transform: translateY(0); }
+
+        .search-header {
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            border-bottom: 1px solid #eee;
         }
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
+
+        .search-form {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            background: #f5f5f5;
+            padding: 0 15px;
+            height: 50px;
+            border-radius: 4px;
         }
-        .search-modal-header {
-          display: flex;
-          align-items: center;
-          gap: 20px;
-          padding: 20px;
-          border-bottom: 1px solid #f0f0f0;
-        }
-        .search-input-wrapper {
-          flex: 1;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          background: #f5f5f5;
-          padding: 12px 16px;
-          border-radius: 0;
-        }
+
         .search-input {
-          flex: 1;
-          border: none;
-          background: transparent;
-          font-size: 16px;
-          outline: none;
-          font-family: inherit;
+            flex: 1;
+            border: none;
+            background: none;
+            height: 100%;
+            font-size: 16px;
+            margin: 0 10px;
+            outline: none;
         }
-        .search-clear {
-          background: none;
-          border: none;
-          font-size: 16px;
-          cursor: pointer;
-          color: #999;
+
+        .clear-btn {
+            background: none;
+            border: none;
+            font-size: 14px;
+            cursor: pointer;
+            color: #999;
         }
-        .search-close {
-          background: none;
-          border: none;
-          font-size: 11px;
-          font-weight: 800;
-          letter-spacing: 2px;
-          cursor: pointer;
-          padding: 10px;
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            cursor: pointer;
         }
-        .search-results {
-          padding: 20px;
-          min-height: 200px;
+
+        .search-content {
+            flex: 1;
+            padding: 30px 20px;
+            overflow-y: auto;
         }
-        .search-no-results {
-          text-align: center;
-          color: #666;
-          font-size: 14px;
-          padding: 40px 0;
+
+        h3 {
+            font-size: 11px;
+            font-weight: 700;
+            color: #999;
+            letter-spacing: 1px;
+            margin-bottom: 20px;
         }
-        .search-result-item {
-          display: flex;
-          gap: 15px;
-          padding: 15px 0;
-          border-bottom: 1px solid #f0f0f0;
-          text-decoration: none;
-          color: inherit;
-          transition: background 0.2s;
+
+        .tags-cloud {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
         }
-        .search-result-item:hover {
-          background: #f9f9f9;
+
+        .search-tag {
+            padding: 8px 15px;
+            background: #fff;
+            border: 1px solid #eee;
+            border-radius: 20px;
+            text-decoration: none;
+            color: #000;
+            font-size: 13px;
+            transition: all 0.2s;
         }
-        .search-result-image {
-          width: 80px;
-          height: 80px;
-          background: #f5f5f5;
-          flex-shrink: 0;
+        .search-tag:hover {
+            border-color: #000;
+            background: #000;
+            color: #fff;
         }
-        .search-result-image img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
+
+        .result-link {
+            display: block;
+            padding: 10px 0;
+            text-decoration: none;
+            color: #000;
+            font-size: 14px;
+            border-bottom: 1px solid #f9f9f9;
         }
-        .search-result-placeholder {
-          width: 100%;
-          height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 10px;
-          color: #999;
+        .result-link:hover {
+            color: #666;
         }
-        .search-result-info h4 {
-          font-size: 11px;
-          font-weight: 700;
-          letter-spacing: 1px;
-          margin: 0 0 8px 0;
+
+        .search-products-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
         }
-        .search-result-info p {
-          font-size: 12px;
-          color: #666;
-          margin: 0;
+        @media (min-width: 640px) {
+            .search-products-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
         }
-        .search-suggestions {
-          padding: 20px 0;
+
+        .search-product-item {
+            text-decoration: none;
+            color: inherit;
         }
-        .search-suggestions-title {
-          font-size: 10px;
-          font-weight: 800;
-          letter-spacing: 2px;
-          color: #999;
-          margin: 0 0 15px 0;
+
+        .sp-image {
+            width: 100%;
+            aspect-ratio: 3/4;
+            background: #f0f0f0;
+            margin-bottom: 10px;
+            overflow: hidden;
         }
-        .search-suggestions-list {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 10px;
+        .sp-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
-        .search-suggestion {
-          background: #f5f5f5;
-          border: none;
-          padding: 10px 20px;
-          font-size: 12px;
-          cursor: pointer;
-          transition: all 0.2s;
+
+        .sp-info h4 {
+            font-size: 12px;
+            font-weight: 600;
+            margin: 0 0 5px;
+            text-transform: uppercase;
         }
-        .search-suggestion:hover {
-          background: #000;
-          color: #fff;
+        .sp-info p {
+            font-size: 12px;
+            color: #666;
+            margin: 0;
         }
-      `}} />
-    </>
+        
+        .no-results {
+            text-align: center;
+            color: #666;
+            margin-top: 50px;
+        }
+      `}</style>
+    </div>
   );
 }

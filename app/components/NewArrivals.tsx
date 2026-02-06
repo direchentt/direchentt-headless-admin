@@ -78,6 +78,7 @@ const isNewProduct = (product: Product): boolean => {
 
 export default function NewArrivals({ products, categories, storeId, domain }: NewArrivalsProps) {
   const [activeTab, setActiveTab] = useState<number | null>(null);
+  const [showAlternateImages, setShowAlternateImages] = useState(false);
   const [quickShopProduct, setQuickShopProduct] = useState<Product | null>(null);
 
   // Obtener subcategorías
@@ -86,8 +87,8 @@ export default function NewArrivals({ products, categories, storeId, domain }: N
   // Filtrar productos por subcategoría activa
   const filteredProducts = useMemo(() => {
     if (activeTab === null) return products.slice(0, 10);
-    
-    return products.filter(p => 
+
+    return products.filter(p =>
       p.categories?.some((c) => c.id === activeTab)
     ).slice(0, 10);
   }, [activeTab, products]);
@@ -103,38 +104,25 @@ export default function NewArrivals({ products, categories, storeId, domain }: N
 
   return (
     <section className="new-arrivals">
-      {/* Barra de categorías tipo Scuffers */}
-      <nav className="categories-bar">
-        <a href="#" className="category-link active">Todo</a>
-        {subcategories.map((sub) => (
-          <a
-            key={sub.id}
-            href="#"
-            className={`category-link${activeTab === sub.id ? ' active' : ''}`}
-            onClick={e => { e.preventDefault(); setActiveTab(sub.id); }}
-          >
-            {safeGetName(sub.name)}
-          </a>
-        ))}
-      </nav>
+
 
       {/* Header con título y tabs */}
       <div className="arrivals-header">
         <h2 className="arrivals-title">New Arrivals</h2>
         <div className="arrivals-tabs">
-          <button 
+          <button
             className={`tab-btn ${activeTab === null ? 'active' : ''}`}
             onClick={() => setActiveTab(null)}
           >
             Ver todo <sup>{products.length}</sup>
           </button>
           {subcategories.map((sub) => (
-            <button 
+            <button
               key={sub.id}
               className={`tab-btn ${activeTab === sub.id ? 'active' : ''}`}
               onClick={() => setActiveTab(sub.id)}
             >
-              {safeGetName(sub.name)} 
+              {safeGetName(sub.name)}
               <sup>{products.filter(p => p.categories?.some((c) => c.id === sub.id)).length}</sup>
             </button>
           ))}
@@ -142,118 +130,30 @@ export default function NewArrivals({ products, categories, storeId, domain }: N
         <div className="arrivals-toggle">
           <label className="toggle-label">
             <span className="toggle-switch">
-              <input type="checkbox" />
+              <input
+                type="checkbox"
+                checked={showAlternateImages}
+                onChange={(e) => setShowAlternateImages(e.target.checked)}
+              />
               <span className="toggle-slider"></span>
             </span>
-            <span className="toggle-text">Just Woman</span>
+            <span className="toggle-text">Tocalo para ver qué hace 😜</span>
           </label>
         </div>
       </div>
 
       {/* Product Grid */}
       <div className="arrivals-grid">
-        {filteredProducts.map((product) => {
-          const images = product.images || [];
-          const price = getProductPrice(product);
-          const comparePrice = getComparePrice(product);
-          const isNew = isNewProduct(product);
-          const isOnSale = comparePrice !== null && comparePrice > price;
-
-          return (
-            <Link 
-              key={product.id} 
-              href={`/product/${product.id}?shop=${storeId}`}
-              className="product-card"
-            >
-              <div className="product-image" style={{
-                position: 'relative',
-                width: '100%',
-                paddingBottom: '133%',
-                background: '#f5f5f5',
-                overflow: 'hidden',
-                marginBottom: '12px'
-              }}>
-                {images.length > 0 ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img 
-                    src={images[0].src} 
-                    alt={safeGetName(product.name)}
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
-                      transition: 'transform 0.4s ease'
-                    }}
-                    referrerPolicy="no-referrer"
-                    crossOrigin="anonymous"
-                  />
-                ) : (
-                  <div style={{
-                    position: 'absolute',
-                    inset: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '12px',
-                    color: '#999'
-                  }}>Sin imagen</div>
-                )}
-                {isOnSale && (
-                  <span className="badge badge-sale">SALE</span>
-                )}
-                {isNew && !isOnSale && (
-                  <span className="badge badge-new">NEW IN</span>
-                )}
-                <button 
-                  className="quick-add" 
-                  onClick={(e) => { 
-                    e.preventDefault(); 
-                    setQuickShopProduct(product);
-                  }}
-                >
-                  +
-                </button>
-              </div>
-              <div className="product-info">
-                <div className="product-name-price">
-                  <span className="product-name">{safeGetName(product.name)}</span>
-                  <div className="price-container">
-                    {isOnSale && comparePrice && (
-                      <span className="product-price-old">{formatPrice(comparePrice)}</span>
-                    )}
-                    <span className={`product-price ${isOnSale ? 'sale' : ''}`}>{formatPrice(price)}</span>
-                  </div>
-                </div>
-                {/* Cuadraditos de variantes con imagen */}
-                {images && images.length > 1 && (
-                  <div className="product-variants">
-                    {images
-                      .filter((img) => img && img.src) // Filtrar imágenes válidas
-                      .slice(0, 4)
-                      .map((img, i) => (
-                        <span key={i} className="variant-thumb">
-                          <Image
-                            src={img.src}
-                            alt=""
-                            width={40}
-                            height={40}
-                            style={{ objectFit: 'cover', borderRadius: 4 }}
-                            onError={(e: any) => {
-                              e.target.style.display = 'none';
-                            }}
-                            unoptimized
-                          />
-                        </span>
-                      ))}
-                  </div>
-                )}
-              </div>
-            </Link>
-          );
-        })}
+        {filteredProducts.map((product) => (
+          <NewArrivalsCard
+            key={product.id}
+            product={product}
+            storeId={storeId}
+            showAlternateImages={showAlternateImages}
+            onQuickShop={() => setQuickShopProduct(product)}
+            formatPrice={formatPrice}
+          />
+        ))}
       </div>
 
       {/* Quick Shop Modal */}
@@ -265,7 +165,8 @@ export default function NewArrivals({ products, categories, storeId, domain }: N
         onClose={() => setQuickShopProduct(null)}
       />
 
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         .new-arrivals {
           padding: 60px 0 80px;
           background: #fff;
@@ -416,14 +317,36 @@ export default function NewArrivals({ products, categories, storeId, domain }: N
           max-width: 1400px;
           margin: 0 auto;
           padding: 0 20px;
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
+          display: flex; /* Flex para scroll horizontal */
           gap: 15px;
+          overflow-x: auto;
+          scroll-snap-type: x mandatory;
+          -webkit-overflow-scrolling: touch;
+          padding-bottom: 20px; /* Espacio para scrollbar si aparece */
         }
+        
+        .arrivals-grid::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* En mobile, los items tienen ancho fijo para que se pueda scrollear */
+        .arrivals-grid > :global(.product-card) {
+            flex: 0 0 45vw; /* 45% del ancho para ver un poco del siguiente */
+            scroll-snap-align: start;
+            min-width: 160px;
+        }
+
         @media (min-width: 640px) {
           .arrivals-grid {
+            display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 20px;
+            overflow-x: visible;
+            padding-bottom: 0;
+          }
+          .arrivals-grid > :global(.product-card) {
+            flex: unset;
+            width: auto;
           }
         }
         @media (min-width: 1024px) {
@@ -432,152 +355,204 @@ export default function NewArrivals({ products, categories, storeId, domain }: N
             gap: 15px;
           }
         }
-
-        /* Product Card */
-        .product-card {
-          text-decoration: none;
-          color: inherit;
-          display: block;
-        }
-        .product-image {
-          position: relative;
-          width: 100%;
-          padding-bottom: 133%;
-          background: #f5f5f5;
-          overflow: hidden;
-          margin-bottom: 12px;
-        }
-        .product-image img {
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          transition: transform 0.4s ease;
-        }
-        .product-card:hover .product-image img {
-          transform: scale(1.03);
-        }
-
-        /* Badge */
-        .badge {
-          position: absolute;
-          top: 12px;
-          left: 12px;
-          font-size: 10px;
-          font-weight: 600;
-          letter-spacing: 0.5px;
-          padding: 5px 10px;
-          background: #fff;
-          color: #000;
-        }
-        .badge-sale {
-          background: #000;
-          color: #fff;
-        }
-
-        /* Quick Add */
-        .quick-add {
-          position: absolute;
-          bottom: 12px;
-          right: 12px;
-          width: 32px;
-          height: 32px;
-          background: #fff;
-          border: none;
-          border-radius: 50%;
-          font-size: 18px;
-          font-weight: 300;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          opacity: 0;
-          transition: opacity 0.2s, transform 0.2s;
-        }
-        .product-card:hover .quick-add {
-          opacity: 1;
-        }
-        .quick-add:hover {
-          transform: scale(1.1);
-        }
-
-        /* Product Info */
-        .product-info {
-          padding: 0 5px;
-        }
-        .product-name-price {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          gap: 10px;
-          margin-bottom: 8px;
-        }
-        .product-name {
-          font-size: 11px;
-          font-weight: 500;
-          color: #000;
-          line-height: 1.3;
-          flex: 1;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        }
-        .price-container {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-end;
-          gap: 2px;
-        }
-        .product-price-old {
-          font-size: 11px;
-          font-weight: 400;
-          color: #999;
-          text-decoration: line-through;
-        }
-        .product-price {
-          font-size: 11px;
-          font-weight: 500;
-          color: #000;
-          white-space: nowrap;
-        }
-        .product-price.sale {
-          color: #c00;
-        }
-
-        /* Variant Thumbnails */
-        .product-variants {
-          display: flex;
-          gap: 4px;
-          margin-top: 4px;
-        }
-        .variant-thumb {
-          width: 20px;
-          height: 20px;
-          border: 1px solid #e0e0e0;
-          overflow: hidden;
-          cursor: pointer;
-        }
-        .variant-thumb img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-        .variant-thumb:hover {
-          border-color: #000;
-        }
-
-        /* No image placeholder */
-        .no-image {
-          position: absolute;
-          inset: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: #f0f0f0;
-          color: #999;
-          font-size: 12px;
-        }
       `}} />
     </section>
   );
+}
+
+function NewArrivalsCard({ product, storeId, showAlternateImages, onQuickShop, formatPrice }: { product: Product, storeId: string, showAlternateImages: boolean, onQuickShop: () => void, formatPrice: (price: number) => string }) {
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [touchStart, setTouchStart] = useState(0);
+  const [touchEnd, setTouchEnd] = useState(0);
+
+  // Reset index when toggle changes
+  useMemo(() => {
+    if (showAlternateImages && product.images && product.images.length > 1) {
+      setCurrentImageIndex(1);
+    } else {
+      setCurrentImageIndex(0);
+    }
+  }, [showAlternateImages, product.images]);
+
+  const images = product.images || [];
+  const price = getProductPrice(product);
+  const comparePrice = getComparePrice(product);
+  const isNew = isNewProduct(product);
+  const isOnSale = comparePrice !== null && comparePrice > price;
+
+  const handleTouchStart = (e: React.TouchEvent) => setTouchStart(e.targetTouches[0].clientX);
+  const handleTouchMove = (e: React.TouchEvent) => setTouchEnd(e.targetTouches[0].clientX);
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    if (distance > 50) nextImage();
+    if (distance < -50) prevImage();
+    setTouchStart(0);
+    setTouchEnd(0);
+  }
+
+  const nextImage = (e?: React.MouseEvent | React.TouchEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    if (images.length > 1) setCurrentImageIndex((p) => (p + 1) % images.length);
+  }
+
+  const prevImage = (e?: React.MouseEvent | React.TouchEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    if (images.length > 1) setCurrentImageIndex((p) => (p - 1 + images.length) % images.length);
+  }
+
+  const imageToUse = images[currentImageIndex];
+
+  return (
+    <Link href={`/product/${product.id}?shop=${storeId}`} className="product-card">
+      <div
+        className="product-image"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={{
+          position: 'relative',
+          width: '100%',
+          paddingBottom: '133%',
+          background: '#f5f5f5',
+          overflow: 'hidden',
+          marginBottom: '12px'
+        }}
+      >
+        {imageToUse ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={imageToUse.src}
+            alt={safeGetName(product.name)}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              transition: 'transform 0.4s ease'
+            }}
+            referrerPolicy="no-referrer"
+            crossOrigin="anonymous"
+          />
+        ) : (
+          <div className="no-image">Sin imagen</div>
+        )}
+
+        {/* Dots / Arrows */}
+        {images.length > 1 && (
+          <>
+            <div className="slider-dots">
+              {images.slice(0, 5).map((_, idx) => (
+                <span
+                  key={idx}
+                  className={`dot ${idx === currentImageIndex ? 'active' : ''}`}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setCurrentImageIndex(idx); }}
+                />
+              ))}
+            </div>
+            {/* Arrows hidden on touch, visible on hover */}
+            <button className="slider-arrow left" onClick={prevImage}>‹</button>
+            <button className="slider-arrow right" onClick={nextImage}>›</button>
+          </>
+        )}
+
+        {isOnSale && <span className="badge badge-sale">SALE</span>}
+        {isNew && !isOnSale && <span className="badge badge-new">NEW IN</span>}
+        <button
+          className="quick-add"
+          onClick={(e) => {
+            e.preventDefault();
+            onQuickShop();
+          }}
+        >
+          +
+        </button>
+      </div>
+
+      <div className="product-info">
+        <div className="product-name-price">
+          <span className="product-name">{safeGetName(product.name)}</span>
+          <div className="price-container">
+            {isOnSale && comparePrice && (
+              <span className="product-price-old">{formatPrice(comparePrice)}</span>
+            )}
+            <span className={`product-price ${isOnSale ? 'sale' : ''}`}>{formatPrice(price)}</span>
+          </div>
+        </div>
+      </div>
+
+      <style jsx>{`
+                .product-card { text-decoration: none; color: inherit; display: block; }
+                .product-image img { transition: transform 0.4s ease; }
+                .product-card:hover .product-image img { transform: scale(1.03); }
+
+                .slider-dots {
+                    position: absolute;
+                    bottom: 15px;
+                    left: 0;
+                    right: 0;
+                    display: flex;
+                    justify-content: center;
+                    gap: 6px;
+                    z-index: 5;
+                    pointer-events: none; /* Let clicks pass to link unless direct on dot */
+                }
+                .dot {
+                    width: 6px;
+                    height: 6px;
+                    background: rgba(255,255,255,0.6);
+                    border-radius: 50%;
+                    pointer-events: auto;
+                    cursor: pointer;
+                    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+                }
+                .dot.active { background: #000; transform: scale(1.2); }
+
+                .slider-arrow {
+                    position: absolute;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    background: rgba(255,255,255,0.9);
+                    border: none;
+                    width: 26px;
+                    height: 26px;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 18px;
+                    line-height: 1;
+                    padding-bottom: 2px;
+                    cursor: pointer;
+                    opacity: 0;
+                    transition: opacity 0.2s;
+                    z-index: 6;
+                    color: #000;
+                }
+                .product-image:hover .slider-arrow { opacity: 1; }
+                .slider-arrow.left { left: 8px; }
+                .slider-arrow.right { right: 8px; }
+
+                .badge { position: absolute; top: 12px; left: 12px; font-size: 10px; font-weight: 600; padding: 5px 10px; background: #fff; color: #000; z-index: 2; }
+                .badge-sale { background: #000; color: #fff; }
+
+                .quick-add { position: absolute; bottom: 12px; right: 12px; width: 32px; height: 32px; background: #fff; border: 1px solid #eee; border-radius: 50%; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0; transition: all 0.2s; z-index: 10; color: #000;}
+                .product-card:hover .quick-add { opacity: 1; }
+                .quick-add:hover { transform: scale(1.1); background: #000; color: #fff; border-color: #000; }
+
+                .product-info { padding: 0 5px; }
+                .product-name-price { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+                .product-name { font-size: 11px; font-weight: 500; color: #000; line-height: 1.3; flex: 1; text-transform: uppercase; }
+                .price-container { display: flex; flex-direction: column; align-items: flex-end; }
+                .product-price-old { font-size: 11px; color: #999; text-decoration: line-through; }
+                .product-price { font-size: 11px; font-weight: 500; color: #000; }
+                .product-price.sale { color: #c00; }
+                .no-image { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #f0f0f0; color: #999; font-size: 12px; }
+            `}</style>
+    </Link>
+  )
 }

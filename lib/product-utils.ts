@@ -64,20 +64,80 @@ export function processProduct(product: any) {
  * @param limit Límite de productos relacionados a retornar
  * @returns Array de productos relacionados
  */
-export function getRelatedProducts(products: any[], currentProductId: number, categoryId: number, limit: number = 4) {
-  // Obtener productos relacionados (misma categoría, excluyendo el actual)
-  let relatedProducts = (products || [])
-    .filter((p: any) => p.id !== currentProductId && p.category_id === categoryId)
-    .slice(0, limit);
-  
-  // Si no hay productos en la misma categoría, obtener otros publicados
-  if (relatedProducts.length < limit) {
-    relatedProducts = (products || [])
-      .filter((p: any) => p.id !== currentProductId)
-      .slice(0, limit);
+/**
+ * Mezcla un array aleatoriamente (Fisher-Yates)
+ */
+function shuffleArray(array: any[]) {
+  const newArray = [...array];
+  for (let i = newArray.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
   }
+  return newArray;
+}
 
-  return relatedProducts;
+export function getRelatedProducts(products: any[], currentProductId: number, categoryId: number, limit: number = 12) {
+  // Filtrar productos válidos (misma categoría o no, excluyendo actual)
+  let candidates = (products || []).filter((p: any) => p.id !== currentProductId);
+
+  // Priorizar misma categoría
+  const sameCategory = candidates.filter((p: any) => p.category_id === categoryId);
+  const others = candidates.filter((p: any) => p.category_id !== categoryId);
+
+  // Mezclar ambos grupos
+  const shuffledSame = shuffleArray(sameCategory);
+  const shuffledOthers = shuffleArray(others);
+
+  // Combinar: primero misma categoría, luego el resto
+  const final = [...shuffledSame, ...shuffledOthers].slice(0, limit);
+
+  return final;
+}
+
+/**
+ * Obtiene productos de categorías "opuestas" o diferentes para cross-selling
+ * @param products Lista completa de productos
+ * @param currentCategoryId ID de la categoría actual
+ * @param limit Límite por grupo
+ */
+export function getCrossSellProducts(products: any[], currentCategoryId: number, limit: number = 12) {
+  // Filtrar productos que NO son de la categoría actual
+  const otherProducts = products.filter((p: any) => p.category_id && p.category_id !== currentCategoryId);
+
+  // Agrupar por categoría
+  const categoryGroups: { [key: number]: any[] } = {};
+  otherProducts.forEach(p => {
+    const catId = p.category_id;
+    if (!categoryGroups[catId]) {
+      categoryGroups[catId] = [];
+    }
+    categoryGroups[catId].push(p);
+  });
+
+  // Obtener IDs de categorías disponibles
+  const availableCategories = Object.keys(categoryGroups);
+
+  // Mezclar categorías al azar
+  const shuffledCategories = shuffleArray(availableCategories);
+
+  // Tomar hasta 2 categorías diferentes
+  const selectedCategories = shuffledCategories.slice(0, 2);
+
+  // Retornar categorías con sus productos mezclados
+  return selectedCategories.map(catId => ({
+    categoryId: catId,
+    products: shuffleArray(categoryGroups[parseInt(catId)]).slice(0, limit)
+  }));
+}
+
+/**
+ * Obtiene productos simulados como "Más Vendidos"
+ * @param products Lista completa de productos
+ * @param limit Límite de productos
+ */
+export function getBestSellers(products: any[], limit: number = 12) {
+  // Simplemente mezclamos y devolvemos
+  return shuffleArray(products || []).slice(0, limit);
 }
 
 /**
