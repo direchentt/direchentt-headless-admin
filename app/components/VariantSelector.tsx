@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useAddToCart } from '../hooks/useAddToCart';
+import { useStore } from '../context/StoreContext';
 
 interface VariantSelectorProps {
   product: any;
@@ -13,16 +13,59 @@ interface VariantSelectorProps {
 export default function VariantSelector({ product, storeId, domain, onVariantSelect }: VariantSelectorProps) {
   const variants = product.variants || [];
   const [selectedVariant, setSelectedVariant] = useState(variants[0] || null);
-  // Si tienes el email del usuario, pásalo aquí. Si no, puedes dejarlo undefined.
-  const userEmail = undefined; // <-- reemplaza esto si tienes el email
+  const [isAdding, setIsAdding] = useState(false);
 
-  const { addToCart, isLoading: isAddingToCart, error } = useAddToCart(storeId);
+  // Usar el contexto del carrito en lugar de redirigir inmediatamente
+  const { addToCart } = useStore();
 
   const handleAddToCart = async () => {
-    if (selectedVariant?.id) {
-      await addToCart(selectedVariant.id.toString(), 1, userEmail);
-    } else {
+    if (!selectedVariant?.id) {
       alert('Por favor, selecciona una variante del producto.');
+      return;
+    }
+
+    setIsAdding(true);
+
+    try {
+      // Obtener el nombre del producto
+      const productName = typeof product.name === 'object'
+        ? (product.name.es || product.name.en || 'Producto')
+        : (product.name || 'Producto');
+
+      // Obtener la imagen del producto
+      const productImage = product.images?.[0]?.src || selectedVariant.image?.src || '';
+
+      // Construir el nombre de la variante
+      let variantName = '';
+      if (selectedVariant.attributes) {
+        const attrs = Object.values(selectedVariant.attributes).filter(Boolean);
+        variantName = attrs.join(' / ');
+      }
+
+      // Agregar al carrito local
+      addToCart({
+        productId: product.id.toString(),
+        variantId: selectedVariant.id.toString(),
+        name: productName,
+        variant: variantName,
+        price: selectedVariant.price || 0,
+        quantity: 1,
+        image: productImage
+      });
+
+      // Feedback visual temporal
+      const button = document.querySelector('.add-to-cart-btn');
+      if (button) {
+        button.textContent = '✓ AGREGADO AL CARRITO';
+        setTimeout(() => {
+          if (button) button.textContent = 'AÑADIR AL CARRITO';
+        }, 2000);
+      }
+    } catch (error) {
+      console.error('Error al agregar al carrito:', error);
+      alert('Hubo un error al agregar el producto al carrito');
+    } finally {
+      setIsAdding(false);
     }
   };
 
@@ -37,8 +80,8 @@ export default function VariantSelector({ product, storeId, domain, onVariantSel
   });
 
   const colorOptions = Array.from(variantsByColor.keys());
-  const selectedColorVariants = selectedVariant?.attributes?.color 
-    ? variantsByColor.get(selectedVariant.attributes.color) 
+  const selectedColorVariants = selectedVariant?.attributes?.color
+    ? variantsByColor.get(selectedVariant.attributes.color)
     : variants;
 
   return (
@@ -48,7 +91,7 @@ export default function VariantSelector({ product, storeId, domain, onVariantSel
         <div className="variant-price-header">
           <span className="variant-price-label">Precio</span>
           <span className="variant-price-value">
-            ${typeof selectedVariant.price === 'number' 
+            ${typeof selectedVariant.price === 'number'
               ? selectedVariant.price.toLocaleString('es-AR')
               : selectedVariant.price
             }
@@ -59,15 +102,16 @@ export default function VariantSelector({ product, storeId, domain, onVariantSel
       {/* ... (código de selección de variantes sin cambios) ... */}
 
       {/* BOTÓN AÑADIR AL CARRITO */}
-      <button 
-        className="add-to-cart-btn" 
+      <button
+        className="add-to-cart-btn"
         onClick={handleAddToCart}
-        disabled={isAddingToCart || !selectedVariant}
+        disabled={isAdding || !selectedVariant}
       >
-        {isAddingToCart ? 'PROCESANDO...' : 'AÑADIR AL CARRITO'}
+        {isAdding ? 'AGREGANDO...' : 'AÑADIR AL CARRITO'}
       </button>
-      
-      <style dangerouslySetInnerHTML={{__html: `
+
+      <style dangerouslySetInnerHTML={{
+        __html: `
         .variant-section {
           padding: 0;
           background: #fff;

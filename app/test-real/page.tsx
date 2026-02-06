@@ -32,10 +32,10 @@ export default function TestRealCheckout() {
         <div style={{ marginTop: '15px', fontSize: '14px' }}>
           <strong>URLs probadas en vivo:</strong>
           <ul style={{ marginTop: '5px' }}>
-            <li>❌ <code>https://www.direchentt.com.ar/cart/add?id=1386747186&quantity=1</code> → 404</li>
-            <li>❌ <code>https://www.direchentt.com.ar/checkout/v3/start?variant_id=1386747186</code> → 404</li>
-            <li>✅ <code>https://www.direchentt.com.ar/cart</code> → 200 OK</li>
-            <li>✅ <code>https://www.direchentt.com.ar/productos/beany-wilow/</code> → 200 OK</li>
+            <li>❌ <code>https://direchentt.mitiendanube.com/cart/add?id=1386747186&quantity=1</code> → 404</li>
+            <li>❌ <code>https://direchentt.mitiendanube.com/checkout/v3/start?variant_id=1386747186</code> → 404</li>
+            <li>✅ <code>https://direchentt.mitiendanube.com/cart</code> → 200 OK</li>
+            <li>✅ <code>https://direchentt.mitiendanube.com/productos/beany-wilow/</code> → 200 OK</li>
           </ul>
         </div>
       </div>
@@ -166,7 +166,7 @@ export default function TestRealCheckout() {
           </button>
 
           <a 
-            href="https://www.direchentt.com.ar/cart"
+            href="https://direchentt.mitiendanube.com/cart"
             target="_blank"
             style={{
               backgroundColor: '#6f42c1',
@@ -228,7 +228,7 @@ if (typeof LS !== 'undefined' && LS.cart) {
 }
 
 // Método 2: AJAX POST
-fetch('https://www.direchentt.com.ar/cart/add.js', {
+fetch('https://direchentt.mitiendanube.com/cart/add.js', {
   method: 'POST',
   headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
   body: 'id=${testProduct.variantId}&quantity=${quantity}'
@@ -237,7 +237,7 @@ fetch('https://www.direchentt.com.ar/cart/add.js', {
 // Método 3: Formulario dinámico
 const form = document.createElement('form');
 form.method = 'POST';
-form.action = 'https://www.direchentt.com.ar/cart/add';
+form.action = 'https://direchentt.mitiendanube.com/cart/add';
 // ... agregar inputs y submit`}
         </pre>
       </details>

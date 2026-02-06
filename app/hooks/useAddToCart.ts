@@ -11,10 +11,15 @@ export const useAddToCart = (storeId?: string) => {
     setError(null);
 
     try {
-      const res = await fetch('/api/checkout-tiendanube', {
+      const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ variantId, quantity, email, storeId }),
+        body: JSON.stringify({
+          variantId,
+          quantity,
+          email,
+          shop: storeId || '5112334'
+        }),
       });
       const data = await res.json();
       if (!res.ok || !data.checkoutUrl) {

@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     formData.append('add_to_cart', variantId.toString());
     formData.append('quantity', quantity.toString());
     
-    const tiendanubeUrl = 'https://www.direchentt.com.ar/comprar/';
+    const tiendanubeUrl = 'https://direchentt.mitiendanube.com/comprar/';
     console.log(`[PROXY] Enviando petición a TiendaNube: POST ${tiendanubeUrl}`);
 
     const response = await fetch(tiendanubeUrl, {
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
       // Corregimos el dominio si es necesario
       if (location) {
         const originalDomain = '5112334.mitiendanube.com';
-        const correctDomain = 'www.direchentt.com.ar';
+        const correctDomain = 'direchentt.mitiendanube.com';
         location = location.replace(originalDomain, correctDomain);
         console.log(`[PROXY] Redirección corregida a: ${location}`);
       }

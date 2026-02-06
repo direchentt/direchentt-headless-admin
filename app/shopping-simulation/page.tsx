@@ -19,19 +19,19 @@ export default function ShoppingSimulation() {
     
     try {
       // Probar página principal
-      const mainResponse = await fetch('https://www.direchentt.com.ar');
+      const mainResponse = await fetch('https://direchentt.mitiendanube.com');
       addResult(`Página principal: ${mainResponse.status}`, mainResponse.ok ? 'success' : 'error');
       
       // Probar productos
-      const productsResponse = await fetch('https://www.direchentt.com.ar/productos');
+      const productsResponse = await fetch('https://direchentt.mitiendanube.com/productos');
       addResult(`Página productos: ${productsResponse.status}`, productsResponse.ok ? 'success' : 'error');
       
       // Probar checkout
-      const checkoutResponse = await fetch('https://www.direchentt.com.ar/comprar');
+      const checkoutResponse = await fetch('https://direchentt.mitiendanube.com/comprar');
       addResult(`Página checkout (/comprar): ${checkoutResponse.status}`, checkoutResponse.ok ? 'success' : 'error');
       
       // Probar checkout alternativo
-      const checkoutAltResponse = await fetch('https://www.direchentt.com.ar/checkout');
+      const checkoutAltResponse = await fetch('https://direchentt.mitiendanube.com/checkout');
       addResult(`Checkout alternativo: ${checkoutAltResponse.status}`, checkoutAltResponse.ok ? 'success' : 'error');
       
     } catch (error) {
@@ -75,7 +75,7 @@ export default function ShoppingSimulation() {
   // TEST INDIVIDUAL: Solo TiendaNube
   const testTiendaNube = () => {
     addResult('🏪 Abriendo TiendaNube Original');
-    window.open('https://www.direchentt.com.ar', '_blank');
+    window.open('https://direchentt.mitiendanube.com', '_blank');
     addResult('Instrucciones: Navega, busca productos, intenta agregar al carrito');
     addResult('Observa: URLs que se generan, funcionalidad disponible');
   };
@@ -93,11 +93,11 @@ export default function ShoppingSimulation() {
     addResult('🔗 PROBANDO URLs ESPECÍFICAS');
     
     const urlsToTest = [
-      'https://www.direchentt.com.ar',
-      'https://www.direchentt.com.ar/productos', 
-      'https://www.direchentt.com.ar/comprar',
-      'https://www.direchentt.com.ar/checkout',
-      'https://www.direchentt.com.ar/checkout/v3/start',
+      'https://direchentt.mitiendanube.com',
+      'https://direchentt.mitiendanube.com/productos', 
+      'https://direchentt.mitiendanube.com/comprar',
+      'https://direchentt.mitiendanube.com/checkout',
+      'https://direchentt.mitiendanube.com/checkout/v3/start',
       'http://localhost:3000',
       'http://localhost:3000/api/products'
     ];

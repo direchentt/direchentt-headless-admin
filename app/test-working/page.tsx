@@ -7,7 +7,7 @@ export default function TestWorkingPage() {
   
   // Método 1: Redirigir a la página principal de la tienda (SÍ FUNCIONA)
   const redirectToStore = () => {
-    const storeUrl = `https://www.direchentt.com.ar`;
+    const storeUrl = `https://direchentt.mitiendanube.com`;
     
     addResult(`✅ REDIRECCIÓN A TIENDA: ${storeUrl}`);
     
@@ -17,7 +17,7 @@ export default function TestWorkingPage() {
 
   // Método 2: Redirigir a comprar (en español TiendaNube)
   const redirectToCart = () => {
-    const cartUrl = `https://www.direchentt.com.ar/comprar`;
+    const cartUrl = `https://direchentt.mitiendanube.com/comprar`;
     
     addResult(`✅ REDIRECCIÓN A COMPRAR: ${cartUrl}`);
     
@@ -33,7 +33,7 @@ export default function TestWorkingPage() {
 
   // Método 3: Redirigir a checkout directo
   const redirectToCheckout = () => {
-    const checkoutUrl = `https://www.direchentt.com.ar/checkout`;
+    const checkoutUrl = `https://direchentt.mitiendanube.com/checkout`;
     
     addResult(`✅ REDIRECCIÓN A CHECKOUT: ${checkoutUrl}`);
     
@@ -61,7 +61,7 @@ export default function TestWorkingPage() {
         <h2>🎯 Datos del producto de prueba:</h2>
         <ul>
           <li><strong>Store ID:</strong> 5112334</li>
-          <li><strong>Domain:</strong> www.direchentt.com.ar</li>
+          <li><strong>Domain:</strong> direchentt.mitiendanube.com</li>
           <li><strong>Product ID:</strong> 308877801</li>
           <li><strong>Variant ID:</strong> 1386747186</li>
         </ul>
@@ -149,7 +149,7 @@ export default function TestWorkingPage() {
       <div style={{ marginTop: '30px', background: '#d4edda', padding: '15px', borderRadius: '5px' }}>
         <h3>⚠️ PROBLEMA IDENTIFICADO:</h3>
         <p style={{ background: '#f8d7da', padding: '10px', borderRadius: '5px' }}>
-          <strong>La tienda https://www.direchentt.com.ar/comprar está experimentando problemas de servidor.</strong><br/>
+          <strong>La tienda https://direchentt.mitiendanube.com/comprar está experimentando problemas de servidor.</strong><br/>
           Error: "Estamos experimentando inconvenientes con el servidor..."
         </p>
 

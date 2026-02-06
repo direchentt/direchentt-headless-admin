@@ -1,6 +1,7 @@
 'use client';
 
 import { useStore } from '../context/StoreContext';
+import { useCheckout } from '../hooks/useCheckout';
 import Link from 'next/link';
 import { useEffect } from 'react';
 
@@ -9,16 +10,20 @@ interface CartDrawerProps {
 }
 
 export default function CartDrawer({ storeId }: CartDrawerProps) {
-  const { 
-    isCartOpen, 
-    setCartOpen, 
-    cart, 
-    cartCount, 
-    cartTotal, 
-    removeFromCart, 
+  const {
+    isCartOpen,
+    setCartOpen,
+    cart,
+    cartCount,
+    cartTotal,
+    removeFromCart,
     updateQuantity,
-    clearCart 
+    clearCart
   } = useStore();
+
+  // Hook de checkout para manejar la creación del carrito y redirección
+  const { createCartAndCheckout, loading: checkoutLoading, error: checkoutError } = useCheckout();
+
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -38,6 +43,28 @@ export default function CartDrawer({ storeId }: CartDrawerProps) {
     return () => { document.body.style.overflow = ''; };
   }, [isCartOpen]);
 
+  // Manejar el checkout
+  const handleCheckout = async () => {
+    if (cart.length === 0) {
+      alert('Tu carrito está vacío');
+      return;
+    }
+
+    // Transformar items del carrito al formato esperado por la API
+    const checkoutItems = cart.map(item => ({
+      variantId: parseInt(item.variantId.toString()),
+      quantity: item.quantity,
+      productId: parseInt(item.productId.toString())
+    }));
+
+    try {
+      await createCartAndCheckout(checkoutItems);
+    } catch (error) {
+      console.error('Error en checkout:', error);
+      // El error ya se muestra via onError del hook
+    }
+  };
+
   if (!isCartOpen) return null;
 
   return (
@@ -52,7 +79,7 @@ export default function CartDrawer({ storeId }: CartDrawerProps) {
         {cart.length === 0 ? (
           <div className="cart-empty">
             <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1">
-              <path d="M3 3h2l.4 2M7 13h10l2-7H6l-1.6-8M7 13L5.4 5M7 13l-1.293 1.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-10 0a2 2 0 100 4 2 2 0 000-4z"/>
+              <path d="M3 3h2l.4 2M7 13h10l2-7H6l-1.6-8M7 13L5.4 5M7 13l-1.293 1.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-10 0a2 2 0 100 4 2 2 0 000-4z" />
             </svg>
             <p>Tu carrito está vacío</p>
             <button className="cart-continue" onClick={() => setCartOpen(false)}>
@@ -72,8 +99,8 @@ export default function CartDrawer({ storeId }: CartDrawerProps) {
                     )}
                   </div>
                   <div className="cart-item-details">
-                    <Link 
-                      href={`/product/${item.productId}?shop=${storeId}`} 
+                    <Link
+                      href={`/product/${item.productId}?shop=${storeId}`}
                       className="cart-item-name"
                       onClick={() => setCartOpen(false)}
                     >
@@ -81,15 +108,15 @@ export default function CartDrawer({ storeId }: CartDrawerProps) {
                     </Link>
                     {item.variant && <p className="cart-item-variant">{item.variant}</p>}
                     <p className="cart-item-price">$ {item.price}</p>
-                    
+
                     <div className="cart-item-quantity">
                       <button onClick={() => updateQuantity(item.id, item.quantity - 1)}>−</button>
                       <span>{item.quantity}</span>
                       <button onClick={() => updateQuantity(item.id, item.quantity + 1)}>+</button>
                     </div>
                   </div>
-                  <button 
-                    className="cart-item-remove" 
+                  <button
+                    className="cart-item-remove"
                     onClick={() => removeFromCart(item.id)}
                     aria-label="Eliminar"
                   >
@@ -105,11 +132,15 @@ export default function CartDrawer({ storeId }: CartDrawerProps) {
                 <span>$ {cartTotal.toLocaleString()}</span>
               </div>
               <p className="cart-shipping">Envío calculado en el checkout</p>
-              
-              <button className="cart-checkout">
-                FINALIZAR COMPRA
+
+              <button
+                className="cart-checkout"
+                onClick={handleCheckout}
+                disabled={checkoutLoading || cart.length === 0}
+              >
+                {checkoutLoading ? 'PROCESANDO...' : 'FINALIZAR COMPRA'}
               </button>
-              
+
               <button className="cart-continue-shopping" onClick={() => setCartOpen(false)}>
                 SEGUIR COMPRANDO
               </button>
@@ -118,7 +149,8 @@ export default function CartDrawer({ storeId }: CartDrawerProps) {
         )}
       </div>
 
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         .cart-overlay {
           position: fixed;
           inset: 0;

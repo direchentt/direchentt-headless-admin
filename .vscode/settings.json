@@ -1,3 +1,4 @@
 {
-    "chat.agent.maxRequests": 2500000
+    "chat.agent.maxRequests": 2500000,
+    "virgoAutoFtp.enable": true
 }

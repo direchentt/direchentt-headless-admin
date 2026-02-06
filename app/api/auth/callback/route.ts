@@ -29,17 +29,24 @@ export async function GET(request: Request) {
       const database = client.db('AppRegaloDB');
       const stores = database.collection('stores');
 
+      console.log('✅ Token recibido de TiendaNube');
+      console.log('🏪 Store ID:', data.user_id);
+      console.log('📋 Scopes otorgados:', data.scope || 'No especificado');
+
       await stores.updateOne(
         { storeId: data.user_id.toString() },
-        { 
-          $set: { 
-            accessToken: data.access_token, 
+        {
+          $set: {
+            accessToken: data.access_token,
             shop_name: data.organization || "Tienda Nueva",
-            updated_at: new Date() 
-          } 
+            scopes: data.scope || null, // Guardar scopes otorgados
+            updated_at: new Date()
+          }
         },
         { upsert: true }
       );
+
+      console.log('💾 Token guardado en MongoDB');
 
       // Redirigimos a la Home con el parámetro shop para que el Dashboard te reconozca
       return NextResponse.redirect(`https://direchentt-headless-admin.vercel.app/?shop=${data.user_id}`);

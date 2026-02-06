@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     // Configuración de la tienda
     const storeConfig = {
       storeId: '5112334',
-      domain: 'www.direchentt.com.ar',
+      domain: 'direchentt.mitiendanube.com',
       accessToken: process.env.TIENDANUBE_ACCESS_TOKEN
     };
 
@@ -158,7 +158,7 @@ export async function POST(request: Request) {
       message: '✅ URLs generadas con patrón EXACTO /checkout/v3/start/',
       recommendation: 'Estas URLs contienen /checkout/v3/start/ como tu ejemplo funcionando',
       note: 'URLs con patrón exacto /checkout/v3/start/ de TiendaNube',
-      example_provided: 'Tu ejemplo: https://www.direchentt.com.ar/checkout/v3/start/1883736273/cf70b8a50dc9640327892d31728cad7b9aa4babd?from_store=1&country=AR'
+      example_provided: 'Tu ejemplo: https://direchentt.mitiendanube.com/checkout/v3/start/1883736273/cf70b8a50dc9640327892d31728cad7b9aa4babd?from_store=1&country=AR'
     });
 
   } catch (error) {

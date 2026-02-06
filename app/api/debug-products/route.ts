@@ -28,7 +28,7 @@ export async function GET(request: Request) {
     let domain = storeData.domain;
     if (!domain) {
       if (storeData.storeId === '5112334') {
-        domain = 'www.direchentt.com.ar';
+        domain = 'direchentt.mitiendanube.com';
       } else {
         domain = `${storeData.storeId}.mitiendanube.com`;
       }

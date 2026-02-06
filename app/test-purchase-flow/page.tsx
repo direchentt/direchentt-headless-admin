@@ -64,7 +64,7 @@ export default function TestPurchaseFlow() {
           variantId: product.variants[0]?.id,
           cartResponse: cartData,
           storeId: '5112334',
-          domain: 'www.direchentt.com.ar'
+          domain: 'direchentt.mitiendanube.com'
         }
       }));
       
@@ -82,7 +82,7 @@ export default function TestPurchaseFlow() {
     
     try {
       // 1. Probar diferentes métodos de agregar al carrito
-      const tiendaURL = `https://www.direchentt.com.ar`;
+      const tiendaURL = `https://direchentt.mitiendanube.com`;
       
       // Método 1: URL directa del producto
       const productURL = `${tiendaURL}/products/${product.id}`;
@@ -123,7 +123,7 @@ export default function TestPurchaseFlow() {
     const requiredForCommunication = {
       store_id: '5112334',
       headless_domain: 'store.direchentt.com.ar',
-      tiendanube_domain: 'www.direchentt.com.ar',
+      tiendanube_domain: 'direchentt.mitiendanube.com',
       product_mapping: {
         localhost_id: apiVariables.localhost?.productId,
         tiendanube_id: apiVariables.tiendanube?.productId,

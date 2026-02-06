@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import QuickShop from './QuickShop';
 
@@ -77,7 +78,7 @@ const isNewProduct = (product: Product): boolean => {
 
 export default function NewArrivals({ products, categories, storeId, domain }: NewArrivalsProps) {
   const [activeTab, setActiveTab] = useState<number | null>(null);
-  const [quickShopProduct, setQuickShopProduct] = useState<any>(null);
+  const [quickShopProduct, setQuickShopProduct] = useState<Product | null>(null);
 
   // Obtener subcategorías
   const subcategories = categories.filter((c) => c.parent).slice(0, 6);
@@ -99,12 +100,27 @@ export default function NewArrivals({ products, categories, storeId, domain }: N
     }).format(price);
   };
 
+
   return (
     <section className="new-arrivals">
+      {/* Barra de categorías tipo Scuffers */}
+      <nav className="categories-bar">
+        <a href="#" className="category-link active">Todo</a>
+        {subcategories.map((sub) => (
+          <a
+            key={sub.id}
+            href="#"
+            className={`category-link${activeTab === sub.id ? ' active' : ''}`}
+            onClick={e => { e.preventDefault(); setActiveTab(sub.id); }}
+          >
+            {safeGetName(sub.name)}
+          </a>
+        ))}
+      </nav>
+
       {/* Header con título y tabs */}
       <div className="arrivals-header">
         <h2 className="arrivals-title">New Arrivals</h2>
-        
         <div className="arrivals-tabs">
           <button 
             className={`tab-btn ${activeTab === null ? 'active' : ''}`}
@@ -123,7 +139,6 @@ export default function NewArrivals({ products, categories, storeId, domain }: N
             </button>
           ))}
         </div>
-
         <div className="arrivals-toggle">
           <label className="toggle-label">
             <span className="toggle-switch">
@@ -219,16 +234,17 @@ export default function NewArrivals({ products, categories, storeId, domain }: N
                       .filter((img) => img && img.src) // Filtrar imágenes válidas
                       .slice(0, 4)
                       .map((img, i) => (
-                        // eslint-disable-next-line @next/next/no-img-element
                         <span key={i} className="variant-thumb">
-                          <img 
-                            src={img.src} 
-                            alt="" 
-                            referrerPolicy="no-referrer"
-                            crossOrigin="anonymous"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = 'none';
+                          <Image
+                            src={img.src}
+                            alt=""
+                            width={40}
+                            height={40}
+                            style={{ objectFit: 'cover', borderRadius: 4 }}
+                            onError={(e: any) => {
+                              e.target.style.display = 'none';
                             }}
+                            unoptimized
                           />
                         </span>
                       ))}
@@ -259,30 +275,33 @@ export default function NewArrivals({ products, categories, storeId, domain }: N
         .arrivals-header {
           max-width: 1400px;
           margin: 0 auto;
-          padding: 0 20px;
+          padding: 0 16px;
           display: flex;
-          flex-wrap: wrap;
+          flex-wrap: nowrap;
           align-items: center;
-          gap: 20px;
-          margin-bottom: 40px;
+          gap: 12px;
+          margin-bottom: 0;
+          min-height: 48px;
+          border-bottom: none;
+          background: #fff;
         }
         @media (min-width: 1024px) {
           .arrivals-header {
-            flex-wrap: nowrap;
-            gap: 40px;
+            gap: 18px;
           }
         }
 
         .arrivals-title {
-          font-size: 28px;
-          font-weight: 400;
-          color: #000;
-          margin: 0;
+          font-size: 22px;
+          font-weight: 600;
+          color: #111;
+          margin: 0 18px 0 0;
           white-space: nowrap;
+          letter-spacing: 0.01em;
         }
         @media (min-width: 768px) {
           .arrivals-title {
-            font-size: 36px;
+            font-size: 28px;
           }
         }
 
@@ -290,12 +309,13 @@ export default function NewArrivals({ products, categories, storeId, domain }: N
         .arrivals-tabs {
           display: flex;
           align-items: center;
-          gap: 20px;
+          gap: 12px;
           overflow-x: auto;
           -webkit-overflow-scrolling: touch;
           scrollbar-width: none;
           flex: 1;
-          padding: 5px 0;
+          padding: 0;
+          min-height: 48px;
         }
         .arrivals-tabs::-webkit-scrollbar {
           display: none;
@@ -303,14 +323,16 @@ export default function NewArrivals({ products, categories, storeId, domain }: N
         .tab-btn {
           background: none;
           border: none;
-          font-size: 13px;
+          font-size: 14px;
           font-weight: 400;
           color: #888;
           cursor: pointer;
-          padding: 8px 0;
+          padding: 0 2px;
           white-space: nowrap;
           transition: color 0.2s;
           position: relative;
+          height: 48px;
+          line-height: 48px;
         }
         .tab-btn:hover {
           color: #000;

@@ -17,8 +17,8 @@ export default function Header({ logo, storeId, domain, categories }: HeaderProp
   const [expandedCategories, setExpandedCategories] = useState<number[]>([]);
 
   const toggleCategory = (catId: number) => {
-    setExpandedCategories(prev => 
-      prev.includes(catId) 
+    setExpandedCategories(prev =>
+      prev.includes(catId)
         ? prev.filter(id => id !== catId)
         : [...prev, catId]
     );
@@ -46,13 +46,13 @@ export default function Header({ logo, storeId, domain, categories }: HeaderProp
           {/* LEFT SIDE - Burger (mobile) + Desktop Nav */}
           <div className="header-left">
             {/* Burger solo mobile */}
-            <button 
+            <button
               className="burger-icon"
               onClick={() => setMenuOpen(true)}
               aria-label="Menú"
             >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path d="M2 5h16M2 10h16M2 15h16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <path d="M2 5h16M2 10h16M2 15h16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
             </button>
 
@@ -60,9 +60,9 @@ export default function Header({ logo, storeId, domain, categories }: HeaderProp
             <nav className="desktop-nav">
               <Link href={`/?shop=${storeId}`} className="desktop-link">Shop</Link>
               {parentCategories.slice(0, 4).map((cat: any) => (
-                <Link 
+                <Link
                   key={cat.id}
-                  href={`/categoria/${cat.id}?shop=${storeId}`} 
+                  href={`/categoria/${cat.id}?shop=${storeId}`}
                   className="desktop-link"
                 >
                   {getCategoryName(cat)}
@@ -85,22 +85,22 @@ export default function Header({ logo, storeId, domain, categories }: HeaderProp
             <span className="country-label">País</span>
             <button onClick={() => setSearchOpen(true)} className="icon-btn" aria-label="Buscar">
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <circle cx="9" cy="9" r="7" stroke="currentColor" strokeWidth="1.5"/>
-                <path d="M15 15l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <circle cx="9" cy="9" r="7" stroke="currentColor" strokeWidth="1.5" />
+                <path d="M15 15l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
             </button>
             <button onClick={() => setAuthOpen(true)} className="icon-btn" aria-label="Cuenta">
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path d="M16 17v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                <circle cx="10" cy="6" r="4" stroke="currentColor" strokeWidth="1.5"/>
+                <path d="M16 17v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                <circle cx="10" cy="6" r="4" stroke="currentColor" strokeWidth="1.5" />
               </svg>
               {isLoggedIn && <span className="user-indicator" />}
             </button>
             <button onClick={() => setCartOpen(true)} className="icon-btn" aria-label="Carrito">
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path d="M5 1L4 5H19l-2 9H6L4 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                <circle cx="8" cy="17" r="1.5" stroke="currentColor" strokeWidth="1.5"/>
-                <circle cx="15" cy="17" r="1.5" stroke="currentColor" strokeWidth="1.5"/>
+                <path d="M5 1L4 5H19l-2 9H6L4 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                <circle cx="8" cy="17" r="1.5" stroke="currentColor" strokeWidth="1.5" />
+                <circle cx="15" cy="17" r="1.5" stroke="currentColor" strokeWidth="1.5" />
               </svg>
               {cartCount > 0 && <span className="cart-count">{cartCount}</span>}
             </button>
@@ -109,9 +109,9 @@ export default function Header({ logo, storeId, domain, categories }: HeaderProp
       </header>
 
       {/* DRAWER OVERLAY */}
-      <div 
-        className={`drawer-overlay ${menuOpen ? 'open' : ''}`} 
-        onClick={() => setMenuOpen(false)} 
+      <div
+        className={`drawer-overlay ${menuOpen ? 'open' : ''}`}
+        onClick={() => setMenuOpen(false)}
       />
 
       {/* DRAWER MENU - Estilo Scuffers */}
@@ -145,15 +145,15 @@ export default function Header({ logo, storeId, domain, categories }: HeaderProp
             return (
               <div key={cat.id} className="nav-category">
                 <div className="nav-category-header">
-                  <Link 
-                    href={`/categoria/${cat.id}?shop=${storeId}`} 
+                  <Link
+                    href={`/categoria/${cat.id}?shop=${storeId}`}
                     className="nav-link"
                     onClick={() => setMenuOpen(false)}
                   >
                     {getCategoryName(cat).toUpperCase()}
                   </Link>
                   {hasSubs && (
-                    <button 
+                    <button
                       className={`expand-btn ${isExpanded ? 'expanded' : ''}`}
                       onClick={() => toggleCategory(cat.id)}
                     >
@@ -161,11 +161,11 @@ export default function Header({ logo, storeId, domain, categories }: HeaderProp
                     </button>
                   )}
                 </div>
-                
+
                 {hasSubs && (
                   <div className={`nav-submenu ${isExpanded ? 'open' : ''}`}>
                     {subs.map((sub: any) => (
-                      <Link 
+                      <Link
                         key={sub.id}
                         href={`/categoria/${sub.id}?shop=${storeId}`}
                         className="nav-sublink"
@@ -183,10 +183,10 @@ export default function Header({ logo, storeId, domain, categories }: HeaderProp
 
         {/* Drawer Footer */}
         <div className="drawer-footer">
-          <a 
-            href="https://www.direchentt.com.ar" 
-            className="footer-link" 
-            target="_blank" 
+          <a
+            href={`https://${domain}`}
+            className="footer-link"
+            target="_blank"
             rel="noopener noreferrer"
           >
             SOBRE NOSOTROS
@@ -200,7 +200,8 @@ export default function Header({ logo, storeId, domain, categories }: HeaderProp
         </div>
       </div>
 
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         /* ========== HEADER ========== */
         .scuffers-header {
           position: sticky;

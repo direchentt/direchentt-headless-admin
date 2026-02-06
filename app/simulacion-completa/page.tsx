@@ -79,7 +79,7 @@ export default function SimulacionCompleta() {
 
     try {
       // Simular llamada AJAX a TiendaNube
-      const tiendanubeUrl = 'https://www.direchentt.com.ar/cart/add.js';
+      const tiendanubeUrl = 'https://direchentt.mitiendanube.com/cart/add.js';
       const formData = `id=${producto.variants[0]?.id}&quantity=1`;
       
       log(`🔗 Intentando: ${tiendanubeUrl}`);
@@ -100,7 +100,7 @@ export default function SimulacionCompleta() {
           success: true,
           data: mockResponse,
           variables: {
-            domain: 'www.direchentt.com.ar',
+            domain: 'direchentt.mitiendanube.com',
             endpoint: '/cart/add.js',
             method: 'POST',
             contentType: 'application/x-www-form-urlencoded',
@@ -127,7 +127,7 @@ export default function SimulacionCompleta() {
       configuracion: {
         STORE_ID: '5112334',
         HEADLESS_DOMAIN: 'store.direchentt.com.ar',
-        TIENDANUBE_DOMAIN: 'www.direchentt.com.ar'
+        TIENDANUBE_DOMAIN: 'direchentt.mitiendanube.com'
       },
       endpoints: {
         LOCALHOST_PRODUCTS: '/api/products',
@@ -172,7 +172,7 @@ export async function POST(request: Request) {
   const { action, productId, variantId, quantity } = await request.json();
   
   if (action === 'addToCart') {
-    return await fetch('https://www.direchentt.com.ar/cart/add.js', {
+    return await fetch('https://direchentt.mitiendanube.com/cart/add.js', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -205,7 +205,7 @@ export function useTiendaNubeBridge() {
 // config/tiendanube.ts
 export const TIENDANUBE_CONFIG = {
   STORE_ID: '5112334',
-  DOMAIN: 'www.direchentt.com.ar',
+  DOMAIN: 'direchentt.mitiendanube.com',
   ENDPOINTS: {
     ADD_CART: '/cart/add.js',
     GET_CART: '/cart.js',

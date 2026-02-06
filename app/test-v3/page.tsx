@@ -58,7 +58,7 @@ export default function TestCheckoutV3() {
           fontSize: '12px',
           wordBreak: 'break-all'
         }}>
-          https://www.direchentt.com.ar/checkout/v3/start/1883736273/cf70b8a50dc9640327892d31728cad7b9aa4babd?from_store=1&country=AR
+          https://direchentt.mitiendanube.com/checkout/v3/start/1883736273/cf70b8a50dc9640327892d31728cad7b9aa4babd?from_store=1&country=AR
         </code>
         <p><strong>Estructura:</strong> <code>/checkout/v3/start/[SESSION_ID]/[SECURITY_TOKEN]?from_store=1&country=AR</code></p>
       </div>
@@ -94,7 +94,7 @@ export default function TestCheckoutV3() {
           <ul style={{ margin: '5px 0', fontSize: '14px' }}>
             <li><code>variantId: 1386747186</code></li>
             <li><code>productId: 308877801</code></li>
-            <li><code>store: 5112334 (www.direchentt.com.ar)</code></li>
+            <li><code>store: 5112334 (direchentt.mitiendanube.com)</code></li>
           </ul>
         </div>
 

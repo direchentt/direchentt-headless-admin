@@ -7,7 +7,7 @@ export async function POST(request: Request) {
     console.log('🧪 Testing checkout URLs en vivo:', { variantId, quantity });
 
     const testResults = [];
-    const baseUrl = 'https://www.direchentt.com.ar';
+    const baseUrl = 'https://direchentt.mitiendanube.com';
 
     // URLs para probar
     const urlsToTest = [

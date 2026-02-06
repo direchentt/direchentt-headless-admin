@@ -318,7 +318,7 @@ export default function TestIntegrationPage() {
       }}>
         <h3>ℹ️ Información</h3>
         <p>Esta página te permite probar la integración con TiendaNube usando tu configuración actual.</p>
-        <p><strong>Dominio configurado:</strong> www.direchentt.com.ar</p>
+        <p><strong>Dominio configurado:</strong> direchentt.mitiendanube.com</p>
         <p><strong>Store ID:</strong> 5112334</p>
       </div>
 

@@ -2,7 +2,7 @@
 
 export default function TiendaNubeUrls() {
   const storeId = '5112334';
-  const storeDomain = 'www.direchentt.com.ar';
+  const storeDomain = 'direchentt.mitiendanube.com';
   
   const urls = [
     { 

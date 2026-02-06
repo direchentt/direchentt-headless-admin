@@ -28,8 +28,8 @@ export default function ComparisonTest() {
 
   // TEST 1: Ir a TiendaNube original
   const testTiendaNubeOriginal = () => {
-    addResult(`🔍 ABRIENDO TIENDA ORIGINAL: https://www.direchentt.com.ar`);
-    window.open('https://www.direchentt.com.ar', '_blank');
+    addResult(`🔍 ABRIENDO TIENDA ORIGINAL: https://direchentt.mitiendanube.com`);
+    window.open('https://direchentt.mitiendanube.com', '_blank');
     
     addResult(`🛒 INTENTA: Agregar un producto al carrito en TiendaNube`);
     addResult(`📝 OBSERVA: Las URLs que se generan en la consola`);
@@ -59,10 +59,10 @@ export default function ComparisonTest() {
 
     // Probar diferentes URLs de checkout
     const checkoutUrls = [
-      'https://www.direchentt.com.ar/comprar',
-      'https://www.direchentt.com.ar/checkout',
-      'https://www.direchentt.com.ar/checkout/v3/start',
-      `https://www.direchentt.com.ar/productos/${selectedProduct.handle || selectedProduct.id}`
+      'https://direchentt.mitiendanube.com/comprar',
+      'https://direchentt.mitiendanube.com/checkout',
+      'https://direchentt.mitiendanube.com/checkout/v3/start',
+      `https://direchentt.mitiendanube.com/productos/${selectedProduct.handle || selectedProduct.id}`
     ];
 
     checkoutUrls.forEach((url, index) => {

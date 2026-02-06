@@ -10,7 +10,6 @@ interface ProductCardProps {
 export default function ProductCard({ product, storeId }: ProductCardProps) {
   const firstVariant = product.variants?.[0];
   const images = product.images || [];
-  
   // Extraer nombre de forma segura
   const productName = typeof product.name === 'object' 
     ? (product.name.es || product.name.en || 'Producto')

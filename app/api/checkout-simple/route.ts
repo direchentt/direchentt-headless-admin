@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     // Configuración hardcodeada del store (basada en los logs exitosos)
     const storeConfig = {
       storeId: '5112334',
-      domain: 'www.direchentt.com.ar',
+      domain: 'direchentt.mitiendanube.com',
       accessToken: process.env.TIENDANUBE_ACCESS_TOKEN
     };
 

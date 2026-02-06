@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     }
 
     // 3. Preparar la petición para TiendaNube
-    const tiendanubeUrl = 'https://www.direchentt.com.ar/comprar/';
+    const tiendanubeUrl = 'https://direchentt.mitiendanube.com/comprar/';
     
     // El cuerpo debe estar en formato 'form-urlencoded'
     const body = new URLSearchParams();
@@ -35,8 +35,8 @@ export async function POST(request: Request) {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Cookie': cookie, // Reenviamos la cookie del cliente
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Referer': 'https://www.direchentt.com.ar/',
-        'Origin': 'https://www.direchentt.com.ar',
+        'Referer': 'https://direchentt.mitiendanube.com/',
+        'Origin': 'https://direchentt.mitiendanube.com',
       },
       body: body.toString(),
     });

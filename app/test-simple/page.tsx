@@ -182,7 +182,7 @@ export default function SimpleCheckoutTest() {
         <ul>
           <li>✅ NO usa la API de carts de TiendaNube (que no funciona)</li>
           <li>✅ Genera URLs directas que SÍ funcionan</li>
-          <li>✅ Usa el dominio correcto: www.direchentt.com.ar</li>
+          <li>✅ Usa el dominio correcto: direchentt.mitiendanube.com</li>
           <li>✅ Usa IDs reales del catálogo</li>
         </ul>
         <p><strong>Resultado esperado:</strong> Se abrirá una nueva ventana de TiendaNube con el producto agregado al carrito.</p>
