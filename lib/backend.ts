@@ -30,11 +30,12 @@ export async function getStoreData(shopId: string) {
   try {
     console.log(`🔍 Buscando tienda ${shopId} en MongoDB...`);
     const client = await getMongoClient();
-    const store = await client.db('AppRegaloDB').collection('stores').findOne({ storeId: shopId });
+    // Buscar en la base de datos correcta (direchentt-headless-admin)
+    const store = await client.db('direchentt-headless-admin').collection('stores').findOne({ storeId: parseInt(shopId, 10) });
     if (!store) {
       console.warn(`⚠️ No se encontró la tienda ${shopId} en la base de datos.`);
     } else {
-      console.log(`✅ Tienda ${shopId} encontrada.`);
+      console.log(`✅ Tienda ${shopId} encontrada:`, { domain: store.domain, accessToken: store.accessToken?.substring(0, 10) + '...' });
     }
     return store;
   } catch (error: any) {

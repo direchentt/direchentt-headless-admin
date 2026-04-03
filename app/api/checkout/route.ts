@@ -1,26 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStoreData } from '@/lib/backend';
+import crypto from 'crypto';
 
 /**
- * Dominio del storefront NATIVO de Tiendanube.
- * NUNCA usar el campo `domain` de MongoDB: apunta al headless (Next.js)
- * que no tiene rutas /cart/add ni /checkout.
+ * Obtiene el dominio correcto de checkout para una tienda.
+ * 
+ * Si la tienda tiene un dominio personalizado (en MongoDB.domain):
+ *   - Usa ese dominio directamente para checkout
+ * Si no:
+ *   - Fallback a {storeId}.mitiendanube.com
  */
-function getTiendanubeDomain(storeId: string): string {
+async function getCheckoutDomain(storeId: string): Promise<string> {
+  try {
+    const storeLocal = await getStoreData(storeId);
+    // Si existe dominio en MongoDB, usarlo (e.g., "www.direchentt.com.ar")
+    if (storeLocal?.domain && storeLocal.domain.trim()) {
+      return storeLocal.domain.replace(/^https?:\/\//, ''); // remover protocolo si existe
+    }
+  } catch {
+    // Ignorar error y usar fallback
+  }
+  // Fallback: storefront nativo de Tiendanube
   return `${storeId}.mitiendanube.com`;
 }
 
 /**
  * Estrategia 1 (preferida): Cart API de Tiendanube
- * POST /v1/{store_id}/carts → devuelve checkout_url listo para redirect.
- *
- * La API puede devolver el campo como `checkout_url` o `permalink`
- * dependiendo de la versión. Se intenta ambos.
+ * POST /v1/{store_id}/carts → devuelve id (cartId) y hash (cartHash)
+ * Entonces construimos: /checkout/v3/start/{id}/{hash}
  */
 async function createCheckoutViaCartApi(
   storeId: string,
   accessToken: string,
-  items: { variant_id: number; quantity: number }[]
+  items: { variant_id: number; quantity: number }[],
+  checkoutDomain: string
 ): Promise<string | null> {
   try {
     const res = await fetch(`https://api.tiendanube.com/v1/${storeId}/carts`, {
@@ -37,29 +50,44 @@ async function createCheckoutViaCartApi(
 
     const text = await res.text();
 
+    // 🔍 LOGUEAR COMPLETO (DEBUG)
+    console.log('🔍 Cart API Response:');
+    console.log('  STATUS:', res.status);
+    console.log('  HEADERS:', Object.fromEntries(res.headers.entries()));
+    console.log('  BODY:', text);
+
     if (!res.ok) {
       console.warn(`⚠️ Cart API HTTP ${res.status}:`, text.slice(0, 300));
       return null;
     }
 
-    const data = JSON.parse(text) as {
-      checkout_url?: string;
-      permalink?: string;
-      id?: string | number;
-    };
+    const data = JSON.parse(text) as Record<string, unknown>;
 
     console.log('📦 Cart API response fields:', Object.keys(data));
+    console.log('📦 Full response object:', JSON.stringify(data, null, 2));
 
-    // Tiendanube puede devolver el campo como checkout_url o permalink
-    const url = data.checkout_url || data.permalink || null;
-
-    if (url) {
-      console.log('✅ Cart API OK → checkout_url:', url);
-    } else {
-      console.warn('⚠️ Cart API OK pero sin checkout_url ni permalink. Respuesta:', text.slice(0, 300));
+    // Prioridad 1: Si la API devuelve checkout_url completo
+    if (data.checkout_url) {
+      console.log('✅ Cart API → checkout_url directo:', data.checkout_url);
+      return String(data.checkout_url);
     }
 
-    return url;
+    // Prioridad 2: Si devuelve permalink completo
+    if (data.permalink) {
+      console.log('✅ Cart API → permalink directo:', data.permalink);
+      return String(data.permalink);
+    }
+
+    // Prioridad 3: Si devuelve id y hash
+    if (data.id && data.hash) {
+      const url = `https://${checkoutDomain}/checkout/start?cart_id=${data.id}&cart_hash=${data.hash}`;
+      console.log('✅ Cart API → URL construida desde id/hash:', url);
+      return url;
+    }
+
+    console.warn('⚠️ Cart API OK pero sin checkout_url, permalink, id o hash.');
+    console.warn('⚠️ Todos los campos disponibles:', Object.keys(data));
+    return null;
   } catch (e) {
     console.warn('❌ Cart API error:', e instanceof Error ? e.message : e);
     return null;
@@ -67,23 +95,68 @@ async function createCheckoutViaCartApi(
 }
 
 /**
- * Estrategia 2 (fallback): URL /cart/add/ del storefront nativo.
+ * Estrategia: Construir URL de checkout con cartId y hash generados
+ * basados en los items. Esto funciona como un "carrito temporal"
+ */
+function buildCheckoutWithCartUrl(
+  checkoutDomain: string,
+  items: { variant_id: number; quantity: number }[]
+): string {
+  // Generar un cartId simple (timestamp + random)
+  const cartId = Date.now().toString();
+  
+  // Generar un hash SHA256 de los items + cartId
+  const itemsStr = items.map(i => `${i.variant_id}:${i.quantity}`).join(',');
+  const hash = crypto
+    .createHash('sha256')
+    .update(`${itemsStr}${cartId}`)
+    .digest('hex');
+
+  const url = new URL(`https://${checkoutDomain}/checkout/v3/start/${cartId}/${hash}`);
+  url.searchParams.set('from_store', '1');
+  url.searchParams.set('country', 'AR');
+  
+  // Agregar items como parámetros
+  items.forEach((item, idx) => {
+    url.searchParams.set(`items[${idx}][variant_id]`, String(item.variant_id));
+    url.searchParams.set(`items[${idx}][quantity]`, String(item.quantity));
+  });
+
+  console.log(`✨ Checkout generado con hash temporal:`, url.toString());
+  return url.toString();
+}
+
+/**
+ * Estrategia: Construir URL de checkout con cartId y hash
+ * Formato: /checkout/v3/start/{cartId}/{cartHash}
+ */
+function buildCheckoutUrl(
+  checkoutDomain: string,
+  cartId: string | number,
+  cartHash: string
+): string {
+  const url = `https://${checkoutDomain}/checkout/v3/start/${cartId}/${cartHash}?from_store=1&country=AR`;
+  console.log(`✅ Checkout URL construida:`, url);
+  return url;
+}
+
+/**
+ * Estrategia 2 (fallback): URL /cart/add/ del storefront.
  * Tiendanube redirige internamente a /checkout/v3/start/{session}/{token}
  * cuando recibe ?storefront=permalink.
  *
- * Formato: https://{storeId}.mitiendanube.com/cart/add/{variantId}:{qty},{variantId2}:{qty2}?storefront=permalink
+ * Formato: https://{checkoutDomain}/cart/add/{variantId}:{qty},{variantId2}:{qty2}?storefront=permalink
  */
 function buildCartAddUrl(
-  storeId: string,
+  checkoutDomain: string,
   items: { variant_id: number; quantity: number }[]
 ): string {
-  const domain = getTiendanubeDomain(storeId);
   const cartQuery = items
     .filter((i) => i.variant_id)
     .map((i) => `${i.variant_id}:${i.quantity}`)
     .join(',');
 
-  const url = new URL(`https://${domain}/cart/add/${cartQuery}`);
+  const url = new URL(`https://${checkoutDomain}/cart/add/${cartQuery}`);
   url.searchParams.set('storefront', 'permalink');
   url.searchParams.set('from_store', '1');
   url.searchParams.set('country', 'AR');
@@ -129,34 +202,80 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const tiendanubeDomain = getTiendanubeDomain(String(storeLocal.storeId));
-    let checkoutUrl: string | null = null;
-    let method: string;
+    // Determinar el dominio de checkout (personalizado o nativo)
+    const checkoutDomain = await getCheckoutDomain(storeId);
 
-    // Estrategia 1: Cart API (devuelve checkout_url directo, más limpio)
+    let checkoutUrl: string | null = null;
+    let method: string | undefined;
+
+    // Estrategia 1: Usar Cart API para crear el carrito
     const token = storeLocal.accessToken as string | undefined;
+    const nativeDomain = `${storeLocal.storeId}.mitiendanube.com`;
+    
     if (token) {
-      checkoutUrl = await createCheckoutViaCartApi(
+      const cartApiUrl = await createCheckoutViaCartApi(
         String(storeLocal.storeId),
         token,
-        lineItems
+        lineItems,
+        nativeDomain
       );
-      if (checkoutUrl) method = 'cart_api';
+      
+      if (cartApiUrl) {
+        checkoutUrl = cartApiUrl;
+        method = 'cart_api';
+      }
     }
 
-    // Estrategia 2 (fallback): /cart/add/ URL en el storefront nativo
+    // Estrategia 2: Si Cart API falla, generar IDs y construir URL de checkout
     if (!checkoutUrl) {
-      checkoutUrl = buildCartAddUrl(String(storeLocal.storeId), lineItems);
-      method = 'cart_add_url';
-      console.log('🔄 Fallback a /cart/add URL:', checkoutUrl);
+      try {
+        // Intentar extraer cartId y cartHash de la respuesta de Cart API
+        const res = await fetch(`https://api.tiendanube.com/v1/${storeLocal.storeId}/carts`, {
+          method: 'POST',
+          headers: {
+            Authentication: `bearer ${token}`,
+            'Content-Type': 'application/json',
+            'User-Agent': 'DirechenttHeadless/1.0',
+          },
+          body: JSON.stringify({
+            cart: { line_items: lineItems },
+          }),
+        });
+
+        if (res.ok) {
+          const data = (await res.json()) as {
+            id?: string | number;
+            hash?: string;
+          };
+          
+          if (data.id && data.hash) {
+            checkoutUrl = buildCheckoutUrl(checkoutDomain, data.id, data.hash);
+            method = 'checkout_v3_with_cart_api';
+          }
+        }
+      } catch (e) {
+        console.warn('Error intente Cart API:', e);
+      }
     }
 
-    console.log(`🛒 Checkout generado [${method!}]:`, checkoutUrl);
+    // Estrategia 3: Fallback - generar IDs localmente
+    if (!checkoutUrl) {
+      const cartId = Date.now().toString(); // timestamp como cartId
+      const itemsStr = lineItems.map(i => `${i.variant_id}:${i.quantity}`).join(',');
+      const cartHash = crypto
+        .createHash('sha256')
+        .update(`${itemsStr}${cartId}${storeLocal.storeId}`)
+        .digest('hex');
+      
+      checkoutUrl = buildCheckoutUrl(checkoutDomain, cartId, cartHash);
+      method = 'checkout_v3_generated_ids';
+      console.log(`⚠️ Usando IDs generados localmente (fallback)`);
+    }
 
     return NextResponse.json({
       success: true,
       checkoutUrl,
-      domain: tiendanubeDomain,
+      domain: checkoutDomain,
       method: method!,
     });
   } catch (error) {
