@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getStoreData, fetchTN, fetchProductWithVariants } from '../../../../lib/backend';
+import {
+  getStoreData,
+  fetchTN,
+  fetchProductWithVariants,
+  fetchTiendanubeProductMetafields,
+} from '../../../../lib/backend';
 import { processProduct, getRelatedProducts } from '../../../../lib/product-utils';
 
 export async function GET(
@@ -12,6 +17,7 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const shopId = searchParams.get('shop') || '5112334';
     const expand = searchParams.get('expand') === 'true';
+    const withMetafields = searchParams.get('metafields') === '1';
 
     const storeLocal = await getStoreData(shopId);
     if (!storeLocal) {
@@ -26,9 +32,14 @@ export async function GET(
         return NextResponse.json({ error: 'Product not found' }, { status: 404 });
       }
 
+      const metafields = withMetafields
+        ? await fetchTiendanubeProductMetafields(storeLocal.storeId, storeLocal.accessToken, id)
+        : undefined;
+
       return NextResponse.json({
         success: true,
-        product: expandedProduct
+        product: expandedProduct,
+        ...(metafields != null ? { metafields } : {}),
       });
     }
 
@@ -51,6 +62,10 @@ export async function GET(
       4
     );
 
+    const metafields = withMetafields
+      ? await fetchTiendanubeProductMetafields(storeLocal.storeId, storeLocal.accessToken, id)
+      : undefined;
+
     return NextResponse.json({
       success: true,
       product: processedProduct,
@@ -59,7 +74,8 @@ export async function GET(
         id: storeLocal.storeId,
         name: storeLocal.shop_name,
         domain: storeLocal.domain
-      }
+      },
+      ...(metafields != null ? { metafields } : {}),
     });
 
   } catch (error) {

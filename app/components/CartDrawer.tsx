@@ -22,7 +22,7 @@ export default function CartDrawer({ storeId }: CartDrawerProps) {
   } = useStore();
 
   // Hook de checkout para manejar la creación del carrito y redirección
-  const { createCartAndCheckout, loading: checkoutLoading, error: checkoutError } = useCheckout();
+  const { createCartAndCheckout, loading: checkoutLoading, error: checkoutError } = useCheckout(storeId);
 
 
   useEffect(() => {

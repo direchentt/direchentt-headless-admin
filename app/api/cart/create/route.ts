@@ -73,7 +73,7 @@ export async function POST(request: Request) {
         const response = await fetch(apiUrl, {
             method: 'POST',
             headers: {
-                'Authorization': `bearer ${accessToken}`,
+                'Authentication': `bearer ${accessToken}`,
                 'Content-Type': 'application/json',
                 'User-Agent': 'DirechenttHeadless (contact@direchentt.com)'
             },

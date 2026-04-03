@@ -86,8 +86,9 @@ export async function fetchTN(endpoint: string, shopId: string, token: string, q
     clearTimeout(timeoutId);
     const data = res.ok ? await res.json() : [];
     apiCache.set(cacheKey, { data, timestamp: now });
-    
-    console.log(`📦 Traídos ${data.length} ${endpoint} de TiendaNube`);
+
+    const count = Array.isArray(data) ? data.length : data && typeof data === 'object' ? 1 : 0;
+    console.log(`📦 Traídos ${count} ${endpoint} de TiendaNube`);
     return data;
   } catch (error: any) {
     clearTimeout(timeoutId);
@@ -98,6 +99,191 @@ export async function fetchTN(endpoint: string, shopId: string, token: string, q
     }
     return [];
   }
+}
+
+/** Logo de la API Store suele venir como //host/... (protocolo-relativo). */
+export function normalizeTiendanubeLogo(logo: string | null | undefined): string | undefined {
+  if (!logo || typeof logo !== 'string') return undefined;
+  const t = logo.trim();
+  if (!t) return undefined;
+  return t.startsWith('//') ? `https:${t}` : t;
+}
+
+/** Texto multi-idioma (store, páginas, etc.). Prueba main, variantes _AR/_US y fallbacks comunes. */
+export function pickTiendanubeLocalizedText(
+  field: Record<string, string> | string | null | undefined,
+  mainLanguage?: string
+): string {
+  if (field == null) return '';
+  if (typeof field === 'string') return field;
+  const o = field as Record<string, string>;
+  const base = mainLanguage || 'es';
+  const candidates = [
+    base,
+    `${base}_AR`,
+    `${base}_US`,
+    'es',
+    'es_AR',
+    'en',
+    'en_US',
+    'pt',
+    'pt_BR',
+  ];
+  for (const k of candidates) {
+    const v = o[k];
+    if (v != null && String(v).trim() !== '') return String(v);
+  }
+  const first = Object.values(o)[0];
+  return first != null ? String(first) : '';
+}
+
+/**
+ * GET /pages (listado). Respuesta puede ser array o { pages: { results, lastPage, ... } }.
+ * Documentación: https://tiendanube.github.io/api-documentation/resources/page
+ */
+export async function fetchTiendanubePages(shopId: string, token: string) {
+  const headers = { Authentication: `bearer ${token}`, 'User-Agent': 'Direchentt' };
+  const collected: unknown[] = [];
+  let page = 1;
+  let lastPage = 1;
+
+  while (page <= lastPage && page <= 50) {
+    const res = await fetch(
+      `https://api.tiendanube.com/v1/${shopId}/pages?page=${page}&per_page=50`,
+      { headers, next: { revalidate: 120 } }
+    );
+    if (!res.ok) {
+      console.warn(`⚠️ GET /pages página ${page} HTTP ${res.status}`);
+      break;
+    }
+    const body = await res.json();
+    if (Array.isArray(body)) {
+      collected.push(...body);
+      break;
+    }
+    const pkg = body?.pages;
+    if (pkg?.results && Array.isArray(pkg.results)) {
+      collected.push(...pkg.results);
+      lastPage = typeof pkg.lastPage === 'number' ? pkg.lastPage : page;
+    } else {
+      break;
+    }
+    page += 1;
+  }
+  return collected;
+}
+
+/** GET /pages/:pageId */
+export async function fetchTiendanubePageById(shopId: string, token: string, pageId: string) {
+  const res = await fetch(`https://api.tiendanube.com/v1/${shopId}/pages/${pageId}`, {
+    headers: { Authentication: `bearer ${token}`, 'User-Agent': 'Direchentt' },
+    next: { revalidate: 120 },
+  });
+  if (!res.ok) return null;
+  return res.json();
+}
+
+/**
+ * Ubicaciones de depósito / envío (direcciones de stock).
+ * Requiere scope read_locations en el token.
+ * https://tiendanube.github.io/api-documentation/resources/location
+ */
+export async function fetchTiendanubeLocations(shopId: string, token: string) {
+  const res = await fetch(`https://api.tiendanube.com/v1/${shopId}/locations`, {
+    headers: { Authentication: `bearer ${token}`, 'User-Agent': 'Direchentt' },
+    next: { revalidate: 120 },
+  });
+  if (!res.ok) {
+    console.warn(`⚠️ GET /locations HTTP ${res.status}`);
+    return [];
+  }
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
+}
+
+/**
+ * Metafields de un producto.
+ * GET /metafields/products?owner_id={productId}
+ * https://tiendanube.github.io/api-documentation/resources/metafields
+ */
+export async function fetchTiendanubeProductMetafields(
+  shopId: string,
+  token: string,
+  productId: string
+) {
+  const q = `owner_id=${encodeURIComponent(productId)}&per_page=250`;
+  const res = await fetch(`https://api.tiendanube.com/v1/${shopId}/metafields/products?${q}`, {
+    headers: { Authentication: `bearer ${token}`, 'User-Agent': 'Direchentt' },
+    next: { revalidate: 60 },
+  });
+  if (!res.ok) {
+    console.warn(`⚠️ GET metafields/products HTTP ${res.status}`);
+    return [];
+  }
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
+}
+
+/**
+ * GET /store — recurso documentado en https://tiendanube.github.io/api-documentation/resources/store
+ */
+export async function fetchTiendanubeStore(shopId: string, token: string) {
+  const cacheKey = `${shopId}-tn-store`;
+  const now = Date.now();
+  if (apiCache.has(cacheKey)) {
+    const cached = apiCache.get(cacheKey)!;
+    if (now - cached.timestamp < CACHE_TTL) return cached.data;
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  try {
+    const res = await fetch(`https://api.tiendanube.com/v1/${shopId}/store`, {
+      headers: {
+        Authentication: `bearer ${token}`,
+        'User-Agent': 'Direchentt',
+      },
+      signal: controller.signal,
+      next: { revalidate: 120 },
+    });
+    clearTimeout(timeoutId);
+    if (!res.ok) {
+      console.warn(`⚠️ GET /store HTTP ${res.status} para tienda ${shopId}`);
+      return null;
+    }
+    const data = await res.json();
+    apiCache.set(cacheKey, { data, timestamp: now });
+    return data;
+  } catch (e) {
+    clearTimeout(timeoutId);
+    console.error(`❌ fetchTiendanubeStore:`, e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
+/**
+ * Lista todos los productos que cumplan `query` (p. ej. published=true), paginando con page/per_page (API Nuvemshop).
+ */
+export async function fetchAllPagedTNProducts(
+  shopId: string,
+  token: string,
+  query: string = 'published=true'
+) {
+  const perPage = 200;
+  const collected: unknown[] = [];
+  let page = 1;
+  const maxPages = 50;
+
+  while (page <= maxPages) {
+    const pageQuery = `${query}&page=${page}&per_page=${perPage}`;
+    const chunk = await fetchTN('products', shopId, token, pageQuery);
+    const arr = Array.isArray(chunk) ? chunk : [];
+    collected.push(...arr);
+    if (arr.length < perPage) break;
+    page += 1;
+  }
+
+  return collected;
 }
 
 /**

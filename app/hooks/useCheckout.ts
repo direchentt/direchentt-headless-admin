@@ -8,7 +8,7 @@ interface CheckoutItem {
   productId?: number;
 }
 
-export function useCheckout() {
+export function useCheckout(shopId: string = '5112334') {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,13 +21,12 @@ export function useCheckout() {
         throw new Error('El carrito está vacío');
       }
 
-      // Llamar a nuestra API para crear el carrito en TiendaNube y obtener la URL oficial
       const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           items,
-          shop: '5112334' // ID de la tienda del usuario
+          shop: shopId,
         }),
       });
 

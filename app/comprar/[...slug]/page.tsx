@@ -20,9 +20,12 @@ export default async function BuyPermalinkPage({ params, searchParams }: any) {
     cartQuery += `${variantId}:${quantity}${i + 2 < parts.length ? ',' : ''}`;
   }
 
-  // La URL de "permalink" fuerza a Tiendanube a crear el objeto Checkout (v3) 
+  // La URL de "permalink" fuerza a Tiendanube a crear el objeto Checkout (v3)
   // y redirigir al usuario a la URL con el hash: /checkout/v3/start/...
-  const checkoutUrl = `https://${storeLocal.domain}/cart/add/${cartQuery}?storefront=permalink&from_store=1&country=AR`;
+  // IMPORTANTE: usar siempre {storeId}.mitiendanube.com (storefront nativo de TN),
+  // NO storeLocal.domain que apunta al headless Next.js y no tiene rutas /cart/add.
+  const tiendanubeDomain = `${storeLocal.storeId}.mitiendanube.com`;
+  const checkoutUrl = `https://${tiendanubeDomain}/cart/add/${cartQuery}?storefront=permalink&from_store=1&country=AR`;
   
   redirect(checkoutUrl);
 }

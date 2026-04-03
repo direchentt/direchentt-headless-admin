@@ -23,7 +23,7 @@ const safeGetName = (name: unknown): string => {
 
 export default function ProductInfo({ product, storeId, domain }: ProductInfoProps) {
   const { addToCart: addToLocalCart } = useStore();
-  const { addToCart, isLoading: isAddingToCart } = useAddToCart();
+  const { addToCart, isLoading: isAddingToCart } = useAddToCart(storeId);
   const variants = product.variants || [];
   const images = product.images || [];
   const [selectedVariantId, setSelectedVariantId] = useState<number | null>(null);

@@ -8,7 +8,17 @@ import Footer from './components/Footer';
 import ModalsWrapper from './components/ModalsWrapper';
 import ShopTheLook from './components/ShopTheLook';
 import CrazyCarousel from './components/CrazyCarousel';
-import { getStoreData, fetchTN, processProducts, processCategories, processBanners } from '../lib/backend';
+import {
+  getStoreData,
+  fetchTN,
+  fetchTiendanubeStore,
+  fetchAllPagedTNProducts,
+  normalizeTiendanubeLogo,
+  pickTiendanubeLocalizedText,
+  processProducts,
+  processCategories,
+  processBanners,
+} from '../lib/backend';
 import { getRelatedProducts } from '../lib/product-utils';
 
 export default async function Home({ searchParams }: any) {
@@ -20,16 +30,25 @@ export default async function Home({ searchParams }: any) {
   if (params.category) apiQuery += `&category=${params.category}`;
   if (params.sort) apiQuery = `published=true&sort_by=${params.sort}`;
 
-  const [productsRaw, categoriesRaw, banners] = await Promise.all([
-    fetchTN('products', storeLocal.storeId, storeLocal.accessToken, apiQuery),
+  const [productsRaw, categoriesRaw, tnStore] = await Promise.all([
+    fetchAllPagedTNProducts(storeLocal.storeId, storeLocal.accessToken, apiQuery),
     fetchTN('categories', storeLocal.storeId, storeLocal.accessToken),
-    fetchTN('banners', storeLocal.storeId, storeLocal.accessToken)
+    fetchTiendanubeStore(storeLocal.storeId, storeLocal.accessToken),
   ]);
 
-  // Procesar datos usando funciones de utilidad
-  const products = processProducts(productsRaw);
+  const mainLang = tnStore?.main_language || 'es';
+  const logoFromApi = normalizeTiendanubeLogo(tnStore?.logo);
+  const displayLogo = logoFromApi || storeLocal.logo;
+  const displayName =
+    pickTiendanubeLocalizedText(tnStore?.name, mainLang) ||
+    storeLocal.shop_name ||
+    storeLocal.name ||
+    'Tienda';
+
+  const products = processProducts(productsRaw as any[]);
   const categories = processCategories(categoriesRaw);
-  const bannerImages = processBanners(banners, 'hero');
+  // Slider: banners locales / fallback; la API pública documentada no incluye recurso "banners".
+  const bannerImages = processBanners([], 'hero');
 
   // Seleccionar producto para Shop The Look (por ejemplo, el 5to producto si existe)
   const shopTheLookProduct = products[4] || products[0];
@@ -43,9 +62,14 @@ export default async function Home({ searchParams }: any) {
       <ModalsWrapper products={products} storeId={storeLocal.storeId} />
 
       <Header
-        logo={storeLocal.logo}
+        logo={displayLogo}
         storeId={storeLocal.storeId}
-        domain={storeLocal.domain}
+        domain={
+          storeLocal.domain ||
+          (Array.isArray(tnStore?.domains) ? tnStore.domains[0] : undefined) ||
+          tnStore?.original_domain ||
+          ''
+        }
         categories={categories}
       />
 
@@ -173,8 +197,8 @@ export default async function Home({ searchParams }: any) {
       </section>
 
       <Footer
-        logo={storeLocal.logo}
-        storeName={storeLocal.name || 'DIRECHENTT'}
+        logo={displayLogo}
+        storeName={displayName}
       />
     </main>
   );
