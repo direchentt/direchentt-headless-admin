@@ -8,6 +8,8 @@ import {
   type AdminPanelFlags,
 } from '@/lib/admin-panel-db';
 import { getStoreData } from '@/lib/backend';
+import { parseAdminStoreIdParam } from '@/lib/admin-shop';
+import { listMpPaymentsByStore } from '@/lib/mp-payments-db';
 import { tiendanubeAdminGet } from '@/lib/tiendanube-admin-fetch';
 
 function tnErrorMessage(status: number, body: unknown): string {
@@ -119,6 +121,27 @@ export async function saveAdminPanelRules(
     return { ok: true as const };
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Error al guardar';
+    return { ok: false as const, error: msg };
+  }
+}
+
+/** Pagos registrados vía webhook de Mercado Pago (Mongo), por tienda. */
+export async function listMercadoPagoPaymentsAdmin(shop: string, page: number) {
+  if (!(await isAdminAuthenticated())) {
+    return { ok: false as const, error: 'No autorizado' };
+  }
+  const storeId = parseAdminStoreIdParam(shop);
+  try {
+    const { items, total } = await listMpPaymentsByStore(storeId, Math.max(1, page), 25);
+    return {
+      ok: true as const,
+      items,
+      total,
+      storeId,
+      page: Math.max(1, page),
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Error al leer pagos MP';
     return { ok: false as const, error: msg };
   }
 }

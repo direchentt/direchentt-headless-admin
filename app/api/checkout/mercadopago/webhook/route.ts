@@ -1,67 +1,224 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { MercadoPagoConfig, Payment } from 'mercadopago';
-import { getStoreData } from '../../../../../lib/backend';
+import { getStoreData } from '@/lib/backend';
+import {
+  upsertMpPaymentFromWebhook,
+  cartLinesForTiendanubeOrder,
+  type MpPaymentTiendanubeSync,
+} from '@/lib/mp-payments-db';
 
-const client = new MercadoPagoConfig({
-    accessToken: process.env.MP_ACCESS_TOKEN || ''
-});
+export const dynamic = 'force-dynamic';
+
+function isPaymentNotification(topic: string | null, body: unknown): boolean {
+  const tl = (topic || '').toLowerCase();
+  if (tl === 'payment' || tl.includes('payment')) return true;
+  if (body && typeof body === 'object' && body !== null) {
+    const b = body as Record<string, unknown>;
+    const t = String(b.type ?? b.topic ?? '').toLowerCase();
+    if (t.includes('payment')) return true;
+    const a = String(b.action ?? '').toLowerCase();
+    if (a.includes('payment')) return true;
+  }
+  return false;
+}
+
+/** MP IPN: query topic=id o body JSON (notificaciones v2). */
+function extractPaymentNotification(
+  req: NextRequest,
+  body: unknown
+): { topic: string | null; paymentId: string | null } {
+  const url = new URL(req.url);
+  let topic =
+    url.searchParams.get('topic') ||
+    url.searchParams.get('type') ||
+    req.headers.get('x-topic');
+  let paymentId = url.searchParams.get('id') || url.searchParams.get('data.id');
+
+  if (body && typeof body === 'object' && body !== null) {
+    const b = body as Record<string, unknown>;
+    if (!topic && typeof b.type === 'string') topic = b.type;
+    if (!topic && typeof b.topic === 'string') topic = b.topic;
+    if (!topic && typeof b.action === 'string' && String(b.action).toLowerCase().includes('payment')) {
+      topic = 'payment';
+    }
+    const data = b.data;
+    if (!paymentId && data && typeof data === 'object' && data !== null && 'id' in data) {
+      paymentId = String((data as { id: unknown }).id);
+    }
+    if (!paymentId && b.id != null) paymentId = String(b.id);
+  }
+
+  return { topic, paymentId };
+}
+
+function asMetaRecord(meta: unknown): Record<string, unknown> | null {
+  if (!meta || typeof meta !== 'object') return null;
+  return meta as Record<string, unknown>;
+}
+
+async function tryCreateTiendanubeOrder(
+  storeIdStr: string,
+  lines: { variant_id: number; quantity: number }[],
+  accessToken: string
+): Promise<MpPaymentTiendanubeSync> {
+  if (lines.length === 0) {
+    return { attempted: false };
+  }
+  const API_BASE = `https://api.tiendanube.com/v1/${storeIdStr}`;
+  try {
+    const res = await fetch(`${API_BASE}/orders`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authentication: `bearer ${accessToken}`,
+        'User-Agent': 'direchentt-headless',
+      },
+      body: JSON.stringify({
+        products: lines,
+        payment_status: 'paid',
+        shipping_status: 'unpacked',
+      }),
+    });
+    const text = await res.text();
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      parsed = { raw: text.slice(0, 400) };
+    }
+    if (!res.ok) {
+      const msg =
+        parsed && typeof parsed === 'object' && parsed !== null && 'message' in parsed
+          ? String((parsed as { message: unknown }).message)
+          : text.slice(0, 280);
+      return { attempted: true, ok: false, httpStatus: res.status, error: msg };
+    }
+    const oid =
+      parsed && typeof parsed === 'object' && parsed !== null && 'id' in parsed
+        ? Number((parsed as { id: unknown }).id)
+        : NaN;
+    return {
+      attempted: true,
+      ok: true,
+      httpStatus: res.status,
+      orderId: Number.isFinite(oid) ? oid : undefined,
+    };
+  } catch (e) {
+    return {
+      attempted: true,
+      ok: false,
+      error: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    path: '/api/checkout/mercadopago/webhook',
+    hint: 'Mercado Pago envía notificaciones por POST (IPN).',
+  });
+}
 
 export async function POST(req: NextRequest) {
-    const { searchParams } = new URL(req.url);
-    const topic = searchParams.get('topic') || req.headers.get('x-topic');
-    const id = searchParams.get('id') || searchParams.get('data.id');
+  const accessToken = process.env.MP_ACCESS_TOKEN?.trim();
+  if (!accessToken) {
+    console.error('MP webhook: falta MP_ACCESS_TOKEN');
+    return NextResponse.json({ received: true, error: 'no_token' }, { status: 200 });
+  }
 
-    console.log(`🔔 Notificación de Mercado Pago recibida: ${topic} ID: ${id}`);
+  let body: unknown = null;
+  try {
+    const text = await req.text();
+    if (text?.trim()) body = JSON.parse(text);
+  } catch {
+    body = null;
+  }
 
-    // Mercado Pago envía notificaciones por 'payment' o 'merchant_order'
-    let dataType = '';
-    try {
-        const body = await req.json();
-        dataType = body.type || '';
-    } catch (e) {
-        // Si no hay body JSON, ignoramos
-    }
+  const { topic, paymentId } = extractPaymentNotification(req, body);
+  console.log(`🔔 Mercado Pago webhook topic=${topic} paymentId=${paymentId}`);
 
-    if (topic === 'payment' || dataType === 'payment') {
-        try {
-            const payment = new Payment(client);
-            const paymentData = await payment.get({ id: String(id) });
+  if (!paymentId) {
+    return NextResponse.json({ received: true, note: 'sin payment id' }, { status: 200 });
+  }
 
-            if (paymentData.status === 'approved') {
-                const { store_id, cart_items } = paymentData.metadata;
-                const items = JSON.parse(cart_items);
+  if (!isPaymentNotification(topic, body)) {
+    return NextResponse.json({ received: true, note: 'topic_no_payment' }, { status: 200 });
+  }
 
-                console.log(`✅ Pago MP aprobado para tienda ${store_id}`);
+  try {
+    const mpClient = new MercadoPagoConfig({ accessToken });
+    const paymentApi = new Payment(mpClient);
+    const p = await paymentApi.get({ id: String(paymentId) });
 
-                // Lógica de creación de orden en Tiendanube (Reutilizada)
-                const storeData = await getStoreData(store_id);
-                if (storeData && storeData.accessToken) {
-                    const API_BASE = `https://api.tiendanube.com/v1/${store_id}`;
+    const meta = asMetaRecord(p.metadata);
+    const storeRaw = meta?.store_id ?? meta?.storeId;
+    const storeIdNum = parseInt(String(storeRaw ?? ''), 10);
+    const storeIdForDb = Number.isFinite(storeIdNum) ? storeIdNum : 0;
 
-                    await fetch(`${API_BASE}/orders`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authentication': `bearer ${storeData.accessToken}`,
-                            'User-Agent': 'direchentt-headless',
-                        },
-                        body: JSON.stringify({
-                            products: items.map((i: any) => ({
-                                variant_id: i.id,
-                                quantity: i.q
-                            })),
-                            payment_status: 'paid',
-                            shipping_status: 'unpacked',
-                        }),
-                    });
-                    console.log(`🎉 Orden creada en Tiendanube tras pago de Mercado Pago`);
-                }
-            }
-        } catch (error) {
-            console.error('❌ Error procesando webhook de Mercado Pago:', error);
+    const payer = p.payer as { email?: string } | undefined;
+    const payerEmail = typeof payer?.email === 'string' ? payer.email : undefined;
+
+    const paymentSummary: Record<string, unknown> = {
+      id: p.id,
+      status: p.status,
+      status_detail: p.status_detail,
+      transaction_amount: p.transaction_amount,
+      currency_id: p.currency_id,
+      date_created: p.date_created,
+      date_approved: p.date_approved,
+      payment_type_id: p.payment_type_id,
+      payment_method_id: p.payment_method_id,
+    };
+
+    let tiendanubeSync: MpPaymentTiendanubeSync | undefined;
+
+    if (p.status === 'approved' && storeIdForDb > 0) {
+      const lines = cartLinesForTiendanubeOrder(meta);
+      const storeData = await getStoreData(String(storeIdForDb));
+      if (storeData?.accessToken && lines.length > 0) {
+        tiendanubeSync = await tryCreateTiendanubeOrder(
+          String(storeIdForDb),
+          lines,
+          storeData.accessToken
+        );
+        if (tiendanubeSync.ok) {
+          console.log(`🎉 Orden TN tras MP payment ${paymentId}:`, tiendanubeSync.orderId);
+        } else if (tiendanubeSync.attempted) {
+          console.warn(`⚠️ MP aprobado pero orden TN falló (${paymentId}):`, tiendanubeSync.error);
         }
+      } else if (lines.length === 0) {
+        tiendanubeSync = { attempted: false };
+        console.warn(`⚠️ MP aprobado sin líneas en metadata (payment ${paymentId})`);
+      } else {
+        tiendanubeSync = { attempted: false };
+        console.warn(`⚠️ MP aprobado sin token TN para tienda ${storeIdForDb}`);
+      }
     }
+
+    const prefRaw = (p as unknown as Record<string, unknown>).preference_id;
+
+    await upsertMpPaymentFromWebhook({
+      paymentId: String(p.id ?? paymentId),
+      storeId: storeIdForDb,
+      preferenceId: prefRaw != null ? String(prefRaw) : undefined,
+      status: String(p.status ?? 'unknown'),
+      statusDetail: typeof p.status_detail === 'string' ? p.status_detail : undefined,
+      transactionAmount:
+        typeof p.transaction_amount === 'number' ? p.transaction_amount : parseFloat(String(p.transaction_amount)),
+      currencyId: typeof p.currency_id === 'string' ? p.currency_id : undefined,
+      payerEmail,
+      externalReference:
+        typeof p.external_reference === 'string' ? p.external_reference : undefined,
+      paymentMethodId: typeof p.payment_method_id === 'string' ? p.payment_method_id : undefined,
+      metadata: meta ?? undefined,
+      paymentSummary,
+      tiendanubeSync,
+    });
 
     return NextResponse.json({ received: true }, { status: 200 });
+  } catch (err) {
+    console.error('❌ MP webhook error:', err);
+    return NextResponse.json({ received: true, error: 'processing_failed' }, { status: 200 });
+  }
 }

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { listOrdersAdmin } from '../commerce-actions';
+import { listMercadoPagoPaymentsAdmin, listOrdersAdmin } from '../commerce-actions';
 import styles from '../admin-pages.module.css';
 import { getAdminDefaultShopId, withAdminShopQuery } from '@/lib/admin-shop';
 
@@ -16,15 +16,35 @@ function formatOrderTotal(order: Record<string, unknown>): string {
   return '—';
 }
 
+function pedidosHref(shop: string, page: number, mppage: number): string {
+  let q = `shop=${encodeURIComponent(shop)}&page=${Math.max(1, page)}`;
+  if (mppage > 1) q += `&mppage=${mppage}`;
+  return `/admin/pedidos?${q}`;
+}
+
+function formatMpAmount(amount: number | undefined, cur: string | undefined): string {
+  if (amount == null || !Number.isFinite(amount)) return '—';
+  const c = cur || 'ARS';
+  try {
+    return new Intl.NumberFormat('es-AR', { style: 'currency', currency: c }).format(amount);
+  } catch {
+    return `${c} ${amount}`;
+  }
+}
+
 export default async function AdminPedidosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ shop?: string; page?: string }>;
+  searchParams: Promise<{ shop?: string; page?: string; mppage?: string }>;
 }) {
   const sp = await searchParams;
   const shop = sp.shop || getAdminDefaultShopId();
   const page = Math.max(1, parseInt(sp.page || '1', 10) || 1);
-  const data = await listOrdersAdmin(shop, page);
+  const mpPage = Math.max(1, parseInt(sp.mppage || '1', 10) || 1);
+  const [data, mpData] = await Promise.all([
+    listOrdersAdmin(shop, page),
+    listMercadoPagoPaymentsAdmin(shop, mpPage),
+  ]);
 
   if (!data.ok) {
     return (
@@ -36,6 +56,13 @@ export default async function AdminPedidosPage({
         </p>
         <div className={`${styles.alert} ${styles.alertErr}`}>{data.error}</div>
         <AdminShopBar shop={shop} />
+        {mpData.ok ? (
+          <MercadoPagoPaymentsBlock shop={shop} tnPage={page} mpPage={mpPage} mpData={mpData} />
+        ) : (
+          <div className={`${styles.alert} ${styles.alertErr}`} style={{ marginTop: 16 }}>
+            Pagos MP: {mpData.error}
+          </div>
+        )}
       </div>
     );
   }
@@ -51,7 +78,7 @@ export default async function AdminPedidosPage({
         Últimos pedidos de <strong>{data.shopName}</strong>. Los datos vienen de la API oficial; el
         cumplimiento y facturación los gestionás en Tiendanube.
       </p>
-      <AdminShopBar shop={shop} />
+        <AdminShopBar shop={shop} />
 
       <div className={`${styles.alert} ${styles.alertInfo}`}>
         Tip: si ves error de permisos, la app debe incluir el scope <code>read_orders</code> al
@@ -133,7 +160,7 @@ export default async function AdminPedidosPage({
 
       <nav className={styles.pager} aria-label="Paginación">
         <Link
-          href={withAdminShopQuery(`/admin/pedidos?page=${page - 1}`, shop)}
+          href={pedidosHref(shop, page - 1, mpPage)}
           aria-disabled={!hasPrev}
           style={!hasPrev ? { pointerEvents: 'none', opacity: 0.35 } : undefined}
         >
@@ -141,14 +168,141 @@ export default async function AdminPedidosPage({
         </Link>
         <span className={styles.pagerMuted}>Página {page}</span>
         <Link
-          href={withAdminShopQuery(`/admin/pedidos?page=${page + 1}`, shop)}
+          href={pedidosHref(shop, page + 1, mpPage)}
           aria-disabled={!hasNext}
           style={!hasNext ? { pointerEvents: 'none', opacity: 0.35 } : undefined}
         >
           Siguiente →
         </Link>
       </nav>
+
+      {mpData.ok ? (
+        <MercadoPagoPaymentsBlock shop={shop} tnPage={page} mpPage={mpPage} mpData={mpData} />
+      ) : (
+        <div className={`${styles.alert} ${styles.alertErr}`} style={{ marginTop: 24 }}>
+          Pagos Mercado Pago: {mpData.error}
+        </div>
+      )}
     </div>
+  );
+}
+
+type MpListOk = Extract<Awaited<ReturnType<typeof listMercadoPagoPaymentsAdmin>>, { ok: true }>;
+
+function MercadoPagoPaymentsBlock({
+  shop,
+  tnPage,
+  mpPage,
+  mpData,
+}: {
+  shop: string;
+  tnPage: number;
+  mpPage: number;
+  mpData: MpListOk;
+}) {
+  const perPage = 25;
+  const totalPages = Math.max(1, Math.ceil(mpData.total / perPage));
+  const hasMpPrev = mpPage > 1;
+  const hasMpNext = mpPage < totalPages;
+
+  const hrefMp = (p: number) => pedidosHref(shop, tnPage, Math.max(1, p));
+
+  return (
+    <section id="pagos-mercadopago" style={{ marginTop: 40 }}>
+      <h2 className={styles.pageTitle} style={{ fontSize: '1.15rem' }}>
+        Pagos Mercado Pago (headless)
+      </h2>
+      <p className={styles.lead}>
+        Cobros que notifica Mercado Pago al webhook <code>/api/checkout/mercadopago/webhook</code>. Se guardan en
+        MongoDB (<code>mercadopago_payments</code>) aunque TiendaNube no cree el pedido.
+      </p>
+      <div className={`${styles.alert} ${styles.alertInfo}`}>
+        En el panel de MP configurá la URL de notificación apuntando a tu sitio público en HTTPS, misma base que el
+        checkout (p. ej. <code>https://tudominio.com/api/checkout/mercadopago/webhook</code>).
+      </div>
+
+      {mpData.items.length === 0 ? (
+        <p className={styles.pagerMuted}>Todavía no hay pagos registrados para la tienda #{mpData.storeId}.</p>
+      ) : (
+        <>
+          <div className={styles.tableScroll}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Payment ID</th>
+                  <th>Actualizado</th>
+                  <th>Estado</th>
+                  <th>Monto</th>
+                  <th>Comprador</th>
+                  <th>TN orden</th>
+                  <th>Variantes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {mpData.items.map((row) => (
+                  <tr key={row.paymentId}>
+                    <td>
+                      <code style={{ fontSize: 11 }}>{row.paymentId}</code>
+                    </td>
+                    <td>{row.updatedAt ? new Date(row.updatedAt).toISOString().slice(0, 16).replace('T', ' ') : '—'}</td>
+                    <td>
+                      <span
+                        className={`${styles.badge} ${
+                          row.status === 'approved' ? styles.badgeOk : styles.badgeMuted
+                        }`}
+                      >
+                        {row.status}
+                      </span>
+                      {row.statusDetail ? (
+                        <span style={{ fontSize: 11, display: 'block', color: '#666' }}>{row.statusDetail}</span>
+                      ) : null}
+                    </td>
+                    <td>{formatMpAmount(row.transactionAmount, row.currencyId)}</td>
+                    <td>{row.payerEmail || '—'}</td>
+                    <td>
+                      {row.tiendanubeSync?.ok && row.tiendanubeSync.orderId != null ? (
+                        <span className={`${styles.badge} ${styles.badgeOk}`}>#{row.tiendanubeSync.orderId}</span>
+                      ) : row.tiendanubeSync?.attempted && !row.tiendanubeSync.ok ? (
+                        <span className={`${styles.badge} ${styles.badgeWarn}`} title={row.tiendanubeSync.error}>
+                          Error TN
+                        </span>
+                      ) : (
+                        <span className={styles.pagerMuted}>—</span>
+                      )}
+                    </td>
+                    <td style={{ fontSize: 12 }}>
+                      {row.cartItems?.length
+                        ? row.cartItems.map((c) => `${c.variantId ?? '?'}×${c.quantity ?? 1}`).join(', ')
+                        : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <nav className={styles.pager} aria-label="Paginación pagos MP" style={{ marginTop: 16 }}>
+            <Link
+              href={hrefMp(mpPage - 1)}
+              aria-disabled={!hasMpPrev}
+              style={!hasMpPrev ? { pointerEvents: 'none', opacity: 0.35 } : undefined}
+            >
+              ← Anterior
+            </Link>
+            <span className={styles.pagerMuted}>
+              Página {mpPage} / {totalPages} ({mpData.total} pagos)
+            </span>
+            <Link
+              href={hrefMp(mpPage + 1)}
+              aria-disabled={!hasMpNext}
+              style={!hasMpNext ? { pointerEvents: 'none', opacity: 0.35 } : undefined}
+            >
+              Siguiente →
+            </Link>
+          </nav>
+        </>
+      )}
+    </section>
   );
 }
 
