@@ -5,10 +5,21 @@ import Footer from '../../components/Footer';
 import ImageGallery from '../../components/ImageGallery';
 import ProductInfo from '../../components/ProductInfo';
 import ModalsWrapper from '../../components/ModalsWrapper';
-import ShopTheLook from '../../components/ShopTheLook';
 import ProductCarousel from '../../components/ProductCarousel';
-import { getStoreData, fetchTN } from '../../../lib/backend';
-import { processProduct, getRelatedProducts, getCrossSellProducts, getBestSellers } from '../../../lib/product-utils';
+import {
+  getStoreData,
+  fetchTN,
+  fetchTiendanubeStore,
+  normalizeTiendanubeLogo,
+  fetchTiendanubeProductMetafields,
+} from '../../../lib/backend';
+import {
+  processProduct,
+  getRelatedProducts,
+  getCrossSellProducts,
+  getBestSellers,
+  modelNoteFromMetafields,
+} from '../../../lib/product-utils';
 
 export default async function ProductPage({ params, searchParams }: any) {
   const { id } = await params;
@@ -16,10 +27,12 @@ export default async function ProductPage({ params, searchParams }: any) {
   const storeLocal = await getStoreData(shop);
   if (!storeLocal) return notFound();
 
-  const [product, categories, products] = await Promise.all([
+  const [product, categories, products, tnStore, productMetafields] = await Promise.all([
     fetchTN(`products/${id}?expand=variants`, storeLocal.storeId, storeLocal.accessToken),
     fetchTN('categories', storeLocal.storeId, storeLocal.accessToken),
-    fetchTN('products', storeLocal.storeId, storeLocal.accessToken, 'limit=60&published=true')
+    fetchTN('products', storeLocal.storeId, storeLocal.accessToken, 'limit=60&published=true'),
+    fetchTiendanubeStore(storeLocal.storeId, storeLocal.accessToken),
+    fetchTiendanubeProductMetafields(storeLocal.storeId, storeLocal.accessToken, String(id)),
   ]);
 
   if (!product) return notFound();
@@ -30,7 +43,19 @@ export default async function ProductPage({ params, searchParams }: any) {
   const crossSellGroups = getCrossSellProducts(allProducts, product.category_id);
   const bestSellers = getBestSellers(allProducts);
 
-  const processedProduct = processProduct(product);
+  const logoFromApi = normalizeTiendanubeLogo(tnStore?.logo);
+  const displayLogo = logoFromApi || storeLocal.logo;
+
+  const baseProcessed = processProduct(product);
+  const modelFromMeta = modelNoteFromMetafields(productMetafields);
+  const processedProduct = baseProcessed
+    ? {
+        ...baseProcessed,
+        modelWearingNote: modelFromMeta || baseProcessed.modelWearingNote,
+      }
+    : null;
+  if (!processedProduct) return notFound();
+
   // Helper para obtener nombre de categoría
   const getCategoryName = (catId: number) => {
     const cat = categories.find((c: any) => c.id == catId);
@@ -40,7 +65,7 @@ export default async function ProductPage({ params, searchParams }: any) {
   return (
     <main className="pdp-page">
       <Header
-        logo={storeLocal.logo}
+        logo={displayLogo}
         storeId={storeLocal.storeId}
         domain={storeLocal.domain}
         categories={categories || []}
@@ -50,27 +75,22 @@ export default async function ProductPage({ params, searchParams }: any) {
         {/* GALERÍA DE IMÁGENES */}
         <div className="pdp-gallery-col">
           <ImageGallery
-            images={processProduct(product).images || []}
-            productName={processProduct(product).name}
+            images={processedProduct?.images || []}
+            productName={processedProduct?.name || ''}
+            productId={product.id}
           />
         </div>
 
         {/* INFORMACIÓN DEL PRODUCTO */}
         <div className="pdp-info-col">
           <ProductInfo
-            product={processProduct(product)}
+            product={processedProduct}
             storeId={storeLocal.storeId}
             domain={storeLocal.domain}
+            completeLookProducts={relatedProducts}
           />
         </div>
       </div>
-
-      {/* SHOP THE LOOK */}
-      <ShopTheLook
-        mainProduct={processedProduct}
-        relatedProducts={relatedProducts}
-        storeId={storeLocal.storeId}
-      />
 
       {/* CARRUSELES DE PRODUCTOS */}
       <div className="related-section">
@@ -105,7 +125,7 @@ export default async function ProductPage({ params, searchParams }: any) {
 
       </div>
 
-      <Footer logo={storeLocal.logo} storeName={storeLocal.name || 'DIRECHENTT'} />
+      <Footer logo={displayLogo} storeName={storeLocal.name || 'DIRECHENTT'} />
       <ModalsWrapper products={allProducts} storeId={storeLocal.storeId} />
 
       <style dangerouslySetInnerHTML={{
@@ -115,24 +135,10 @@ export default async function ProductPage({ params, searchParams }: any) {
           min-height: 100vh;
         }
 
-        /* ========== LAYOUT PRINCIPAL ========== */
+        /* Layout tipo EME: galería fluida + columna de compra fija */
         .pdp-layout {
           display: flex;
           flex-direction: column;
-        }
-
-        @media (min-width: 1024px) {
-          .pdp-layout {
-            display: grid;
-            grid-template-columns: 1fr 450px;
-            min-height: calc(100vh - 100px);
-          }
-        }
-
-        @media (min-width: 1280px) {
-          .pdp-layout {
-            grid-template-columns: 1fr 500px;
-          }
         }
 
         .pdp-gallery-col {
@@ -144,15 +150,37 @@ export default async function ProductPage({ params, searchParams }: any) {
         }
 
         @media (min-width: 1024px) {
+          .pdp-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(340px, 440px);
+            align-items: stretch;
+            column-gap: 0;
+          }
+
+          .pdp-gallery-col {
+            min-width: 0;
+          }
+
+          /* Misma altura que la galería: el sticky del bloque de compra dura todo el scroll de fotos */
           .pdp-info-col {
-            border-left: 1px solid #e5e5e5;
+            border-left: 1px solid #ebebeb;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            align-self: stretch;
+          }
+        }
+
+        @media (min-width: 1440px) {
+          .pdp-layout {
+            grid-template-columns: minmax(0, 1fr) minmax(380px, 460px);
           }
         }
 
         /* ========== SECCIÓN RELACIONADOS ========== */
         .related-section {
-          padding: 40px 0;
-          border-top: 1px solid #e5e5e5;
+          padding: 48px 0 64px;
+          border-top: 1px solid #ebebeb;
           background: #fff;
         }
       `}} />

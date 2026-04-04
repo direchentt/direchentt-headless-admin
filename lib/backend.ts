@@ -9,16 +9,41 @@ const SUPPORTED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.
 const uri = process.env.MONGODB_URI || "";
 let cachedClient: MongoClient | null = null;
 
-export async function getMongoClient() {
-  if (cachedClient) return cachedClient;
+/**
+ * En dev (HMR) o tras idle, el driver puede dejar el cliente en "Topology is closed".
+ * Validamos con ping y recreamos el cliente si hace falta.
+ */
+export async function getMongoClient(): Promise<MongoClient> {
   if (!uri) throw new Error("MONGODB_URI no definida");
-  
-  cachedClient = new MongoClient(uri, {
-    connectTimeoutMS: 5000,
-    serverSelectionTimeoutMS: 5000,
-  });
-  await cachedClient.connect();
-  return cachedClient;
+
+  async function connectNew(): Promise<MongoClient> {
+    if (cachedClient) {
+      try {
+        await cachedClient.close();
+      } catch {
+        /* ya cerrado */
+      }
+      cachedClient = null;
+    }
+    const client = new MongoClient(uri, {
+      connectTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 5000,
+    });
+    await client.connect();
+    cachedClient = client;
+    return client;
+  }
+
+  if (cachedClient) {
+    try {
+      await cachedClient.db('admin').command({ ping: 1 });
+      return cachedClient;
+    } catch {
+      return connectNew();
+    }
+  }
+
+  return connectNew();
 }
 
 /**

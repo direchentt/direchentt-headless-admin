@@ -1,11 +1,20 @@
 import Link from 'next/link';
+import type { HomeBannerSplitStored } from '@/lib/storefront-config';
 
 interface BannerGridProps {
   storeId: string;
   variant?: 'split' | 'full';
+  split?: HomeBannerSplitStored;
 }
 
-export default function BannerGrid({ storeId, variant = 'split' }: BannerGridProps) {
+function withShopInHref(href: string, storeId: string): string {
+  const h = href.trim();
+  if (h.startsWith('http://') || h.startsWith('https://')) return h;
+  if (h.includes('shop=')) return h;
+  return h.includes('?') ? `${h}&shop=${storeId}` : `${h}?shop=${storeId}`;
+}
+
+export default function BannerGrid({ storeId, variant = 'split', split }: BannerGridProps) {
   if (variant === 'full') {
     return (
       <>
@@ -94,21 +103,36 @@ export default function BannerGrid({ storeId, variant = 'split' }: BannerGridPro
     );
   }
 
+  const leftUrl = split?.leftUrl?.trim() || '/banners/bannermujerhorizontal.png';
+  const rightUrl = split?.rightUrl?.trim() || '/banners/banner4%20vertical.png';
+  const leftHref = withShopInHref(
+    split?.leftHref?.trim() || `/categoria/32586185`,
+    storeId
+  );
+  const rightHref = withShopInHref(
+    split?.rightHref?.trim() || `/categoria/32586186`,
+    storeId
+  );
+  const leftLabel = split?.leftLabel?.trim() || 'MUJER';
+  const rightLabel = split?.rightLabel?.trim() || 'HOMBRE';
+
   // Split variant - 2 banners lado a lado
   return (
     <>
       <section className="banner-split">
-        <Link href={`/categoria/32586185?shop=${storeId}`} className="split-item">
-          <img src="/banners/bannermujerhorizontal.png" alt="Mujer" />
+        <Link href={leftHref} className="split-item">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={leftUrl} alt="" />
           <div className="split-overlay">
-            <span className="split-label">MUJER</span>
+            <span className="split-label">{leftLabel}</span>
             <span className="split-cta">VER COLECCIÓN →</span>
           </div>
         </Link>
-        <Link href={`/categoria/32586186?shop=${storeId}`} className="split-item">
-          <img src="/banners/banner4%20vertical.png" alt="Hombre" />
+        <Link href={rightHref} className="split-item">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={rightUrl} alt="" />
           <div className="split-overlay">
-            <span className="split-label">HOMBRE</span>
+            <span className="split-label">{rightLabel}</span>
             <span className="split-cta">VER COLECCIÓN →</span>
           </div>
         </Link>

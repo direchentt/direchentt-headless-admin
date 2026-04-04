@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useStore } from '../context/StoreContext';
+import { formatPrice, getVariantDisplayPrices } from '@/lib/product-utils';
 
 interface VariantSelectorProps {
   product: any;
@@ -43,12 +44,14 @@ export default function VariantSelector({ product, storeId, domain, onVariantSel
       }
 
       // Agregar al carrito local
+      const { current } = getVariantDisplayPrices(selectedVariant || {});
+
       addToCart({
         productId: product.id.toString(),
         variantId: selectedVariant.id.toString(),
         name: productName,
         variant: variantName,
-        price: selectedVariant.price || 0,
+        price: current,
         quantity: 1,
         image: productImage
       });
@@ -87,17 +90,22 @@ export default function VariantSelector({ product, storeId, domain, onVariantSel
   return (
     <section className="variant-section">
       {/* PRECIO */}
-      {selectedVariant && (
-        <div className="variant-price-header">
-          <span className="variant-price-label">Precio</span>
-          <span className="variant-price-value">
-            ${typeof selectedVariant.price === 'number'
-              ? selectedVariant.price.toLocaleString('es-AR')
-              : selectedVariant.price
-            }
-          </span>
-        </div>
-      )}
+      {selectedVariant && (() => {
+        const { list, current, hasPromo } = getVariantDisplayPrices(selectedVariant);
+        return (
+          <div className="variant-price-header">
+            <span className="variant-price-label">Precio</span>
+            <span className="variant-price-value">
+              {hasPromo && (
+                <span style={{ textDecoration: 'line-through', color: '#999', fontSize: '0.55em', marginRight: 12, verticalAlign: 'middle' }}>
+                  {formatPrice(list)}
+                </span>
+              )}
+              {formatPrice(current)}
+            </span>
+          </div>
+        );
+      })()}
 
       {/* ... (código de selección de variantes sin cambios) ... */}
 

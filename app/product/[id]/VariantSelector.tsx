@@ -1,10 +1,12 @@
 'use client';
 import { useState } from 'react';
+import { formatPrice, getVariantDisplayPrices } from '@/lib/product-utils';
 
 export default function VariantSelector({ product, storeDomain }: { product: any, storeDomain: string }) {
   if (!product || !product.variants) return null;
   const [selectedVariant, setSelectedVariant] = useState(product.variants[0]);
   const [loading, setLoading] = useState(false);
+  const { list, current, hasPromo } = getVariantDisplayPrices(selectedVariant || {});
 
   const handleAddToCart = () => {
     setLoading(true);
@@ -23,7 +25,10 @@ export default function VariantSelector({ product, storeDomain }: { product: any
   return (
     <div className="selector-scuffers">
       <h1 className="p-title">{product.name.es.toUpperCase()}</h1>
-      <p className="p-price">$ {selectedVariant.price}</p>
+      <p className="p-price">
+        {hasPromo && <span style={{ textDecoration: 'line-through', color: '#999', marginRight: 10 }}>{formatPrice(list)}</span>}
+        {formatPrice(current)}
+      </p>
       
       <div className="v-box">
         <p className="v-label">SELECCIONAR VARIANTE</p>

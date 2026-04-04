@@ -1,7 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useRef } from 'react';
+import {
+  formatPrice,
+  getVariantDisplayPrices,
+  getProductPrimaryImageUrl,
+} from '@/lib/product-utils';
 
 interface CrazyCarouselProps {
   products: any[];
@@ -9,217 +13,320 @@ interface CrazyCarouselProps {
   storeId: string;
 }
 
-export default function CrazyCarousel({ products, title = "TRENDING", storeId }: CrazyCarouselProps) {
-  // Dividir productos en dos filas
-  const midPoint = Math.ceil(products.length / 2);
-  const row1 = products.slice(0, midPoint);
-  const row2 = products.slice(midPoint);
+function safeProductName(product: any): string {
+  if (!product?.name) return 'Producto';
+  if (typeof product.name === 'object' && product.name !== null) {
+    return String(product.name.es || product.name.en || product.name.pt || '');
+  }
+  return String(product.name);
+}
 
-  // Asegurar suficientes items para el loop infinito (duplicar varias veces)
-  const loopRow1 = [...row1, ...row1, ...row1, ...row1];
-  const loopRow2 = [...row2, ...row2, ...row2, ...row2];
+export default function CrazyCarousel({ products, title = 'TRENDING', storeId }: CrazyCarouselProps) {
+  let list = (products || []).filter((p) => getProductPrimaryImageUrl(p));
+  if (list.length === 0) return null;
+
+  while (list.length < 4) {
+    list = [...list, ...list];
+  }
+  list = list.slice(0, 24);
+
+  let midPoint = Math.ceil(list.length / 2);
+  let row1 = list.slice(0, midPoint);
+  let row2 = list.slice(midPoint);
+  if (row2.length === 0) {
+    row2 = [...row1];
+  }
+
+  const copies = 4;
+  const loopRow1 = Array(copies).fill(row1).flat();
+  const loopRow2 = Array(copies).fill(row2).flat();
+  const pct = 100 / copies;
 
   return (
-    <section className="stream-section">
-      <div className="stream-header">
-        <h2 className="stream-title">{title}</h2>
-      </div>
-
-      <div className="stream-container">
-
-        {/* ROW 1: Izquierda */}
-        <div className="stream-row row-left">
-          <div className="marquee-track track-left">
-            {loopRow1.map((product, index) => (
-              <ProductCardStream
-                key={`r1-${product.id}-${index}`}
-                product={product}
-                storeId={storeId}
-              />
-            ))}
-          </div>
+    <section className="cc-section" aria-labelledby="cc-heading">
+      <div className="cc-inner">
+        <p id="cc-heading" className="cc-sr-only">
+          {title}: carrusel de productos destacados
+        </p>
+        <div className="cc-bg-title" aria-hidden="true">
+          {title}
         </div>
 
-        {/* ROW 2: Derecha */}
-        <div className="stream-row row-right">
-          <div className="marquee-track track-right">
-            {loopRow2.map((product, index) => (
-              <ProductCardStream
-                key={`r2-${product.id}-${index}`}
-                product={product}
-                storeId={storeId}
-              />
-            ))}
+        <div className="cc-rows">
+          <div className="cc-row">
+            <div
+              className="cc-track cc-track--left"
+              style={{ ['--cc-marquee-pct' as string]: `${pct}%` }}
+            >
+              {loopRow1.map((product, index) => (
+                <ProductCardStream
+                  key={`r1-${product.id}-${index}`}
+                  product={product}
+                  storeId={storeId}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="cc-row">
+            <div
+              className="cc-track cc-track--right"
+              style={{ ['--cc-marquee-pct' as string]: `${pct}%` }}
+            >
+              {loopRow2.map((product, index) => (
+                <ProductCardStream
+                  key={`r2-${product.id}-${index}`}
+                  product={product}
+                  storeId={storeId}
+                />
+              ))}
+            </div>
           </div>
         </div>
-
       </div>
 
       <style jsx>{`
-        .stream-section {
-          padding: 80px 0;
+        .cc-section {
+          padding: clamp(40px, 8vw, 72px) 0;
           background: #fff;
           overflow: hidden;
           position: relative;
         }
 
-        .stream-header {
-          text-align: center;
-          margin-bottom: 40px;
+        .cc-inner {
           position: relative;
-          z-index: 2;
+          max-width: 100vw;
+          margin: 0 auto;
         }
 
-        .stream-title {
-          font-size: 14vw;
+        .cc-sr-only {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          white-space: nowrap;
+          border: 0;
+        }
+
+        .cc-bg-title {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 50%;
+          transform: translateY(-50%);
+          z-index: 0;
+          pointer-events: none;
+          text-align: center;
+          font-size: clamp(2.5rem, 11vw, 9rem);
           font-weight: 900;
           text-transform: uppercase;
-          line-height: 0.8;
+          line-height: 0.95;
           margin: 0;
           color: transparent;
-          -webkit-text-stroke: 1px #e5e5e5;
-          opacity: 0.5;
-          letter-spacing: -5px;
-        }
-        
-        @media (min-width: 1024px) {
-            .stream-title {
-                font-size: 180px;
-            }
+          -webkit-text-stroke: 1px rgba(0, 0, 0, 0.08);
+          letter-spacing: -0.04em;
+          user-select: none;
         }
 
-        .stream-container {
+        @media (min-width: 1024px) {
+          .cc-bg-title {
+            font-size: clamp(5rem, 12vw, 10rem);
+            -webkit-text-stroke: 1px rgba(0, 0, 0, 0.1);
+          }
+        }
+
+        .cc-rows {
+          position: relative;
+          z-index: 1;
           display: flex;
           flex-direction: column;
-          gap: 20px;
-          transform: rotate(-2deg) scale(1.05); /* Leve inclinación general */
+          gap: clamp(14px, 3vw, 24px);
+          padding: clamp(24px, 5vw, 48px) 0;
         }
 
-        .stream-row {
+        .cc-row {
           width: 100%;
           overflow: hidden;
           position: relative;
+          mask-image: linear-gradient(
+            90deg,
+            transparent 0%,
+            black 4%,
+            black 96%,
+            transparent 100%
+          );
+          -webkit-mask-image: linear-gradient(
+            90deg,
+            transparent 0%,
+            black 4%,
+            black 96%,
+            transparent 100%
+          );
         }
 
-        /* Efecto FOCUS: Al hacer hover en la ROW, los items se apagan un poco */
-        .marquee-track {
+        .cc-track {
           display: flex;
-          gap: 20px;
+          flex-direction: row;
+          align-items: flex-start;
+          gap: clamp(10px, 2vw, 18px);
           width: max-content;
-        }
-        
-        .stream-row:hover .marquee-track {
-           animation-play-state: paused;
+          will-change: transform;
         }
 
-        .track-left {
-          animation: slideLeft 60s linear infinite;
+        .cc-row:hover .cc-track {
+          animation-play-state: paused;
         }
 
-        .track-right {
-          animation: slideRight 60s linear infinite;
+        .cc-track--left {
+          animation: ccSlideLeft 55s linear infinite;
         }
 
-        @keyframes slideLeft {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-25%); } /* Ajustado según duplicación (x4) -> 25% es un set */
+        .cc-track--right {
+          animation: ccSlideRight 55s linear infinite;
         }
 
-        @keyframes slideRight {
-          0% { transform: translateX(-25%); }
-          100% { transform: translateX(0); }
+        @keyframes ccSlideLeft {
+          0% {
+            transform: translateX(0);
+          }
+          100% {
+            transform: translateX(calc(-1 * var(--cc-marquee-pct, 25%)));
+          }
         }
 
+        @keyframes ccSlideRight {
+          0% {
+            transform: translateX(calc(-1 * var(--cc-marquee-pct, 25%)));
+          }
+          100% {
+            transform: translateX(0);
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .cc-track--left,
+          .cc-track--right {
+            animation: none;
+            transform: none;
+          }
+        }
       `}</style>
     </section>
   );
 }
 
-function ProductCardStream({ product, storeId }: { product: any, storeId: string }) {
+function ProductCardStream({ product, storeId }: { product: any; storeId: string }) {
+  const { current } = getVariantDisplayPrices(product.variants?.[0] || {});
+  const src = getProductPrimaryImageUrl(product);
+  const name = safeProductName(product);
+
   return (
-    <>
-      <Link href={`/product/${product.id}?shop=${storeId}`} className="stream-card">
-        <div className="img-box">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={product.images[0]?.src} alt={product.name} />
-          <div className="overlay">
-            <span className="price">$ {product.variants[0]?.price}</span>
-          </div>
+    <Link href={`/product/${product.id}?shop=${storeId}`} className="cc-card">
+      <div className="cc-img-wrap">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={src} alt="" className="cc-img" width={280} height={360} />
+        <div className="cc-overlay">
+          <span className="cc-price">{formatPrice(current)}</span>
         </div>
-        <div className="info-box">
-          <h4>{typeof product.name === 'object' ? (product.name.es || product.name.en) : product.name}</h4>
-        </div>
-      </Link>
+      </div>
+      <div className="cc-meta">
+        <span className="cc-name">{name}</span>
+      </div>
 
       <style jsx>{`
-        .stream-card {
-           display: block;
-           width: 250px;
-           text-decoration: none;
-           color: #000;
-           transition: all 0.5s ease;
-           filter: grayscale(100%);
-           opacity: 0.8;
+        .cc-card {
+          flex-shrink: 0;
+          display: flex;
+          flex-direction: column;
+          width: clamp(150px, 38vw, 220px);
+          text-decoration: none;
+          color: #111;
+          transition: filter 0.35s ease, opacity 0.35s ease, transform 0.35s ease;
+          filter: grayscale(100%);
+          opacity: 0.88;
         }
 
-        /* INTERACCIÓN INNOVADORA */
-        /* Al hacer hover en el row (padre), todos los hijos bajan opacidad (definido abajo) */
-        
-        /* Al hacer hover en ESTE card, se "enciende" */
-        .stream-card:hover {
-            filter: grayscale(0%);
-            opacity: 1;
-            transform: scale(1.1);
-            z-index: 10;
+        @media (min-width: 480px) {
+          .cc-card {
+            width: clamp(170px, 32vw, 240px);
+          }
         }
 
-        .img-box {
-            width: 100%;
-            height: 320px;
-            background: #f0f0f0;
-            margin-bottom: 10px;
-            overflow: hidden;
-            position: relative;
+        @media (min-width: 1024px) {
+          .cc-card {
+            width: 220px;
+          }
         }
 
-        .img-box img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
+        .cc-card:hover {
+          filter: grayscale(0%);
+          opacity: 1;
+          transform: translateY(-4px);
+          z-index: 2;
         }
 
-        .overlay {
-            position: absolute;
-            inset: 0;
-            background: rgba(0,0,0,0.1);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            opacity: 0;
-            transition: opacity 0.3s;
+        .cc-img-wrap {
+          position: relative;
+          width: 100%;
+          aspect-ratio: 3 / 4;
+          background: #f4f4f4;
+          border-radius: 2px;
+          overflow: hidden;
+          margin-bottom: 8px;
         }
 
-        .stream-card:hover .overlay {
-            opacity: 1;
+        .cc-img {
+          width: 100%;
+          height: 100%;
+          display: block;
+          object-fit: cover;
+          object-position: center;
         }
 
-        .price {
-            background: #fff;
-            padding: 5px 15px;
-            font-weight: 700;
-            font-size: 14px;
+        .cc-overlay {
+          position: absolute;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.12);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          opacity: 0;
+          transition: opacity 0.25s ease;
         }
 
-        .info-box h4 {
-            margin: 0;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+        .cc-card:hover .cc-overlay {
+          opacity: 1;
+        }
+
+        .cc-price {
+          background: #fff;
+          padding: 6px 14px;
+          font-weight: 700;
+          font-size: 12px;
+          letter-spacing: 0.02em;
+        }
+
+        .cc-meta {
+          width: 100%;
+          min-height: 2.6em;
+        }
+
+        .cc-name {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          font-size: 10px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          line-height: 1.35;
+          word-break: break-word;
         }
       `}</style>
-    </>
-  )
+    </Link>
+  );
 }

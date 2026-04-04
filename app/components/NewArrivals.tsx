@@ -3,7 +3,9 @@
 import { useState, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { formatPrice, getVariantDisplayPrices } from '@/lib/product-utils';
 import QuickShop from './QuickShop';
+import ProductCucardas from './ProductCucardas';
 
 interface Category {
   id: number;
@@ -30,6 +32,8 @@ interface Product {
   variants?: Variant[];
   categories?: { id: number }[];
   created_at?: string;
+  tags?: string | string[];
+  free_shipping?: boolean;
 }
 
 interface NewArrivalsProps {
@@ -50,22 +54,6 @@ const safeGetName = (name: unknown): string => {
   return 'Producto';
 };
 
-// Helper para obtener precio del producto
-const getProductPrice = (product: Product): number => {
-  const firstVariant = product.variants?.[0];
-  if (!firstVariant) return 0;
-  const price = firstVariant.price;
-  return typeof price === 'number' ? price : parseFloat(price) || 0;
-};
-
-// Helper para obtener precio comparativo (precio tachado)
-const getComparePrice = (product: Product): number | null => {
-  const firstVariant = product.variants?.[0];
-  if (!firstVariant?.compare_at_price) return null;
-  const price = firstVariant.compare_at_price;
-  const parsed = typeof price === 'number' ? price : parseFloat(price);
-  return parsed > 0 ? parsed : null;
-};
 
 // Verificar si es producto "nuevo" (creado en los últimos 30 días)
 const isNewProduct = (product: Product): boolean => {
@@ -92,15 +80,6 @@ export default function NewArrivals({ products, categories, storeId, domain }: N
       p.categories?.some((c) => c.id === activeTab)
     ).slice(0, 10);
   }, [activeTab, products]);
-
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'ARS',
-      minimumFractionDigits: 0,
-    }).format(price);
-  };
-
 
   return (
     <section className="new-arrivals">
@@ -360,7 +339,7 @@ export default function NewArrivals({ products, categories, storeId, domain }: N
   );
 }
 
-function NewArrivalsCard({ product, storeId, showAlternateImages, onQuickShop, formatPrice }: { product: Product, storeId: string, showAlternateImages: boolean, onQuickShop: () => void, formatPrice: (price: number) => string }) {
+function NewArrivalsCard({ product, storeId, showAlternateImages, onQuickShop, formatPrice }: { product: Product, storeId: string, showAlternateImages: boolean, onQuickShop: () => void, formatPrice: (price: any) => string }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
@@ -375,10 +354,12 @@ function NewArrivalsCard({ product, storeId, showAlternateImages, onQuickShop, f
   }, [showAlternateImages, product.images]);
 
   const images = product.images || [];
-  const price = getProductPrice(product);
-  const comparePrice = getComparePrice(product);
+  const v0 = product.variants?.[0];
+  const { list, current, hasPromo } = getVariantDisplayPrices(v0 || {});
   const isNew = isNewProduct(product);
-  const isOnSale = comparePrice !== null && comparePrice > price;
+  const isOnSale = hasPromo;
+  const comparePrice = isOnSale ? list : null;
+  const price = current;
 
   const handleTouchStart = (e: React.TouchEvent) => setTouchStart(e.targetTouches[0].clientX);
   const handleTouchMove = (e: React.TouchEvent) => setTouchEnd(e.targetTouches[0].clientX);
@@ -460,6 +441,7 @@ function NewArrivalsCard({ product, storeId, showAlternateImages, onQuickShop, f
           </>
         )}
 
+        <ProductCucardas product={product} />
         {isOnSale && <span className="badge badge-sale">SALE</span>}
         {isNew && !isOnSale && <span className="badge badge-new">NEW IN</span>}
         <button
@@ -537,7 +519,7 @@ function NewArrivalsCard({ product, storeId, showAlternateImages, onQuickShop, f
                 .slider-arrow.left { left: 8px; }
                 .slider-arrow.right { right: 8px; }
 
-                .badge { position: absolute; top: 12px; left: 12px; font-size: 10px; font-weight: 600; padding: 5px 10px; background: #fff; color: #000; z-index: 2; }
+                .badge { position: absolute; top: 12px; right: 12px; left: auto; font-size: 10px; font-weight: 600; padding: 5px 10px; background: #fff; color: #000; z-index: 2; }
                 .badge-sale { background: #000; color: #fff; }
 
                 .quick-add { position: absolute; bottom: 12px; right: 12px; width: 32px; height: 32px; background: #fff; border: 1px solid #eee; border-radius: 50%; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0; transition: all 0.2s; z-index: 10; color: #000;}

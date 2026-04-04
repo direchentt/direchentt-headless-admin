@@ -1,26 +1,37 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+
+export type HeroSlideItem = { url: string; kind: 'image' | 'video' };
 
 interface HeroSliderProps {
+  /** Preferido: imágenes y/o videos por URL */
+  slides?: HeroSlideItem[];
+  /** @deprecated Usar `slides` */
   banners?: string[];
 }
 
-export default function HeroSlider({ banners = [] }: HeroSliderProps) {
+const DEFAULT_SLIDES: HeroSlideItem[] = [
+  { url: '/banners/HOME_HORIZONTAL_DEF_2.png', kind: 'image' },
+  { url: '/banners/HOME_horizontsal_2.webp', kind: 'image' },
+  { url: '/banners/bannermujerhorizontal.png', kind: 'image' },
+  { url: '/banners/baner1.png', kind: 'image' },
+  { url: '/banners/banner2.png', kind: 'image' },
+  { url: '/banners/banner3.png', kind: 'image' },
+  { url: '/banners/banner5.jpg', kind: 'image' },
+];
+
+export default function HeroSlider({ slides: slidesProp, banners = [] }: HeroSliderProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isAutoPlay, setIsAutoPlay] = useState(true);
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
 
-  const slides = banners.length > 0 ? banners : [
-    '/banners/HOME_HORIZONTAL_DEF_2.png',
-    '/banners/HOME_horizontsal_2.webp',
-    '/banners/bannermujerhorizontal.png',
-    '/banners/baner1.png',
-    '/banners/banner2.png',
-    '/banners/banner3.png',
-    '/banners/banner5.jpg',
-  ];
+  const slides = useMemo((): HeroSlideItem[] => {
+    if (slidesProp && slidesProp.length > 0) return slidesProp;
+    if (banners.length > 0) return banners.map((url) => ({ url, kind: 'image' as const }));
+    return DEFAULT_SLIDES;
+  }, [slidesProp, banners]);
 
   const nextSlide = useCallback(() => {
     setCurrentSlide((prev) => (prev + 1) % slides.length);
@@ -74,10 +85,23 @@ export default function HeroSlider({ banners = [] }: HeroSliderProps) {
         <div className="slides-container">
           {slides.map((slide, idx) => (
             <div
-              key={idx}
+              key={`${slide.kind}-${slide.url}-${idx}`}
               className={`slide ${idx === currentSlide ? 'active' : ''}`}
             >
-              <img src={slide} alt={`Banner ${idx + 1}`} />
+              {slide.kind === 'video' ? (
+                <video
+                  className="slide-media"
+                  src={slide.url}
+                  muted
+                  playsInline
+                  autoPlay
+                  loop
+                  aria-label={`Video ${idx + 1}`}
+                />
+              ) : (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img className="slide-media" src={slide.url} alt={`Banner ${idx + 1}`} />
+              )}
             </div>
           ))}
         </div>
@@ -156,11 +180,12 @@ export default function HeroSlider({ banners = [] }: HeroSliderProps) {
           z-index: 1;
         }
 
-        .slide img {
+        .slide-media {
           width: 100%;
           height: 100%;
           object-fit: cover;
           object-position: center;
+          display: block;
         }
 
         /* Navigation Arrows */

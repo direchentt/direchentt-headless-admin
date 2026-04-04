@@ -4,6 +4,7 @@ import { useStore } from '../context/StoreContext';
 import { useCheckout } from '../hooks/useCheckout';
 import Link from 'next/link';
 import { useEffect } from 'react';
+import { formatPrice } from '@/lib/product-utils';
 
 interface CartDrawerProps {
   storeId: string;
@@ -107,7 +108,7 @@ export default function CartDrawer({ storeId }: CartDrawerProps) {
                       {item.name.toUpperCase()}
                     </Link>
                     {item.variant && <p className="cart-item-variant">{item.variant}</p>}
-                    <p className="cart-item-price">$ {item.price}</p>
+                    <p className="cart-item-price">{formatPrice(item.price)}</p>
 
                     <div className="cart-item-quantity">
                       <button onClick={() => updateQuantity(item.id, item.quantity - 1)}>−</button>
@@ -129,7 +130,7 @@ export default function CartDrawer({ storeId }: CartDrawerProps) {
             <div className="cart-footer">
               <div className="cart-subtotal">
                 <span>SUBTOTAL</span>
-                <span>$ {cartTotal.toLocaleString()}</span>
+                <span>{formatPrice(cartTotal)}</span>
               </div>
               <p className="cart-shipping">Envío calculado en el checkout</p>
 

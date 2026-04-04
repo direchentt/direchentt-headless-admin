@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { formatPrice, getVariantDisplayPrices } from '@/lib/product-utils';
+import ProductCucardas from './ProductCucardas';
 
 interface CategoryGridProps {
   products: any[];
@@ -61,19 +63,13 @@ export default function CategoryGrid({
     router.push(`/categoria/${categoryId}?${params.toString()}`);
   };
 
-  // Formatear precio con separador de miles
-  const formatPrice = (price: number | string) => {
-    const num = typeof price === 'string' ? parseFloat(price) : price;
-    return num.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-  };
-
-  // Calcular cuotas (ejemplo: 3, 6, 12 cuotas sin interés)
-  const calculateInstallments = (price: number | string) => {
-    const num = typeof price === 'string' ? parseFloat(price) : price;
+  // Calcular cuotas (ejemplo: 3, 6, 12 cuotas sin interés) — monto ya redondeado
+  const calculateInstallments = (amount: number) => {
+    const n = Math.round(amount);
     return {
-      tres: Math.round(num / 3),
-      seis: Math.round(num / 6),
-      doce: Math.round(num / 12)
+      tres: Math.round(n / 3),
+      seis: Math.round(n / 6),
+      doce: Math.round(n / 12)
     };
   };
 
@@ -163,17 +159,15 @@ export default function CategoryGrid({
             {products.map((product) => {
               const firstVariant = product.variants?.[0];
               const images = product.images || [];
-              const price = firstVariant?.price || 0;
-              const comparePrice = firstVariant?.compare_at_price;
-              const installments = calculateInstallments(price);
+              const { list, current, hasPromo } = getVariantDisplayPrices(firstVariant || {});
+              const installments = calculateInstallments(current);
               
               const productName = typeof product.name === 'object' 
                 ? (product.name.es || product.name.en || 'Producto')
                 : product.name || 'Producto';
 
-              const hasDiscount = comparePrice && parseFloat(comparePrice) > parseFloat(price);
-              const discountPercent = hasDiscount 
-                ? Math.round((1 - parseFloat(price) / parseFloat(comparePrice)) * 100)
+              const discountPercent = hasPromo && list > 0
+                ? Math.round((1 - current / list) * 100)
                 : 0;
 
               return (
@@ -185,7 +179,8 @@ export default function CategoryGrid({
                   <article className="product-card">
                     {/* IMAGEN */}
                     <div className="product-image-wrapper">
-                      {hasDiscount && (
+                      <ProductCucardas product={product} />
+                      {hasPromo && discountPercent > 0 && (
                         <span className="discount-badge">-{discountPercent}%</span>
                       )}
                       {images.length > 0 ? (
@@ -215,16 +210,16 @@ export default function CategoryGrid({
                       <h3 className="product-name">{productName.toUpperCase()}</h3>
                       
                       <div className="price-section">
-                        {hasDiscount && (
-                          <span className="compare-price">${formatPrice(comparePrice)}</span>
+                        {hasPromo && (
+                          <span className="compare-price">{formatPrice(list)}</span>
                         )}
-                        <span className="current-price">${formatPrice(price)}</span>
+                        <span className="current-price">{formatPrice(current)}</span>
                       </div>
 
                       {/* CUOTAS */}
                       <div className="installments-info">
                         <span className="installments-text">
-                          <strong>6 cuotas</strong> de ${formatPrice(installments.seis)} sin interés
+                          <strong>6 cuotas</strong> de {formatPrice(installments.seis)} sin interés
                         </span>
                       </div>
 
@@ -434,7 +429,7 @@ export default function CategoryGrid({
         .discount-badge {
           position: absolute;
           top: 10px;
-          left: 10px;
+          right: 10px;
           background: #e53935;
           color: #fff;
           font-size: 10px;

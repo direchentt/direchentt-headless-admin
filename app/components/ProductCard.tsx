@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { formatPrice, getVariantDisplayPrices } from '@/lib/product-utils';
+import ProductCucardas from './ProductCucardas';
 
 interface ProductCardProps {
   product: any;
@@ -15,6 +17,7 @@ export default function ProductCard({ product, storeId }: ProductCardProps) {
 
   const images = product.images || [];
   const firstVariant = product.variants?.[0];
+  const { list, current, hasPromo } = getVariantDisplayPrices(firstVariant || {});
 
   // Extraer nombre de forma segura
   const productName = typeof product.name === 'object'
@@ -135,6 +138,7 @@ export default function ProductCard({ product, storeId }: ProductCardProps) {
               color: '#999'
             }}>Sin imagen</div>
           )}
+          <ProductCucardas product={product} />
         </div>
 
         {/* INFO */}
@@ -149,7 +153,14 @@ export default function ProductCard({ product, storeId }: ProductCardProps) {
             fontSize: '11px',
             color: '#666',
             margin: 0
-          }}>$ {firstVariant?.price || 0}</p>
+          }}>
+            {hasPromo && (
+              <span style={{ textDecoration: 'line-through', color: '#999', marginRight: 8 }}>
+                {formatPrice(list)}
+              </span>
+            )}
+            <span style={{ color: hasPromo ? '#b00000' : undefined }}>{formatPrice(current)}</span>
+          </p>
         </div>
 
         <style jsx>{`

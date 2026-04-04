@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useStore } from '../context/StoreContext';
 
@@ -15,6 +15,11 @@ export default function Header({ logo, storeId, domain, categories }: HeaderProp
   const { setSearchOpen, setAuthOpen, setCartOpen, cartCount, isLoggedIn } = useStore();
   const [menuOpen, setMenuOpen] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<number[]>([]);
+  const [logoFailed, setLogoFailed] = useState(false);
+
+  useEffect(() => {
+    setLogoFailed(false);
+  }, [logo]);
 
   const toggleCategory = (catId: number) => {
     setExpandedCategories(prev =>
@@ -39,8 +44,119 @@ export default function Header({ logo, storeId, domain, categories }: HeaderProp
     return categories.filter((c: any) => c.parent === parentId);
   };
 
+  const normCatName = (name: string) => name.toLowerCase().trim();
+
+  function resolveParentId(c: any): number | null {
+    const p = c?.parent;
+    if (p == null || p === '') return null;
+    if (typeof p === 'object' && p != null && p.id != null) return Number(p.id);
+    const n = Number(p);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  /** Nombre / padre parece SALE u ofertas (para tipografía roja). */
+  function looksLikeSale(text: string): boolean {
+    const t = normCatName(text);
+    if (/\brebajas?\b/.test(t) || /\boutlet\b/.test(t) || /\bofertas?\b/.test(t) || /\bliquidaci/.test(t))
+      return true;
+    if (/\bsale\b/.test(t) || t === 'sale' || t.startsWith('sale ') || t.includes(' sale')) return true;
+    return false;
+  }
+
+  function isSaleSubLink(cat: any, parentCat: any): boolean {
+    if (parentCat && looksLikeSale(getCategoryName(parentCat))) return true;
+    if (looksLikeSale(getCategoryName(cat))) return true;
+    const h = cat?.handle;
+    if (typeof h === 'string' && looksLikeSale(h.replace(/-/g, ' '))) return true;
+    return false;
+  }
+
+  /** Raíces (menú superior / drawer): no repetir en la barra de abajo por id ni por nombre. */
+  const parentIdSet = new Set(
+    parentCategories.map((c: any) => Number(c.id)).filter((id: number) => Number.isFinite(id))
+  );
+  const parentNameSet = new Set(
+    parentCategories.map((c: any) => normCatName(getCategoryName(c)))
+  );
+
+  /** Subcategorías: `parent` definido (Tiendanube), excluidas si duplican una categoría principal. */
+  const subNavCategories = categories
+    .filter((c: any) => {
+      const p = c?.parent;
+      if (p == null || p === '') return false;
+      if (typeof p === 'object' && p.id == null) return false;
+      return true;
+    })
+    .filter((c: any) => {
+      const id = Number(c.id);
+      if (parentIdSet.has(id)) return false;
+      if (parentNameSet.has(normCatName(getCategoryName(c)))) return false;
+      return true;
+    });
+
+  const categoryById = new Map<number, any>();
+  for (const c of categories) {
+    const id = Number(c.id);
+    if (Number.isFinite(id)) categoryById.set(id, c);
+  }
+
+  type SubNavGroup = { parentId: number; parentLabel: string; items: any[] };
+
+  const subNavGroups: SubNavGroup[] = [];
+  const subNavAssigned = new Set<number>();
+
+  for (const p of parentCategories) {
+    const pid = Number(p.id);
+    const children = subNavCategories
+      .filter((c: any) => resolveParentId(c) === pid)
+      .sort((a: any, b: any) =>
+        getCategoryName(a).localeCompare(getCategoryName(b), 'es', { sensitivity: 'base' })
+      );
+    if (children.length === 0) continue;
+    for (const c of children) subNavAssigned.add(Number(c.id));
+    subNavGroups.push({
+      parentId: pid,
+      parentLabel: getCategoryName(p),
+      items: children,
+    });
+  }
+
+  const leftover = subNavCategories.filter((c: any) => !subNavAssigned.has(Number(c.id)));
+  if (leftover.length > 0) {
+    const byPid = new Map<number, any[]>();
+    for (const c of leftover) {
+      const pid = resolveParentId(c);
+      if (pid == null) continue;
+      if (!byPid.has(pid)) byPid.set(pid, []);
+      byPid.get(pid)!.push(c);
+    }
+    const extra = [...byPid.entries()]
+      .map(([pid, items]) => {
+        const sorted = [...items].sort((a: any, b: any) =>
+          getCategoryName(a).localeCompare(getCategoryName(b), 'es', { sensitivity: 'base' })
+        );
+        const pc = categoryById.get(pid);
+        return {
+          parentId: pid,
+          parentLabel: pc ? getCategoryName(pc) : 'Más',
+          items: sorted,
+        };
+      })
+      .sort((a, b) => a.parentLabel.localeCompare(b.parentLabel, 'es', { sensitivity: 'base' }));
+    subNavGroups.push(...extra);
+  }
+
+  useEffect(() => {
+    const offsetPx = subNavGroups.length > 0 ? 104 : 60;
+    document.documentElement.style.setProperty('--header-sticky-offset', `${offsetPx}px`);
+    return () => {
+      document.documentElement.style.removeProperty('--header-sticky-offset');
+    };
+  }, [subNavGroups.length]);
+
   return (
     <>
+      <div className="header-sticky-wrap">
       <header className="scuffers-header">
         <div className="header-container">
           {/* LEFT SIDE - Burger (mobile) + Desktop Nav */}
@@ -59,6 +175,9 @@ export default function Header({ logo, storeId, domain, categories }: HeaderProp
             {/* Desktop Navigation */}
             <nav className="desktop-nav">
               <Link href={`/?shop=${storeId}`} className="desktop-link">Shop</Link>
+              <Link href={`/collections?shop=${storeId}`} className="desktop-link">
+                Collections
+              </Link>
               {parentCategories.slice(0, 4).map((cat: any) => (
                 <Link
                   key={cat.id}
@@ -73,10 +192,16 @@ export default function Header({ logo, storeId, domain, categories }: HeaderProp
 
           {/* CENTER - Logo */}
           <Link href={`/?shop=${storeId}`} className="logo-link">
-            {logo ? (
-              <img src={logo} alt="Logo" className="logo-img" />
+            {logo && !logoFailed ? (
+              <img
+                src={logo}
+                alt=""
+                className="logo-img"
+                referrerPolicy="no-referrer"
+                onError={() => setLogoFailed(true)}
+              />
             ) : (
-              <span className="logo-text">DIRECHENTT</span>
+              <span className="logo-text">Tienda</span>
             )}
           </Link>
 
@@ -108,6 +233,46 @@ export default function Header({ logo, storeId, domain, categories }: HeaderProp
         </div>
       </header>
 
+      {subNavGroups.length > 0 && (
+        <nav className="subcategory-bar" aria-label="Subcategorías">
+          <div className="subcategory-bar-inner">
+            <Link href={`/?shop=${storeId}`} className="subcategory-link subcategory-link-featured">
+              Novedades
+            </Link>
+            {subNavGroups.map((group) => {
+              const parentCat = categoryById.get(group.parentId);
+              const parentForSale = parentCat ?? { name: group.parentLabel };
+              return (
+                <div
+                  key={group.parentId}
+                  className="subcategory-group"
+                  role="group"
+                  aria-label={group.parentLabel}
+                >
+                  <span className="subcategory-group-label">{group.parentLabel}</span>
+                  <div className="subcategory-group-links">
+                    {group.items.map((cat: any) => (
+                      <Link
+                        key={cat.id}
+                        href={`/categoria/${cat.id}?shop=${storeId}`}
+                        className={
+                          isSaleSubLink(cat, parentForSale)
+                            ? 'subcategory-link subcategory-link-sale'
+                            : 'subcategory-link'
+                        }
+                      >
+                        {getCategoryName(cat)}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </nav>
+      )}
+      </div>
+
       {/* DRAWER OVERLAY */}
       <div
         className={`drawer-overlay ${menuOpen ? 'open' : ''}`}
@@ -128,6 +293,13 @@ export default function Header({ logo, storeId, domain, categories }: HeaderProp
           {/* Links destacados */}
           <Link href={`/?shop=${storeId}`} className="nav-link featured" onClick={() => setMenuOpen(false)}>
             NOVEDADES
+          </Link>
+          <Link
+            href={`/collections?shop=${storeId}`}
+            className="nav-link featured"
+            onClick={() => setMenuOpen(false)}
+          >
+            COLLECTIONS
           </Link>
           <Link href={`/?shop=${storeId}`} className="nav-link featured" onClick={() => setMenuOpen(false)}>
             BEST SELLERS
@@ -202,18 +374,113 @@ export default function Header({ logo, storeId, domain, categories }: HeaderProp
 
       <style dangerouslySetInnerHTML={{
         __html: `
-        /* ========== HEADER ========== */
-        .scuffers-header {
+        /* ========== HEADER + SUBBAR (sticky conjunto) ========== */
+        .header-sticky-wrap {
           position: sticky;
           top: 0;
+          z-index: 1000;
+          background: #ffffff;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+        .scuffers-header {
+          position: relative;
           background: #ffffff;
           border-bottom: 1px solid rgba(0,0,0,0.08);
           height: 60px;
           display: flex;
           align-items: center;
-          z-index: 1000;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         }
+
+        .subcategory-bar {
+          border-bottom: 1px solid rgba(0,0,0,0.08);
+          background: #fff;
+          overflow-x: auto;
+          overflow-y: hidden;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+        }
+        .subcategory-bar::-webkit-scrollbar {
+          display: none;
+        }
+        .subcategory-bar-inner {
+          display: flex;
+          flex-wrap: nowrap;
+          align-items: center;
+          gap: 0;
+          min-height: 42px;
+          padding: 0 15px;
+          width: max-content;
+          max-width: none;
+        }
+        @media (min-width: 1024px) {
+          .subcategory-bar-inner {
+            padding: 0 30px;
+            min-height: 44px;
+          }
+        }
+        .subcategory-link {
+          flex-shrink: 0;
+          font-size: 12px;
+          font-weight: 500;
+          color: #000;
+          text-decoration: none;
+          letter-spacing: 0.02em;
+          padding: 12px 14px 12px 0;
+          margin-right: 4px;
+          white-space: nowrap;
+          transition: opacity 0.2s;
+        }
+        @media (min-width: 1024px) {
+          .subcategory-link {
+            padding: 12px 16px 12px 0;
+          }
+        }
+        .subcategory-link:hover {
+          opacity: 0.55;
+        }
+        .subcategory-link-featured {
+          font-weight: 600;
+        }
+
+        .subcategory-group {
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+          flex-shrink: 0;
+          padding-right: 10px;
+          margin-right: 6px;
+          border-right: 1px solid #e8e8e8;
+        }
+        .subcategory-group:last-of-type {
+          border-right: none;
+          margin-right: 0;
+        }
+        .subcategory-group-label {
+          font-size: 10px;
+          font-weight: 700;
+          color: #6d7175;
+          text-transform: uppercase;
+          letter-spacing: 0.07em;
+          margin-right: 10px;
+          flex-shrink: 0;
+          max-width: 120px;
+          line-height: 1.25;
+        }
+        .subcategory-group-links {
+          display: flex;
+          flex-direction: row;
+          flex-wrap: nowrap;
+          align-items: center;
+        }
+        .subcategory-link-sale {
+          color: #c40000 !important;
+          font-weight: 700;
+        }
+        .subcategory-link-sale:hover {
+          color: #8f0000 !important;
+          opacity: 1;
+        }
+
         .header-container {
           width: 100%;
           max-width: 1400px;

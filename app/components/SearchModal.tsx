@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useStore } from '../context/StoreContext';
 import Link from 'next/link';
+import { formatPrice, getVariantDisplayPrices } from '@/lib/product-utils';
 
 interface SearchModalProps {
   products: any[];
@@ -136,7 +137,19 @@ export default function SearchModal({ products, storeId }: SearchModalProps) {
                       </div>
                       <div className="info">
                         <p className="name">{typeof prod.name === 'object' ? (prod.name.es || prod.name.en) : prod.name}</p>
-                        <p className="price">$ {prod.variants[0]?.price}</p>
+                        <p className="price">
+                          {(() => {
+                            const { list, current, hasPromo } = getVariantDisplayPrices(prod.variants?.[0] || {});
+                            return hasPromo ? (
+                              <>
+                                <span className="price-old">{formatPrice(list)}</span>{' '}
+                                <span className="price-current">{formatPrice(current)}</span>
+                              </>
+                            ) : (
+                              formatPrice(current)
+                            );
+                          })()}
+                        </p>
                       </div>
                       <button className="add-btn">+</button>
                     </Link>
@@ -159,7 +172,19 @@ export default function SearchModal({ products, storeId }: SearchModalProps) {
                         </div>
                         <div className="info">
                           <p className="name">{typeof prod.name === 'object' ? (prod.name.es || prod.name.en) : prod.name}</p>
-                          <p className="price">$ {prod.variants[0]?.price}</p>
+                          <p className="price">
+                            {(() => {
+                              const { list, current, hasPromo } = getVariantDisplayPrices(prod.variants?.[0] || {});
+                              return hasPromo ? (
+                                <>
+                                  <span className="price-old">{formatPrice(list)}</span>{' '}
+                                  <span className="price-current">{formatPrice(current)}</span>
+                                </>
+                              ) : (
+                                formatPrice(current)
+                              );
+                            })()}
+                          </p>
                         </div>
                       </Link>
                     ))}
@@ -332,6 +357,15 @@ export default function SearchModal({ products, storeId }: SearchModalProps) {
                 font-size: 12px;
                 color: #666;
                 margin: 0;
+            }
+            .price-old {
+                text-decoration: line-through;
+                color: #999;
+                margin-right: 4px;
+            }
+            .price-current {
+                color: #000;
+                font-weight: 600;
             }
             .add-btn {
                 position: absolute;

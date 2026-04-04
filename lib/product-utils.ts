@@ -2,11 +2,60 @@
  * Utilidades para el procesamiento de productos de TiendaNube
  */
 
+/** URL principal de imagen (API Tiendanube suele usar `src`; otros formatos traen `url`). */
+export function getProductPrimaryImageUrl(product: any): string {
+  const img = product?.images?.[0];
+  if (!img || typeof img !== 'object') return '';
+  const u = (img as { src?: string; url?: string; secure_url?: string }).src ??
+    (img as { url?: string }).url ??
+    (img as { secure_url?: string }).secure_url;
+  return typeof u === 'string' && u.trim() ? u.trim() : '';
+}
+
+export function parseMoney(value: any): number {
+  if (value == null || value === '') return 0;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  if (typeof value === 'object' && value !== null) {
+    const n = parseFloat(String((value as any).es ?? (value as any).en ?? ''));
+    return Number.isFinite(n) ? n : 0;
+  }
+  const n = parseFloat(String(value).replace(',', '.'));
+  return Number.isFinite(n) ? n : 0;
+}
+
 /**
  * Procesa un producto individual de TiendaNube para uso en la aplicación
  * @param product Producto raw de TiendaNube
  * @returns Producto procesado y limpio
  */
+/**
+ * Texto opcional para ficha: metafields de producto (API Tiendanube).
+ * @see https://tiendanube.github.io/api-documentation/resources/metafields
+ */
+export function modelNoteFromMetafields(metafields: any[] | null | undefined): string | null {
+  if (!Array.isArray(metafields)) return null;
+  const want = ['modelo', 'model', 'medidas', 'talle_modelo', 'model_wearing', 'fit'];
+  for (const m of metafields) {
+    const k = String(m?.key ?? '').toLowerCase();
+    if (want.some((w) => k.includes(w))) {
+      const v = m?.value;
+      if (v != null && String(v).trim() !== '') return String(v).trim();
+    }
+  }
+  return null;
+}
+
+/** Comentario oculto en el HTML de la descripción: <!-- PDP_MODEL:El modelo mide 1,85 m y usa talle 40 --> */
+export function extractModelNoteFromDescription(product: any): string | null {
+  const raw =
+    typeof product?.description === 'object' && product.description !== null
+      ? String(product.description.es || product.description.en || '')
+      : String(product?.description || '');
+  if (!raw) return null;
+  const m = raw.match(/<!--\s*PDP_MODEL:\s*([\s\S]*?)-->/i);
+  return m ? m[1].trim() : null;
+}
+
 export function processProduct(product: any) {
   if (!product) return null;
 
@@ -22,6 +71,14 @@ export function processProduct(product: any) {
     variants: (cleanProduct.variants || []).map((v: any) => ({
       ...v,
       price: typeof v.price === 'number' ? v.price : (typeof v.price === 'string' ? parseFloat(v.price) : v.price?.es || v.price?.en || 0),
+      promotional_price:
+        v.promotional_price != null && v.promotional_price !== ''
+          ? parseMoney(v.promotional_price)
+          : null,
+      compare_at_price:
+        v.compare_at_price != null && v.compare_at_price !== ''
+          ? parseMoney(v.compare_at_price)
+          : null,
       description: typeof v.description === 'object' ? (v.description.es || v.description.en || '') : (v.description || ''),
     })),
     // Imágenes
@@ -53,6 +110,8 @@ export function processProduct(product: any) {
     depth: cleanProduct.depth,
     // Publicado
     published: cleanProduct.published || false,
+    /** Medidas / talle del modelo (descripción o metafields en page) */
+    modelWearingNote: extractModelNoteFromDescription(cleanProduct),
   };
 }
 
@@ -67,7 +126,7 @@ export function processProduct(product: any) {
 /**
  * Mezcla un array aleatoriamente (Fisher-Yates)
  */
-function shuffleArray(array: any[]) {
+export function shuffleArray<T>(array: T[]): T[] {
   const newArray = [...array];
   for (let i = newArray.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -155,19 +214,76 @@ export function getLocalizedText(text: any, defaultText: string = ''): string {
 }
 
 /**
- * Formatea precio para mostrar
+ * Etiquetas del producto en API Tiendanube (`tags`). Uso típico: lógica interna
+ * (búsqueda, segmentación); no usar como cucardas en vitrina salvo que definas
+ * una lista explícita de etiquetas “públicas”.
+ * @see https://tiendanube.github.io/api-documentation/resources/product
+ */
+export function getProductTagsArray(product: any): string[] {
+  if (!product?.tags) return [];
+  const raw = product.tags;
+  if (Array.isArray(raw)) {
+    return raw
+      .map((t: any) => (typeof t === 'object' && t !== null ? String(t.es || t.en || '') : String(t)))
+      .map((s: string) => s.trim())
+      .filter(Boolean);
+  }
+  return String(raw)
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Precio de lista (tachado) y precio actual según API: `price` + `promotional_price`.
+ * @see https://tiendanube.github.io/api-documentation/resources/product-variant
+ */
+export function getVariantDisplayPrices(variant: any): {
+  list: number;
+  current: number;
+  hasPromo: boolean;
+} {
+  const list = Math.round(parseMoney(variant?.price));
+  const promoRaw = variant?.promotional_price;
+  const promo =
+    promoRaw != null && String(promoRaw).trim() !== '' && String(promoRaw).toLowerCase() !== 'null'
+      ? Math.round(parseMoney(promoRaw))
+      : null;
+  const hasPromo = promo != null && promo > 0 && promo < list;
+  let displayList = list;
+  let current = list;
+
+  if (hasPromo) {
+    current = promo!;
+  }
+
+  const compareAt = variant?.compare_at_price;
+  if (!hasPromo && compareAt != null && String(compareAt).trim() !== '') {
+    const c = Math.round(parseMoney(compareAt));
+    if (c > list) {
+      displayList = c;
+      current = list;
+      return { list: displayList, current, hasPromo: true };
+    }
+  }
+
+  return { list: displayList, current, hasPromo };
+}
+
+/**
+ * Formatea precio siempre redondeado a entero (sin centavos visibles).
  * @param price Precio en número o string
  * @param currency Moneda (por defecto ARS)
  * @returns Precio formateado
  */
 export function formatPrice(price: any, currency: string = 'ARS'): string {
-  const numPrice = typeof price === 'number' ? price : parseFloat(price) || 0;
+  const rounded = Math.round(parseMoney(price));
   return new Intl.NumberFormat('es-AR', {
     style: 'currency',
     currency: currency,
     minimumFractionDigits: 0,
-    maximumFractionDigits: 0
-  }).format(numPrice);
+    maximumFractionDigits: 0,
+  }).format(rounded);
 }
 
 /**

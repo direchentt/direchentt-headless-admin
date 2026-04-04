@@ -2,7 +2,13 @@ import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import ModalsWrapper from '../../components/ModalsWrapper';
 import CategoryGrid from '../../components/CategoryGrid';
-import { getStoreData, fetchTN, processProducts } from '../../../lib/backend';
+import {
+  getStoreData,
+  fetchTN,
+  processProducts,
+  fetchTiendanubeStore,
+  normalizeTiendanubeLogo,
+} from '../../../lib/backend';
 
 interface CategoryPageProps {
   params: Promise<{ id: string }>;
@@ -23,13 +29,15 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
   if (query.sort) apiQuery += `&sort_by=${query.sort}`;
 
   // Fetch productos de la categoría, categorías y info de la tienda
-  const [productsRaw, categories, storeInfo] = await Promise.all([
+  const [productsRaw, categories, storeInfo, tnStore] = await Promise.all([
     fetchTN('products', storeLocal.storeId, storeLocal.accessToken, apiQuery),
     fetchTN('categories', storeLocal.storeId, storeLocal.accessToken),
-    fetchTN('', storeLocal.storeId, storeLocal.accessToken) // Info general de la tienda
+    fetchTN('', storeLocal.storeId, storeLocal.accessToken),
+    fetchTiendanubeStore(storeLocal.storeId, storeLocal.accessToken),
   ]);
 
   const products = processProducts(productsRaw);
+  const displayLogo = normalizeTiendanubeLogo(tnStore?.logo) || storeLocal.logo;
   
   // Obtener nombre de la categoría actual
   const currentCategory = categories.find((c: any) => String(c.id) === String(id));
@@ -47,9 +55,9 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
     <main style={{ backgroundColor: '#ffffff', color: '#000', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif', minHeight: '100vh' }}>
       <ModalsWrapper products={products} storeId={storeLocal.storeId} />
       
-      <Header 
-        logo={storeLocal.logo} 
-        storeId={storeLocal.storeId} 
+      <Header
+        logo={displayLogo}
+        storeId={storeLocal.storeId}
         domain={storeLocal.domain}
         categories={categories}
       />
@@ -65,10 +73,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
         installmentsInfo={installmentsInfo}
       />
       
-      <Footer 
-        logo={storeLocal.logo} 
-        storeName={storeLocal.name || 'DIRECHENTT'}
-      />
+      <Footer logo={displayLogo} storeName={storeLocal.name || 'DIRECHENTT'} />
     </main>
   );
 }

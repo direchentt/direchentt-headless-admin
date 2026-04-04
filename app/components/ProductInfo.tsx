@@ -3,11 +3,15 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 import { useAddToCart } from '../hooks/useAddToCart';
+import { formatPrice, getVariantDisplayPrices } from '@/lib/product-utils';
+import ProductCompleteLookSidebar from './ProductCompleteLookSidebar';
 
 interface ProductInfoProps {
   product: any;
   storeId: string;
   domain: string;
+  /** Relacionados para “Completa el look” en columna desktop (rejilla 2×2) */
+  completeLookProducts?: any[];
 }
 
 // Helper para extraer nombre de forma segura
@@ -21,13 +25,48 @@ const safeGetName = (name: unknown): string => {
   return 'Producto';
 };
 
-export default function ProductInfo({ product, storeId, domain }: ProductInfoProps) {
+/** Primeras líneas de la descripción como texto (info de modelo, etc.) */
+function descriptionLeadPlain(product: any): string | null {
+  const raw =
+    typeof product?.description === 'object' && product.description !== null
+      ? String(product.description.es || product.description.en || '')
+      : String(product?.description || '');
+  if (!raw) return null;
+  const plain = raw
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/\s+\n/g, '\n')
+    .replace(/[ \t]+/g, ' ')
+    .trim();
+  if (!plain) return null;
+  const lines = plain.split('\n').map((l) => l.trim()).filter(Boolean);
+  const shortLines = lines.slice(0, 2).map((l) => (l.length > 140 ? `${l.slice(0, 137)}…` : l));
+  const head = shortLines.join('\n');
+  if (head.length > 220) return `${head.slice(0, 217)}…`;
+  return head;
+}
+
+export default function ProductInfo({
+  product,
+  storeId,
+  domain,
+  completeLookProducts = [],
+}: ProductInfoProps) {
   const { addToCart: addToLocalCart } = useStore();
-  const { addToCart, isLoading: isAddingToCart } = useAddToCart(storeId);
+  const { addToCart: redirectToCheckout, isLoading: checkoutRedirectLoading } = useAddToCart(storeId);
   const variants = product.variants || [];
   const images = product.images || [];
   const [selectedVariantId, setSelectedVariantId] = useState<number | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  /** Móvil: hasta que el usuario toque una variante, solo se muestra el CTA crema tipo EME */
+  const [pdpVariantAck, setPdpVariantAck] = useState(false);
+
+  useEffect(() => {
+    setPdpVariantAck(false);
+  }, [product.id]);
 
   // Seleccionar primera variante automáticamente
   useEffect(() => {
@@ -39,9 +78,8 @@ export default function ProductInfo({ product, storeId, domain }: ProductInfoPro
   // Encontrar variante seleccionada
   const selectedVariant = variants.find((v: any) => v.id === selectedVariantId) || variants[0];
 
-  const price = selectedVariant?.price || product.price || 0;
-  const comparePrice = selectedVariant?.compare_at_price || product.compare_at_price;
-  const hasDiscount = comparePrice && comparePrice > price;
+  const { list, current, hasPromo } = getVariantDisplayPrices(selectedVariant || {});
+  const hasDiscount = hasPromo;
 
   // Obtener imagen de la variante
   const getVariantImage = (variant: any) => {
@@ -76,119 +114,63 @@ export default function ProductInfo({ product, storeId, domain }: ProductInfoPro
       variantDescription = selectedVariant.name || 'Variante seleccionada';
     }
     
-    console.log('Agregando al carrito:', {
-      storeId,
-      domain,
-      variantId: selectedVariant.id,
-      productId: product.id
-    });
-    
     // Agregar al carrito local para tracking
     addToLocalCart({
       productId: product.id,
       variantId: selectedVariant.id,
       name: safeGetName(product.name),
       variant: variantDescription,
-      price: price,
+      price: current,
       quantity: 1,
       image: getVariantImage(selectedVariant)
     });
-
-    // Usar el proxy para agregar a TiendaNube y redirigir al carrito
-    addToCart(selectedVariant.id.toString(), 1);
 
     setTimeout(() => setIsAdding(false), 500);
   };
 
-  const handleBuyNow = () => {
+  /** Checkout inmediato (equivalente a “Pago exprés” en vitrinas de referencia) */
+  const handlePagoExpres = () => {
     if (!selectedVariant) return;
-    
-    // Crear descripción de variante para el carrito local
-    let variantDescription = '';
-    if (selectedVariant.attributes && Object.keys(selectedVariant.attributes).length > 0) {
-      const attributes = Object.entries(selectedVariant.attributes)
-        .map(([key, value]) => {
-          const labelMap: { [key: string]: string } = {
-            'size': 'Talla',
-            'color': 'Color',
-            'talla': 'Talla',
-            'Size': 'Talla',
-            'Color': 'Color'
-          };
-          const label = labelMap[key] || key;
-          return `${label}: ${value}`;
-        })
-        .join(', ');
-      variantDescription = attributes;
-    } else {
-      variantDescription = selectedVariant.name || 'Variante seleccionada';
-    }
-    
-    // Agregar al carrito local para tracking
-    addToLocalCart({
-      productId: product.id,
-      variantId: selectedVariant.id,
-      name: safeGetName(product.name),
-      variant: variantDescription,
-      price: price,
-      quantity: 1,
-      image: getVariantImage(selectedVariant)
-    });
-    
-    console.log('🛒 Comprando ahora vía proxy:', {
-      variantId: selectedVariant.id,
-      productId: product.id
-    });
-    
-    // Usar el proxy para agregar a TiendaNube y redirigir al carrito
-    addToCart(selectedVariant.id.toString(), 1);
+    redirectToCheckout(selectedVariant.id.toString(), 1);
   };
 
+  const handleSelectSizeCta = () => {
+    const el = document.querySelector('.pdp-size-options');
+    if (el) {
+      (el as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+      setPdpVariantAck(true);
+    }
+  };
+
+  const leadCopy = descriptionLeadPlain(product);
+  const modelNote = String(product?.modelWearingNote || '').trim();
+  const showLeadCopy = Boolean(leadCopy && (!modelNote || leadCopy !== modelNote));
+  const mobileGateCta = variants.length > 1 && !pdpVariantAck;
+
   return (
-    <div className="product-info">
-      {/* NOMBRE Y PRECIO */}
+    <div className="product-info pdp-eme">
       <div className="product-header">
-        <h1 className="product-title">{safeGetName(product.name)}</h1>
+        <div className="product-title-row">
+          <h1 className="product-title">{safeGetName(product.name)}</h1>
+          <button
+            type="button"
+            className="pdp-wishlist"
+            aria-label="Guardar en lista de deseos"
+            title="Guardar"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden>
+              <path d="M6 4h12a1 1 0 011 1v14l-7-4-7 4V5a1 1 0 011-1z" />
+            </svg>
+          </button>
+        </div>
         <div className="product-price-block">
-          {hasDiscount && (
-            <span className="product-compare-price">${comparePrice.toLocaleString('es-AR')}</span>
-          )}
-          <span className="product-price">${price.toLocaleString('es-AR')}</span>
+          {hasDiscount && <span className="product-compare-price">{formatPrice(list)}</span>}
+          <span className="product-price">{formatPrice(current)}</span>
         </div>
+        {modelNote && <p className="product-model-note">{modelNote}</p>}
+        {showLeadCopy && leadCopy && <p className="product-lead">{leadCopy}</p>}
       </div>
-
-      {/* DESCRIPCIÓN CORTA */}
-      {product.description && (
-        <details className="product-accordion" open>
-          <summary>DETALLES</summary>
-          <div 
-            className="accordion-content"
-            dangerouslySetInnerHTML={{ 
-              __html: typeof product.description === 'object' 
-                ? (product.description.es || product.description.en || '') 
-                : product.description 
-            }} 
-          />
-        </details>
-      )}
-
-      {/* ENVÍOS */}
-      <details className="product-accordion">
-        <summary>ENVIOS</summary>
-        <div className="accordion-content">
-          <p>Envíos a todo el país. El costo de envío se calcula en el checkout.</p>
-          <p>Tiempo estimado de entrega: 3-7 días hábiles.</p>
-        </div>
-      </details>
-
-      {/* GUÍA DE TALLAS */}
-      <details className="product-accordion">
-        <summary>GUIA DE TALLAS</summary>
-        <div className="accordion-content">
-          <p>Model wearing size M - 185 cm.</p>
-          <p>Para más información sobre tallas, contactanos.</p>
-        </div>
-      </details>
 
       {/* SELECTOR DE VARIANTES CON DETECCIÓN INTELIGENTE */}
       {variants.length > 1 && (() => {
@@ -219,7 +201,7 @@ export default function ProductInfo({ product, storeId, domain }: ProductInfoPro
                       hasValidAttributes = true;
                       
                       // Usar el índice como key del atributo (0 = primer atributo, 1 = segundo, etc.)
-                      const key = index === 0 ? 'Color' : (index === 1 ? 'Protección' : `Atributo ${index + 1}`);
+                      const key = index === 0 ? 'Color' : (index === 1 ? 'Talla' : `Atributo ${index + 1}`);
                       
                       if (!attributeGroups.has(key)) {
                         attributeGroups.set(key, {
@@ -278,6 +260,9 @@ export default function ProductInfo({ product, storeId, domain }: ProductInfoPro
             'talle': 'Talla',
             'Size': 'Talla',
             'size': 'Talla',
+            'Protección': 'Talla',
+            'Proteccion': 'Talla',
+            'PROTECCIÓN': 'Talla',
             'Material': 'Material',
             'material': 'Material'
           };
@@ -331,7 +316,7 @@ export default function ProductInfo({ product, storeId, domain }: ProductInfoPro
 
         if (hasValidAttributes && attributeGroups.size > 0) {
           return (
-            <div className="variant-selectors">
+            <div className="variant-selectors" id="pdp-variant-anchor">
               {Array.from(attributeGroups.entries()).map(([attributeKey, attributeData]) => {
                 const { name, values, isColor } = attributeData;
                 const displayName = getAttributeDisplayName(name);
@@ -342,11 +327,9 @@ export default function ProductInfo({ product, storeId, domain }: ProductInfoPro
                 return (
                   <div key={attributeKey} className="variant-attribute">
                     <label className="variant-label">
-                      {displayName}:
+                      <span className="variant-label-key">{displayName}</span>
                       {selectedValue && (
-                        <span style={{ fontWeight: 'normal', marginLeft: '6px', color: '#666' }}>
-                          {selectedValue}
-                        </span>
+                        <span className="variant-label-val">{String(selectedValue)}</span>
                       )}
                     </label>
                     
@@ -375,7 +358,11 @@ export default function ProductInfo({ product, storeId, domain }: ProductInfoPro
                             <button
                               key={`${attributeKey}-${value}`}
                               className={`color-swatch ${selectedVariantId === variant.id ? 'active' : ''} ${!hasStock ? 'out-of-stock' : ''}`}
-                              onClick={() => hasStock && setSelectedVariantId(variant.id)}
+                              onClick={() => {
+                                if (!hasStock) return;
+                                setPdpVariantAck(true);
+                                setSelectedVariantId(variant.id);
+                              }}
                               title={hasStock ? value : `${value} - Sin stock`}
                               disabled={!hasStock}
                             >
@@ -400,8 +387,7 @@ export default function ProductInfo({ product, storeId, domain }: ProductInfoPro
                         })}
                       </div>
                     ) : (
-                      // Selector de botones para tallas y otros
-                      <div className="size-options">
+                      <div className={`size-options ${!isColor ? 'pdp-size-options' : ''}`}>
                         {Array.from(values.entries())
                           .sort((entryA, entryB) => {
                             const [a] = entryA as [any, any];
@@ -452,7 +438,11 @@ export default function ProductInfo({ product, storeId, domain }: ProductInfoPro
                               <button
                                 key={`${attributeKey}-${value}`}
                                 className={`size-btn ${selectedVariantId === variant.id ? 'active' : ''} ${!hasStock ? 'out-of-stock' : ''}`}
-                                onClick={() => hasStock && setSelectedVariantId(variant.id)}
+                                onClick={() => {
+                                  if (!hasStock) return;
+                                  setPdpVariantAck(true);
+                                  setSelectedVariantId(variant.id);
+                                }}
                                 disabled={!hasStock}
                                 title={!hasStock ? 'Sin stock' : ''}
                               >
@@ -472,107 +462,224 @@ export default function ProductInfo({ product, storeId, domain }: ProductInfoPro
         return null;
       })()}
 
-      {/* BOTONES DE ACCIÓN */}
-      <div className="action-buttons">
-        <button 
-          className="btn-buy-now"
-          onClick={handleBuyNow}
-          disabled={variants.length > 1 && !selectedVariantId}
+      <div className={`pdp-cta-wrap ${mobileGateCta ? 'gate-active' : ''}`}>
+        <button
+          type="button"
+          className="btn-eme-select"
+          onClick={handleSelectSizeCta}
         >
-          Compra ahora
+          Seleccionar una talla
         </button>
-        <button 
-          className={`btn-add-cart ${isAdding ? 'adding' : ''}`}
-          onClick={handleAddToCart}
-          disabled={variants.length > 1 && !selectedVariantId}
-        >
-          {isAdding ? '✓ Agregado' : 'Agregar al carrito'}
-        </button>
+        <div className="action-buttons">
+          <button
+            type="button"
+            className={`btn-atc ${isAdding ? 'adding' : ''}`}
+            onClick={handleAddToCart}
+            disabled={(variants.length > 1 && !selectedVariantId) || !selectedVariant}
+          >
+            {isAdding ? '✓ Agregado' : 'Añadir al carrito'}
+          </button>
+          <button
+            type="button"
+            className="btn-express"
+            onClick={handlePagoExpres}
+            disabled={
+              checkoutRedirectLoading || (variants.length > 1 && !selectedVariantId) || !selectedVariant
+            }
+          >
+            {checkoutRedirectLoading ? '…' : 'Pago exprés'}
+          </button>
+        </div>
       </div>
 
-      {/* BADGES DE CONFIANZA */}
-      <div className="trust-badges">
-        <div className="trust-item">
-          <span className="trust-icon">🌍</span>
-          <span>Worldwide shipping available.</span>
+      {product.description && (
+        <details className="product-accordion">
+          <summary>Detalles del producto</summary>
+          <div
+            className="accordion-content"
+            dangerouslySetInnerHTML={{
+              __html:
+                typeof product.description === 'object'
+                  ? product.description.es || product.description.en || ''
+                  : product.description,
+            }}
+          />
+        </details>
+      )}
+
+      <details className="product-accordion">
+        <summary>Guía de cuidado de ropa</summary>
+        <div className="accordion-content">
+          <p>
+            Lavar según indicaciones de la etiqueta. No usar lejía en prendas con estampado o
+            delicadas.
+          </p>
+          <p>Planchar a temperatura media si la composición lo permite.</p>
         </div>
-        <div className="trust-item">
-          <span className="trust-icon">↩️</span>
-          <span>Hassle-free returns.</span>
+      </details>
+
+      <details className="product-accordion">
+        <summary>Envíos y devoluciones</summary>
+        <div className="accordion-content">
+          <p>Envíos a todo el país. El costo se calcula en el checkout.</p>
+          <p>Tiempo estimado de entrega: 3 a 7 días hábiles.</p>
+          <p>Para cambios y devoluciones, consultá las políticas de la tienda.</p>
         </div>
-        <div className="trust-item">
-          <span className="trust-icon">⭐</span>
-          <span>Premium quality products made to last.</span>
-        </div>
-      </div>
+      </details>
+
+      <ProductCompleteLookSidebar products={completeLookProducts} storeId={storeId} />
 
       <style dangerouslySetInnerHTML={{ __html: `
-        .product-info {
-          padding: 20px;
+        .product-info.pdp-eme {
+          padding: 22px 18px 28px;
           display: flex;
           flex-direction: column;
           gap: 0;
+          width: 100%;
+          max-width: 100%;
+          box-sizing: border-box;
+          background: #fff;
+          border-radius: 14px 14px 0 0;
+          margin: -8px 0 0;
+          border: 1px solid #e6e6e6;
+          border-bottom: none;
+          border-left: none;
+          border-right: none;
+          box-shadow: 0 -2px 16px rgba(0,0,0,0.04);
         }
         @media (min-width: 1024px) {
-          .product-info {
-            padding: 40px;
+          .product-info.pdp-eme {
+            margin: 0;
+            border-radius: 0;
+            border: none;
+            box-shadow: none;
+            padding: 32px 28px 48px;
+            padding-bottom: 48px;
             position: sticky;
-            top: 100px;
-            max-height: calc(100vh - 120px);
+            top: var(--header-sticky-offset, 60px);
+            align-self: flex-start;
+            width: 100%;
+            max-height: calc(100vh - var(--header-sticky-offset, 60px));
             overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
           }
         }
 
-        /* HEADER */
         .product-header {
-          margin-bottom: 24px;
+          margin-bottom: 18px;
+        }
+
+        .product-title-row {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 8px;
         }
 
         .product-title {
-          font-size: 20px;
-          font-weight: 700;
-          margin: 0 0 12px 0;
+          flex: 1;
+          font-size: 15px;
+          font-weight: 600;
+          margin: 0;
           line-height: 1.3;
-          letter-spacing: 0.5px;
+          letter-spacing: -0.01em;
+          color: #0a0a0a;
         }
         @media (min-width: 1024px) {
           .product-title {
-            font-size: 24px;
+            font-size: 16px;
           }
+        }
+
+        .pdp-wishlist {
+          flex-shrink: 0;
+          width: 40px;
+          height: 40px;
+          margin: -6px -6px 0 0;
+          padding: 0;
+          border: none;
+          background: transparent;
+          color: #111;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          opacity: 0.85;
+        }
+        .pdp-wishlist:hover {
+          opacity: 1;
         }
 
         .product-price-block {
           display: flex;
           align-items: baseline;
-          gap: 12px;
+          gap: 10px;
+          flex-wrap: wrap;
+          margin-bottom: 12px;
         }
 
         .product-price {
-          font-size: 20px;
-          font-weight: 700;
+          font-size: 15px;
+          font-weight: 500;
+          color: #111;
         }
 
         .product-compare-price {
-          font-size: 16px;
-          color: #999;
+          font-size: 14px;
+          color: #8a8a8a;
           text-decoration: line-through;
+          font-weight: 400;
         }
 
-        /* ACORDEONES */
+        .product-model-note {
+          margin: 0 0 10px;
+          font-size: 12px;
+          line-height: 1.55;
+          color: #333;
+          white-space: pre-line;
+        }
+        @media (max-width: 1023px) {
+          .product-model-note {
+            background: #ececec;
+            border-radius: 8px;
+            padding: 12px 14px;
+          }
+        }
+
+        .product-lead {
+          margin: 0;
+          font-size: 12px;
+          line-height: 1.55;
+          color: #444;
+          white-space: pre-line;
+        }
+        @media (max-width: 1023px) {
+          .product-lead {
+            background: #ececec;
+            border-radius: 8px;
+            padding: 12px 14px;
+            margin-top: 2px;
+          }
+        }
+
+        /* Acordeones estilo vitrina */
         .product-accordion {
-          border-bottom: 1px solid #e5e5e5;
+          border-bottom: 1px solid #e8e8e8;
         }
 
         .product-accordion summary {
           list-style: none;
-          padding: 16px 0;
-          font-size: 12px;
-          font-weight: 700;
-          letter-spacing: 1px;
+          padding: 18px 0;
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
           cursor: pointer;
           display: flex;
           justify-content: space-between;
           align-items: center;
+          color: #111;
         }
 
         .product-accordion summary::-webkit-details-marker {
@@ -581,8 +688,9 @@ export default function ProductInfo({ product, storeId, domain }: ProductInfoPro
 
         .product-accordion summary::after {
           content: '+';
-          font-size: 16px;
-          font-weight: 400;
+          font-size: 18px;
+          font-weight: 300;
+          color: #000;
         }
 
         .product-accordion[open] summary::after {
@@ -590,23 +698,22 @@ export default function ProductInfo({ product, storeId, domain }: ProductInfoPro
         }
 
         .accordion-content {
-          padding: 0 0 16px 0;
-          font-size: 13px;
-          line-height: 1.7;
-          color: #666;
+          padding: 0 0 18px 0;
+          font-size: 12px;
+          line-height: 1.65;
+          color: #555;
         }
 
         .accordion-content p {
-          margin: 0 0 8px 0;
+          margin: 0 0 10px 0;
         }
 
         .accordion-content p:last-child {
           margin-bottom: 0;
         }
 
-        /* SELECTORES DE VARIANTES */
         .variant-selectors {
-          margin: 24px 0;
+          margin: 8px 0 22px;
         }
 
         .variant-attribute {
@@ -618,31 +725,40 @@ export default function ProductInfo({ product, storeId, domain }: ProductInfoPro
         }
 
         .variant-label {
-          font-size: 12px;
-          font-weight: 700;
+          font-size: 10px;
+          font-weight: 600;
+          letter-spacing: 0.1em;
           text-transform: uppercase;
-          letter-spacing: 1px;
-          margin-bottom: 12px;
-          display: block;
-          color: #333;
+          margin-bottom: 10px;
+          display: flex;
+          flex-wrap: wrap;
+          align-items: baseline;
+          gap: 6px 8px;
+          color: #111;
+        }
+        .variant-label-val {
+          font-weight: 500;
+          letter-spacing: 0.04em;
+          text-transform: none;
+          color: #6b6b6b;
+          font-size: 11px;
         }
 
-        /* Selectores de color con imágenes */
         .color-options {
           display: flex;
-          gap: 12px;
+          gap: 8px;
           flex-wrap: wrap;
         }
         .color-swatch {
-          width: 60px;
-          height: 60px;
-          border: 2px solid #ddd;
+          width: 52px;
+          height: 68px;
+          border: 1px solid #d4d4d4;
           background: #fff;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: border-color 0.2s ease, box-shadow 0.2s ease;
           padding: 0;
           overflow: hidden;
-          border-radius: 8px;
+          border-radius: 0;
           position: relative;
         }
         .color-swatch img {
@@ -663,15 +779,12 @@ export default function ProductInfo({ product, storeId, domain }: ProductInfoPro
           padding: 4px;
         }
         .color-swatch:hover:not(:disabled) {
-          border-color: #666;
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          border-color: #888;
         }
         .color-swatch.active {
           border-color: #000;
           border-width: 3px;
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+          box-shadow: none;
         }
         .color-swatch.out-of-stock {
           opacity: 0.4;
@@ -728,15 +841,16 @@ export default function ProductInfo({ product, storeId, domain }: ProductInfoPro
         }
 
         .size-btn {
-          min-width: 48px;
-          height: 40px;
-          padding: 0 16px;
-          border: 1px solid #ddd;
+          min-width: 44px;
+          height: 44px;
+          padding: 0 14px;
+          border: 1px solid #ccc;
           background: #fff;
-          font-size: 13px;
-          font-weight: 600;
+          font-size: 12px;
+          font-weight: 500;
+          letter-spacing: 0.04em;
           cursor: pointer;
-          transition: all 0.2s;
+          transition: background 0.2s, color 0.2s, border-color 0.2s;
         }
 
         .size-btn:hover:not(:disabled) {
@@ -769,84 +883,101 @@ export default function ProductInfo({ product, storeId, domain }: ProductInfoPro
           color: #e74c3c;
         }
 
-        /* BOTONES */
+        .pdp-cta-wrap {
+          margin: 4px 0 24px;
+        }
+
+        .btn-eme-select {
+          display: none;
+          width: 100%;
+          padding: 16px 18px;
+          margin: 0;
+          background: #ebe6df;
+          color: #111;
+          border: 1px solid #ddd8d0;
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          cursor: pointer;
+          transition: background 0.2s, border-color 0.2s;
+        }
+        .btn-eme-select:hover {
+          background: #e4dfd7;
+        }
+        @media (max-width: 1023px) {
+          .pdp-cta-wrap.gate-active .btn-eme-select {
+            display: block;
+          }
+          .pdp-cta-wrap.gate-active .action-buttons {
+            display: none !important;
+          }
+          .pdp-cta-wrap:not(.gate-active) .btn-eme-select {
+            display: none !important;
+          }
+        }
+        @media (min-width: 1024px) {
+          .btn-eme-select {
+            display: none !important;
+          }
+        }
+
         .action-buttons {
           display: flex;
           flex-direction: column;
           gap: 10px;
-          margin: 24px 0;
         }
 
-        .btn-buy-now {
+        .btn-atc {
           width: 100%;
-          padding: 16px;
+          padding: 15px 18px;
           background: #000;
           color: #fff;
-          border: none;
-          font-size: 13px;
+          border: 1px solid #000;
+          font-size: 10px;
           font-weight: 700;
-          letter-spacing: 1px;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
           cursor: pointer;
-          transition: all 0.2s;
+          transition: background 0.2s, border-color 0.2s;
         }
 
-        .btn-buy-now:hover:not(:disabled) {
-          background: #333;
+        .btn-atc:hover:not(:disabled) {
+          background: #222;
         }
 
-        .btn-buy-now:disabled {
-          background: #ccc;
+        .btn-atc:disabled {
+          background: #b0b0b0;
+          border-color: #b0b0b0;
           cursor: not-allowed;
         }
 
-        .btn-add-cart {
+        .btn-atc.adding {
+          background: #1a7f37;
+          border-color: #1a7f37;
+        }
+
+        .btn-express {
           width: 100%;
-          padding: 16px;
+          padding: 14px 18px;
           background: #fff;
           color: #000;
           border: 1px solid #000;
-          font-size: 13px;
+          font-size: 10px;
           font-weight: 700;
-          letter-spacing: 1px;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
           cursor: pointer;
-          transition: all 0.2s;
+          transition: background 0.2s;
         }
 
-        .btn-add-cart:hover:not(:disabled) {
-          background: #f5f5f5;
+        .btn-express:hover:not(:disabled) {
+          background: #f7f7f7;
         }
 
-        .btn-add-cart:disabled {
-          border-color: #ccc;
-          color: #ccc;
+        .btn-express:disabled {
+          opacity: 0.45;
           cursor: not-allowed;
-        }
-
-        .btn-add-cart.adding {
-          background: #22c55e;
-          color: #fff;
-          border-color: #22c55e;
-        }
-
-        /* TRUST BADGES */
-        .trust-badges {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-          padding-top: 24px;
-          border-top: 1px solid #e5e5e5;
-        }
-
-        .trust-item {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          font-size: 12px;
-          color: #666;
-        }
-
-        .trust-icon {
-          font-size: 16px;
         }
       `}} />
     </div>

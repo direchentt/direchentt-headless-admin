@@ -1,224 +1,293 @@
 'use client';
 
 import Link from 'next/link';
-import { useRef } from 'react';
+import { formatPrice, getVariantDisplayPrices } from '@/lib/product-utils';
+import ProductCucardas from './ProductCucardas';
 
 interface ShopTheLookProps {
   mainProduct: any;
   relatedProducts: any[];
-  storeId: string;
+  storeId: string | number;
+}
+
+function productName(prod: any): string {
+  if (typeof prod.name === 'object' && prod.name !== null) {
+    return String(prod.name.es || prod.name.en || prod.name.pt || '');
+  }
+  return String(prod.name ?? '');
+}
+
+/** Tallas únicas para fila tipo vitrina (primer atributo no color si existe) */
+function sizeLabelsForProduct(prod: any): string[] {
+  const variants = prod?.variants || [];
+  const seen = new Set<string>();
+  for (const v of variants) {
+    const attrs = v?.attributes;
+    if (attrs && typeof attrs === 'object') {
+      const entries = Object.entries(attrs).filter(([k]) => !/color|colour/i.test(k));
+      const val = entries.length ? String(entries[0][1]) : '';
+      if (val && !seen.has(val)) seen.add(val);
+    }
+  }
+  return Array.from(seen).slice(0, 8);
 }
 
 export default function ShopTheLook({ mainProduct, relatedProducts, storeId }: ShopTheLookProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
+  if (!mainProduct) return null;
 
-  // Tomamos productos complementarios (Max 3 para total 4)
-  const complementaryProducts = relatedProducts.slice(0, 3);
-
-  // Imagen lifestyle (2da imagen o 1ra)
-  const lifestyleImage = mainProduct.images[1]?.src || mainProduct.images[0]?.src;
-
-  // Lista unificada
-  const productList = [
-    { ...mainProduct, isMain: true },
-    ...complementaryProducts
-  ];
-
-  if (productList.length === 0) return null;
+  const sid = String(storeId);
+  const pool = [mainProduct, ...relatedProducts].filter(Boolean);
+  const uniqueById = pool.filter((p, i, arr) => arr.findIndex((x) => x.id === p.id) === i);
+  const carouselProducts = uniqueById.slice(0, 12);
+  if (carouselProducts.length === 0) return null;
 
   return (
-    <section className="shop-the-look">
-      <div className="section-header">
-        <h3>SHOP THE LOOK</h3>
-        <div className="arrows">
-          <button onClick={() => scrollRef.current?.scrollBy({ left: -300, behavior: 'smooth' })}>←</button>
-          <button onClick={() => scrollRef.current?.scrollBy({ left: 300, behavior: 'smooth' })}>→</button>
-        </div>
+    <section className="ctl">
+      <div className="ctl-head">
+        <h2 className="ctl-title">Completa el look</h2>
+        <p className="ctl-sub">Recomendado</p>
       </div>
 
-      <div className="slider-container" ref={scrollRef}>
+      <div className="ctl-scroller">
+        <div className="ctl-track">
+          {carouselProducts.map((prod) => {
+            const v0 = prod.variants?.[0];
+            const { list, current, hasPromo } = getVariantDisplayPrices(v0 || {});
+            const sizes = sizeLabelsForProduct(prod);
+            const inStock =
+              !prod.variants?.length ||
+              prod.variants.some(
+                (v: any) => v.stock === null || v.stock === undefined || v.stock > 0
+              );
 
-        {/* CARD 1: THE LOOK (Imagen Grande) */}
-        <div className="look-card-hero">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={lifestyleImage} alt="The Look" />
-          <div className="overlay-text">
-            <span>COMPLETE</span>
-            <span>THE SET</span>
-          </div>
+            return (
+              <article key={prod.id} className="ctl-card">
+                <Link href={`/product/${prod.id}?shop=${sid}`} className="ctl-card-visual">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={prod.images?.[0]?.src || ''}
+                    alt={productName(prod)}
+                    className="ctl-img"
+                  />
+                  <ProductCucardas product={prod} />
+                  {inStock && <span className="ctl-stock-pill">En stock</span>}
+                </Link>
+                <div className="ctl-body">
+                  <Link href={`/product/${prod.id}?shop=${sid}`} className="ctl-name">
+                    {productName(prod)}
+                  </Link>
+                  <div className="ctl-price-row">
+                    {hasPromo && <span className="ctl-price-old">{formatPrice(list)}</span>}
+                    <span className={hasPromo ? 'ctl-price-sale' : 'ctl-price'}>
+                      {formatPrice(current)}
+                    </span>
+                  </div>
+                  <Link href={`/product/${prod.id}?shop=${sid}`} className="ctl-add">
+                    Añadir
+                  </Link>
+                  {sizes.length > 0 && (
+                    <div className="ctl-sizes" aria-label="Tallas">
+                      {sizes.map((s) => (
+                        <Link
+                          key={s}
+                          href={`/product/${prod.id}?shop=${sid}`}
+                          className="ctl-size-pill"
+                        >
+                          {s}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </article>
+            );
+          })}
         </div>
-
-        {/* PRODUCTOS */}
-        {productList.map((prod) => (
-          <Link key={prod.id} href={`/product/${prod.id}?shop=${storeId}`} className="look-item-card">
-            <div className="item-image">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={prod.images[0]?.src} alt={typeof prod.name === 'object' ? (prod.name.es || prod.name.en) : prod.name} />
-              {prod.isMain && <span className="tag">ANCHOR</span>}
-            </div>
-            <div className="item-info">
-              <h4>{typeof prod.name === 'object' ? (prod.name.es || prod.name.en) : prod.name}</h4>
-              <p>$ {prod.variants[0]?.price}</p>
-            </div>
-          </Link>
-        ))}
-
-        {/* SPACER END */}
-        <div style={{ minWidth: '50px' }}></div>
       </div>
 
       <style jsx>{`
-            .shop-the-look {
-                padding: 60px 0;
-                background: #fff;
-                overflow: hidden;
-            }
-            .section-header {
-                max-width: 1400px;
-                margin: 0 auto 30px;
-                padding: 0 20px;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-            }
-            .section-header h3 {
-                font-size: 24px;
-                font-weight: 800;
-                margin: 0;
-                text-transform: uppercase;
-                letter-spacing: -1px;
-            }
-            .arrows button {
-                background: none;
-                border: 1px solid #ddd;
-                width: 40px; 
-                height: 40px;
-                border-radius: 50%;
-                cursor: pointer;
-                margin-left: 10px;
-                font-size: 18px;
-                transition: all 0.2s;
-            }
-            .arrows button:hover {
-                background: #000;
-                color: #fff;
-                border-color: #000;
-            }
+        .ctl {
+          padding: 40px 0 56px;
+          background: #fff;
+          border-top: 1px solid #ebebeb;
+        }
 
-            .slider-container {
-                display: flex;
-                overflow-x: auto;
-                gap: 20px;
-                padding: 0 20px 40px;
-                max-width: 1600px;
-                margin: 0 auto;
-                scroll-snap-type: x mandatory;
-                -webkit-overflow-scrolling: touch;
-            }
-            .slider-container::-webkit-scrollbar {
-                height: 4px;
-            }
-            .slider-container::-webkit-scrollbar-thumb {
-                background: #ddd;
-                border-radius: 4px;
-            }
+        .ctl-head {
+          max-width: 1440px;
+          margin: 0 auto;
+          padding: 0 16px 16px;
+        }
+        @media (min-width: 1024px) {
+          .ctl-head {
+            padding: 0 24px 20px;
+          }
+        }
+        .ctl-title {
+          margin: 0;
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: #111;
+        }
+        .ctl-sub {
+          margin: 6px 0 0;
+          font-size: 11px;
+          color: #777;
+          letter-spacing: 0.04em;
+        }
 
-            /* HERO CARD */
-            .look-card-hero {
-                flex: 0 0 300px;
-                height: 400px;
-                position: relative;
-                scroll-snap-align: center;
-                border-radius: 4px;
-                overflow: hidden;
-            }
-            @media (min-width: 768px) {
-                .look-card-hero {
-                    flex: 0 0 400px;
-                    height: 500px;
-                }
-            }
-            .look-card-hero img {
-                width: 100%;
-                height: 100%;
-                object-fit: cover;
-                filter: brightness(0.9);
-            }
-            .overlay-text {
-                position: absolute;
-                bottom: 20px;
-                left: 20px;
-                display: flex;
-                flex-direction: column;
-            }
-            .overlay-text span {
-                background: #fff;
-                color: #000;
-                font-weight: 900;
-                font-size: 20px;
-                padding: 5px 10px;
-                text-transform: uppercase;
-                width: fit-content;
-                line-height: 0.9;
-            }
+        .ctl-scroller {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+          padding-bottom: 8px;
+        }
+        .ctl-scroller::-webkit-scrollbar {
+          display: none;
+        }
 
-            /* ITEM CARD */
-            .look-item-card {
-                flex: 0 0 200px;
-                text-decoration: none;
-                color: inherit;
-                scroll-snap-align: start;
-            }
-            @media (min-width: 768px) {
-                .look-item-card {
-                    flex: 0 0 250px;
-                }
-            }
-            .item-image {
-                position: relative;
-                width: 100%;
-                aspect-ratio: 3/4;
-                background: #f5f5f5;
-                margin-bottom: 15px;
-                overflow: hidden;
-            }
-            .item-image img {
-                width: 100%;
-                height: 100%;
-                object-fit: cover;
-                transition: transform 0.4s;
-            }
-            .look-item-card:hover .item-image img {
-                transform: scale(1.05);
-            }
-            
-            .tag {
-                position: absolute;
-                top: 10px;
-                left: 10px;
-                background: #000;
-                color: #fff;
-                font-size: 9px;
-                font-weight: 700;
-                padding: 4px 8px;
-                text-transform: uppercase;
-            }
+        .ctl-track {
+          display: flex;
+          gap: 12px;
+          padding: 0 16px 8px;
+          width: max-content;
+        }
+        @media (min-width: 1024px) {
+          .ctl-track {
+            gap: 16px;
+            padding: 0 24px 8px;
+          }
+        }
 
-            .item-info h4 {
-                font-size: 13px;
-                font-weight: 700;
-                margin: 0 0 5px;
-                text-transform: uppercase;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-            }
-            .item-info p {
-                font-size: 13px;
-                color: #666;
-                margin: 0;
-            }
-        `}</style>
+        .ctl-card {
+          width: 42vw;
+          max-width: 220px;
+          flex-shrink: 0;
+          display: flex;
+          flex-direction: column;
+        }
+        @media (min-width: 640px) {
+          .ctl-card {
+            width: 200px;
+            max-width: none;
+          }
+        }
+
+        .ctl-card-visual {
+          position: relative;
+          display: block;
+          aspect-ratio: 3 / 4;
+          overflow: hidden;
+          background: #ececec;
+          text-decoration: none;
+          color: inherit;
+        }
+
+        .ctl-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+          transition: transform 0.45s ease;
+        }
+        .ctl-card-visual:hover .ctl-img {
+          transform: scale(1.03);
+        }
+
+        .ctl-stock-pill {
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          font-size: 8px;
+          font-weight: 700;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          padding: 5px 8px;
+          background: #fff;
+          color: #000;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        }
+
+        .ctl-body {
+          padding-top: 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          align-items: flex-start;
+        }
+
+        .ctl-name {
+          font-size: 11px;
+          font-weight: 500;
+          line-height: 1.35;
+          color: #111;
+          text-decoration: none;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+        .ctl-name:hover {
+          text-decoration: underline;
+        }
+
+        .ctl-price-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          align-items: baseline;
+          font-size: 12px;
+        }
+        .ctl-price-old {
+          text-decoration: line-through;
+          color: #999;
+          font-size: 11px;
+        }
+        .ctl-price {
+          color: #111;
+        }
+        .ctl-price-sale {
+          color: #111;
+          font-weight: 600;
+        }
+
+        .ctl-add {
+          display: inline-block;
+          margin-top: 2px;
+          font-size: 9px;
+          font-weight: 700;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          text-decoration: underline;
+          text-underline-offset: 3px;
+          color: #111;
+        }
+
+        .ctl-sizes {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-top: 4px;
+        }
+        .ctl-size-pill {
+          min-width: 32px;
+          height: 32px;
+          padding: 0 8px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 10px;
+          font-weight: 500;
+          border: 1px solid #ccc;
+          color: #111;
+          text-decoration: none;
+          background: #fff;
+        }
+        .ctl-size-pill:hover {
+          border-color: #000;
+        }
+      `}</style>
     </section>
   );
 }

@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
+import { formatPrice, getVariantDisplayPrices } from '@/lib/product-utils';
+import ProductCucardas from './ProductCucardas';
 
 interface QuickShopProps {
   product: any;
@@ -51,7 +53,7 @@ export default function QuickShop({ product, storeId, domain, isOpen, onClose }:
   // Encontrar variante seleccionada
   const selectedVariant = variants.find((v: any) => v.id === selectedVariantId) || variants[0];
 
-  const price = selectedVariant?.price || 0;
+  const { list, current, hasPromo } = getVariantDisplayPrices(selectedVariant || {});
 
   // Obtener imagen de la variante
   const getVariantImage = (variant: any) => {
@@ -113,7 +115,7 @@ export default function QuickShop({ product, storeId, domain, isOpen, onClose }:
       variantId: selectedVariant.id,
       name: productName,
       variant: variantDescription,
-      price: price,
+      price: current,
       quantity: 1,
       image: currentImage
     });
@@ -135,6 +137,7 @@ export default function QuickShop({ product, storeId, domain, isOpen, onClose }:
         <div className="quickshop-content">
           {/* Imagen */}
           <div className="quickshop-image">
+            <ProductCucardas product={currentProduct} />
             {currentImage && (
               // eslint-disable-next-line @next/next/no-img-element
               <img 
@@ -156,7 +159,14 @@ export default function QuickShop({ product, storeId, domain, isOpen, onClose }:
             <h3 className="quickshop-title">
               {typeof product.name === 'object' ? product.name.es : product.name}
             </h3>
-            <p className="quickshop-price">$ {price.toLocaleString('es-AR')}</p>
+            <p className="quickshop-price">
+              {hasPromo && (
+                <span style={{ textDecoration: 'line-through', color: '#888', marginRight: 10, fontSize: 16 }}>
+                  {formatPrice(list)}
+                </span>
+              )}
+              {formatPrice(current)}
+            </p>
 
             {/* Selector de variantes basado en datos reales de TiendaNube */}
             {variants.length > 1 && (() => {
@@ -600,6 +610,7 @@ export default function QuickShop({ product, storeId, domain, isOpen, onClose }:
           aspect-ratio: 3/4;
           background: #f5f5f5;
           overflow: hidden;
+          position: relative;
         }
         .quickshop-info {
           padding: 40px 30px;

@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Archivos accidentales en la raíz (evitar commits por error)
+/direchentt-headless-admin@*
+/next

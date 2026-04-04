@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import MercadoPagoButton from '../components/MercadoPagoButton';
+import { formatPrice, parseMoney } from '@/lib/product-utils';
 
 // Definición de tipo para los items del carrito
 interface CartItem {
@@ -30,7 +31,10 @@ export default function CheckoutPage() {
         }
     }, []);
 
-    const total = items.reduce((acc, item) => acc + (parseFloat(item.price) * item.quantity), 0);
+    const total = items.reduce(
+      (acc, item) => acc + Math.round(parseMoney(item.price)) * item.quantity,
+      0
+    );
 
     if (loading) {
         return (
@@ -66,14 +70,14 @@ export default function CheckoutPage() {
                                     <p className="text-zinc-500 text-xs mt-1">S / Black</p>
                                     <p className="text-zinc-500 text-xs">Cant: {item.quantity}</p>
                                 </div>
-                                <p className="font-medium text-sm">${(parseFloat(item.price) * item.quantity).toFixed(2)}</p>
+                                <p className="font-medium text-sm">{formatPrice(Math.round(parseMoney(item.price)) * item.quantity)}</p>
                             </div>
                         ))}
                     </div>
                     <div className="border-t border-zinc-100 pt-6 space-y-2">
                         <div className="flex justify-between text-zinc-500 text-sm">
                             <span>Subtotal</span>
-                            <span>${total.toFixed(2)}</span>
+                            <span>{formatPrice(total)}</span>
                         </div>
                         <div className="flex justify-between text-zinc-500 text-sm">
                             <span>Envío</span>
@@ -81,7 +85,7 @@ export default function CheckoutPage() {
                         </div>
                         <div className="flex justify-between font-bold text-lg pt-4">
                             <span>Total</span>
-                            <span>${total.toFixed(2)}</span>
+                            <span>{formatPrice(total)}</span>
                         </div>
                     </div>
                 </div>

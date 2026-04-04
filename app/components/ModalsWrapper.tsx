@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import SearchModal from './SearchModal';
 import AuthModal from './AuthModal';
 import CartDrawer from './CartDrawer';
-import NewsletterPopup from './NewsletterPopup';
 
 interface ModalsWrapperProps {
   products: any[];
@@ -25,7 +24,6 @@ export default function ModalsWrapper({ products, storeId }: ModalsWrapperProps)
       <SearchModal products={products} storeId={storeId} />
       <AuthModal />
       <CartDrawer storeId={storeId} />
-      <NewsletterPopup />
     </>
   );
 }
