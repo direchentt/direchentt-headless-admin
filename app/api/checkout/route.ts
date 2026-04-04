@@ -1,6 +1,92 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getStoreData } from '@/lib/backend';
+import { getStoreData, fetchProductWithVariants } from '@/lib/backend';
+import { processProduct, getVariantDisplayPrices, parseMoney } from '@/lib/product-utils';
+import {
+  createMercadoPagoCheckoutProPreference,
+  type MpPreferenceInputItem,
+} from '@/lib/mercadopago-checkout-pro';
 import crypto from 'crypto';
+
+type CheckoutBodyItem = {
+  variantId?: unknown;
+  quantity?: unknown;
+  productId?: unknown;
+  name?: unknown;
+  price?: unknown;
+};
+
+/** Arma ítems con nombre y precio para MP (body del cliente o API Tienda Nube). */
+async function buildMercadoPagoItemsFromCheckout(
+  lineItems: { variant_id: number; quantity: number }[],
+  bodyItems: CheckoutBodyItem[] | undefined,
+  storeId: string,
+  tnToken: string | undefined
+): Promise<MpPreferenceInputItem[] | null> {
+  const resolved: MpPreferenceInputItem[] = [];
+  const productCache = new Map<number, NonNullable<ReturnType<typeof processProduct>>>();
+
+  for (let i = 0; i < lineItems.length; i++) {
+    const li = lineItems[i];
+    const raw =
+      bodyItems?.find((x) => parseInt(String(x.variantId), 10) === li.variant_id) ??
+      bodyItems?.[i];
+
+    let name =
+      raw?.name != null && String(raw.name).trim() !== ''
+        ? String(raw.name).trim()
+        : undefined;
+    let price: string | number | undefined =
+      raw?.price != null && String(raw.price).trim() !== '' ? (raw.price as string | number) : undefined;
+
+    const productIdNum =
+      raw?.productId != null ? parseInt(String(raw.productId), 10) : undefined;
+
+    const needsTnFetch = (name == null || price == null) && productIdNum != null && Number.isFinite(productIdNum);
+    if (needsTnFetch && !tnToken?.trim()) {
+      console.warn('MP checkout: falta nombre/precio y no hay token TN para enriquecer');
+      return null;
+    }
+
+    if (needsTnFetch && productIdNum != null) {
+      let proc = productCache.get(productIdNum);
+      if (!proc) {
+        const product = await fetchProductWithVariants(String(productIdNum), storeId, tnToken!);
+        if (!product) {
+          console.warn(`MP checkout: producto ${productIdNum} no encontrado`);
+          return null;
+        }
+        const processed = processProduct(product);
+        if (!processed) {
+          return null;
+        }
+        proc = processed;
+        productCache.set(productIdNum, proc);
+      }
+      const variant = proc.variants?.find((v: { id: number }) => v.id === li.variant_id);
+      if (!variant) {
+        console.warn(`MP checkout: variante ${li.variant_id} no existe en producto ${productIdNum}`);
+        return null;
+      }
+      const { current } = getVariantDisplayPrices(variant);
+      name = name ?? String(proc.name || 'Producto');
+      price = price ?? current;
+    }
+
+    if (!name || price == null || parseMoney(price) <= 0) {
+      console.warn('MP checkout: falta nombre o precio válido', { variant_id: li.variant_id });
+      return null;
+    }
+
+    resolved.push({
+      variantId: li.variant_id,
+      name,
+      price,
+      quantity: li.quantity,
+    });
+  }
+
+  return resolved;
+}
 
 /**
  * Obtiene el dominio correcto de checkout para una tienda.
@@ -167,7 +253,7 @@ function buildCartAddUrl(
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { variantId, quantity = 1, shop, productId, items } = body;
+    const { variantId, quantity = 1, shop, productId, items, name, price } = body;
     const storeId = String(shop || '5112334');
 
     // Normalizar items al formato interno
@@ -193,6 +279,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    let bodyItemsForMp: CheckoutBodyItem[] | undefined;
+    if (items && Array.isArray(items) && items.length > 0) {
+      bodyItemsForMp = items as CheckoutBodyItem[];
+    } else if (variantId != null) {
+      bodyItemsForMp = [
+        { variantId, quantity, productId, name, price },
+      ];
+    }
+
     // Obtener datos de la tienda desde MongoDB
     const storeLocal = await getStoreData(storeId);
     if (!storeLocal) {
@@ -208,8 +303,36 @@ export async function POST(req: NextRequest) {
     let checkoutUrl: string | null = null;
     let method: string | undefined;
 
-    // Estrategia 1: Usar Cart API para crear el carrito
     const token = storeLocal.accessToken as string | undefined;
+    const mpToken = process.env.MP_ACCESS_TOKEN?.trim();
+
+    if (mpToken) {
+      const mpItems = await buildMercadoPagoItemsFromCheckout(
+        lineItems,
+        bodyItemsForMp,
+        String(storeLocal.storeId),
+        token
+      );
+      if (mpItems && mpItems.length === lineItems.length) {
+        const mpResult = await createMercadoPagoCheckoutProPreference(
+          req,
+          mpToken,
+          String(storeLocal.storeId),
+          mpItems
+        );
+        if (mpResult.ok) {
+          return NextResponse.json({
+            success: true,
+            checkoutUrl: mpResult.init_point,
+            domain: checkoutDomain,
+            method: 'mercadopago_checkout_pro',
+          });
+        }
+        console.warn('⚠️ Mercado Pago falló, se usa checkout TiendaNube:', mpResult.error);
+      }
+    }
+
+    // Estrategia 1: Usar Cart API para crear el carrito
     const nativeDomain = `${storeLocal.storeId}.mitiendanube.com`;
     
     if (token) {

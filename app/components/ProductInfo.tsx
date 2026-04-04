@@ -184,7 +184,12 @@ export default function ProductInfo({
     }
     // Solo Tienda Nube si lo habilitás (por defecto: no confundir con checkout MP).
     if (process.env.NEXT_PUBLIC_MP_EXPRESS_FALLBACK_TN === 'true') {
-      redirectToCheckout(selectedVariant.id.toString(), 1);
+      const { current } = getVariantDisplayPrices(selectedVariant);
+      redirectToCheckout(selectedVariant.id.toString(), 1, undefined, {
+        productId: product.id,
+        name: safeGetName(product.name),
+        price: current,
+      });
     }
   };
 

@@ -52,10 +52,12 @@ export default function CartDrawer({ storeId }: CartDrawerProps) {
     }
 
     // Transformar items del carrito al formato esperado por la API
-    const checkoutItems = cart.map(item => ({
-      variantId: parseInt(item.variantId.toString()),
+    const checkoutItems = cart.map((item) => ({
+      variantId: parseInt(item.variantId.toString(), 10),
       quantity: item.quantity,
-      productId: parseInt(item.productId.toString())
+      productId: parseInt(item.productId.toString(), 10),
+      name: item.name,
+      price: item.price,
     }));
 
     try {

@@ -6,6 +6,9 @@ interface CheckoutItem {
   variantId: number;
   quantity: number;
   productId?: number;
+  /** Para Mercado Pago / preferencia (opcional si el servidor enriquece vía TN) */
+  name?: string;
+  price?: number;
 }
 
 export function useCheckout(shopId: string = '5112334') {
@@ -21,7 +24,7 @@ export function useCheckout(shopId: string = '5112334') {
         throw new Error('El carrito está vacío');
       }
 
-      const res = await fetch('/api/checkout', {
+      const res = await fetch(`${window.location.origin}/api/checkout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
