@@ -59,6 +59,23 @@ export async function getMongoClient(): Promise<MongoClient> {
   return connectNew();
 }
 
+const MONGO_DB_HEADLESS = 'direchentt-headless-admin';
+/** OAuth `/api/auth/callback` persiste acá con `storeId` string */
+const MONGO_DB_OAUTH_LEGACY = 'AppRegaloDB';
+
+/** Coincide con documentos que guardan storeId como número o como string (muy común en Mongo). */
+function storeIdMatchFilter(shopId: string) {
+  const s = String(shopId).trim();
+  if (!s) return { storeId: '' };
+  const n = parseInt(s, 10);
+  const variants: Array<{ storeId: string | number }> = [{ storeId: s }];
+  if (Number.isFinite(n)) {
+    variants.push({ storeId: n });
+    if (String(n) !== s) variants.push({ storeId: String(n) });
+  }
+  return variants.length === 1 ? variants[0]! : { $or: variants };
+}
+
 /**
  * Obtiene datos de la tienda desde MongoDB
  * @param shopId ID de la tienda
@@ -68,16 +85,24 @@ export async function getStoreData(shopId: string) {
   try {
     console.log(`🔍 Buscando tienda ${shopId} en MongoDB...`);
     const client = await getMongoClient();
-    // Buscar en la base de datos correcta (direchentt-headless-admin)
-    const store = await client.db('direchentt-headless-admin').collection('stores').findOne({ storeId: parseInt(shopId, 10) });
+    const filter = storeIdMatchFilter(shopId);
+
+    let store = await client.db(MONGO_DB_HEADLESS).collection('stores').findOne(filter);
     if (!store) {
-      console.warn(`⚠️ No se encontró la tienda ${shopId} en la base de datos.`);
+      store = await client.db(MONGO_DB_OAUTH_LEGACY).collection('stores').findOne(filter);
+    }
+
+    if (!store) {
+      console.warn(`⚠️ No se encontró la tienda ${shopId} en ${MONGO_DB_HEADLESS} ni ${MONGO_DB_OAUTH_LEGACY}.`);
     } else {
-      console.log(`✅ Tienda ${shopId} encontrada:`, { domain: store.domain, accessToken: store.accessToken?.substring(0, 10) + '...' });
+      console.log(`✅ Tienda ${shopId} encontrada:`, {
+        domain: store.domain,
+        accessToken: store.accessToken?.substring(0, 10) + '...',
+      });
     }
     return store;
   } catch (error: any) {
-    console.error("❌ Error conectando a MongoDB:", error instanceof Error ? error.message : error);
+    console.error('❌ Error conectando a MongoDB:', error instanceof Error ? error.message : error);
     return null;
   }
 }
