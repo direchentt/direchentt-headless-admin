@@ -1,4 +1,4 @@
-import { MongoClient } from 'mongodb';
+import { MongoClient, ServerApiVersion } from 'mongodb';
 import fs from 'fs';
 import path from 'path';
 
@@ -6,8 +6,8 @@ import path from 'path';
 const SUPPORTED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif'];
 
 // MongoDB en Vercel/serverless: la conexión idle se cierra; el singleton del módulo queda inválido.
-// Patrón recomendado: cliente en globalThis + ping; si falla, cerrar y reconectar. URI sin espacios/saltos.
-const mongoUri = (process.env.MONGODB_URI || "").trim();
+// MONGODB_URI_DIRECT (opcional): URI "estándar" mongodb://host1,host2.../ de Atlas si mongodb+srv falla con TLS.
+const mongoUri = (process.env.MONGODB_URI_DIRECT || process.env.MONGODB_URI || "").trim();
 
 type WithMongo = typeof globalThis & { __direchenttMongoClient?: MongoClient };
 
@@ -38,6 +38,12 @@ export async function getMongoClient(): Promise<MongoClient> {
   }
 
   const client = new MongoClient(mongoUri, {
+    /** Atlas + Node en Vercel: evita fallos TLS/handshake frecuentes sin Stable API */
+    serverApi: {
+      version: ServerApiVersion.v1,
+      strict: false,
+      deprecationErrors: false,
+    },
     connectTimeoutMS: 20_000,
     serverSelectionTimeoutMS: 20_000,
     maxPoolSize: 1,

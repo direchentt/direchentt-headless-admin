@@ -7,7 +7,9 @@ export const dynamic = 'force-dynamic';
  * Comprueba MONGODB_URI + conexión (útil en Vercel). No expone la URI.
  */
 export async function GET() {
-  const hasUri = Boolean((process.env.MONGODB_URI || '').trim());
+  const hasUri = Boolean(
+    (process.env.MONGODB_URI_DIRECT || process.env.MONGODB_URI || '').trim()
+  );
   if (!hasUri) {
     return NextResponse.json({ ok: false, step: 'env' }, { status: 503 });
   }
