@@ -61,7 +61,7 @@ export default function CategoryTabs({
       </div>
 
       {/* TAB CONTENT */}
-      <ProductGrid products={activeProducts.slice(0, 8)} storeId={storeId} />
+      <ProductGrid products={activeProducts.slice(0, 8)} storeId={String(storeId)} />
 
       {/* VIEW ALL BUTTON */}
       <div style={{ textAlign: 'center', marginTop: '40px' }}>

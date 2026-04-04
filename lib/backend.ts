@@ -5,39 +5,52 @@ import path from 'path';
 // Extensiones de imagen soportadas para banners locales
 const SUPPORTED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif'];
 
-// Singleton para la conexión a MongoDB
+// MongoDB: en Next/Vercel el módulo puede recargarse; globalThis evita singletons rotos.
 const uri = process.env.MONGODB_URI || "";
-let cachedClient: MongoClient | null = null;
+
+type MongoGlobal = typeof globalThis & { __direchenttMongoClient?: MongoClient | null };
+
+function mongoOptions(): ConstructorParameters<typeof MongoClient>[1] {
+  const onVercel = Boolean(process.env.VERCEL);
+  return {
+    connectTimeoutMS: onVercel ? 15_000 : 5_000,
+    serverSelectionTimeoutMS: onVercel ? 15_000 : 5_000,
+    /** Serverless: pocas conexiones por instancia (Atlas tiene límite) */
+    maxPoolSize: onVercel ? 1 : 10,
+  };
+}
 
 /**
- * En dev (HMR) o tras idle, el driver puede dejar el cliente en "Topology is closed".
- * Validamos con ping y recreamos el cliente si hace falta.
+ * En dev (HMR), tras idle o en serverless, la topología puede cerrarse.
+ * Ping + recreación; caché en globalThis para supervivencia entre invocaciones en Vercel.
  */
 export async function getMongoClient(): Promise<MongoClient> {
   if (!uri) throw new Error("MONGODB_URI no definida");
 
-  async function connectNew(): Promise<MongoClient> {
-    if (cachedClient) {
-      try {
-        await cachedClient.close();
-      } catch {
-        /* ya cerrado */
-      }
-      cachedClient = null;
+  const g = globalThis as MongoGlobal;
+
+  async function disposeStale() {
+    if (!g.__direchenttMongoClient) return;
+    try {
+      await g.__direchenttMongoClient.close();
+    } catch {
+      /* ya cerrado */
     }
-    const client = new MongoClient(uri, {
-      connectTimeoutMS: 5000,
-      serverSelectionTimeoutMS: 5000,
-    });
+    g.__direchenttMongoClient = null;
+  }
+
+  async function connectNew(): Promise<MongoClient> {
+    await disposeStale();
+    const client = new MongoClient(uri, mongoOptions());
     await client.connect();
-    cachedClient = client;
+    g.__direchenttMongoClient = client;
     return client;
   }
 
-  if (cachedClient) {
+  if (g.__direchenttMongoClient) {
     try {
-      await cachedClient.db('admin').command({ ping: 1 });
-      return cachedClient;
+      await g.__direchenttMongoClient.db('admin').command({ ping: 1 });
+      return g.__direchenttMongoClient;
     } catch {
       return connectNew();
     }
