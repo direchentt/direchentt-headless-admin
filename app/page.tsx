@@ -1,13 +1,9 @@
 import Header from './components/Header';
 import HeroSlider from './components/HeroSlider';
-import FeaturedSection from './components/FeaturedSection';
-import BannerGrid from './components/BannerGrid';
+import CategoryTabs from './components/CategoryTabs';
 import ProductGrid from './components/ProductGrid';
-import NewArrivals from './components/NewArrivals';
 import Footer from './components/Footer';
 import ModalsWrapper from './components/ModalsWrapper';
-import ShopTheLook from './components/ShopTheLook';
-import CrazyCarousel from './components/CrazyCarousel';
 import {
   getStoreData,
   fetchTN,
@@ -19,7 +15,6 @@ import {
   processCategories,
   processBanners,
 } from '../lib/backend';
-import { getRelatedProducts } from '../lib/product-utils';
 
 export default async function Home({ searchParams }: any) {
   const params = await searchParams;
@@ -47,18 +42,16 @@ export default async function Home({ searchParams }: any) {
 
   const products = processProducts(productsRaw as any[]);
   const categories = processCategories(categoriesRaw);
-  // Slider: banners locales / fallback; la API pública documentada no incluye recurso "banners".
   const bannerImages = processBanners([], 'hero');
 
-  // Seleccionar producto para Shop The Look (por ejemplo, el 5to producto si existe)
-  const shopTheLookProduct = products[4] || products[0];
-  const shopTheLookRelated = shopTheLookProduct
-    ? getRelatedProducts(products, shopTheLookProduct.id, shopTheLookProduct.category_id)
-    : [];
+  // Segmentar productos por tipo
+  const newProducts = products.slice(0, 12);
+  const bestSellers = products.slice(12, 24);
+  const backInStock = products.slice(24, 36);
+  const allProducts = products.slice(0, 20);
 
   return (
     <main style={{ backgroundColor: '#ffffff', color: '#000', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' }}>
-      {/* Modales globales */}
       <ModalsWrapper products={products} storeId={storeLocal.storeId} />
 
       <Header
@@ -73,75 +66,106 @@ export default async function Home({ searchParams }: any) {
         categories={categories}
       />
 
-      {/* Hero Slider con banners locales */}
+      {/* HERO SLIDER - Grande y impactante */}
       <HeroSlider banners={bannerImages} />
 
-      {/* Grid de 3 categorías principales */}
-      <FeaturedSection storeId={storeLocal.storeId} categories={categories} />
+      {/* CATEGORY TABS SECTION - Scuffers Style */}
+      <section style={{ padding: '60px 0', backgroundColor: '#fff' }}>
+        <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 20px' }}>
+          <CategoryTabs 
+            newProducts={newProducts}
+            bestSellers={bestSellers}
+            backInStock={backInStock}
+            storeId={storeLocal.storeId}
+          />
+        </div>
+      </section>
 
-      {/* NEW ARRIVALS - Estilo Scuffers con tabs */}
-      <NewArrivals
-        products={products}
-        categories={categories}
-        storeId={storeLocal.storeId}
-        domain={storeLocal.domain}
-      />
-
-      {/* Carrousel LOCO / CREATIVO con Marquee */}
+      {/* FEATURED PRODUCTS - "LOS MÁS DESEADOS" */}
       {products.length > 0 && (
-        <CrazyCarousel
-          products={products.slice(0, 10)}
-          storeId={storeLocal.storeId}
-        />
+        <section style={{ padding: '80px 0', backgroundColor: '#f8f8f8' }}>
+          <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 20px' }}>
+            <h2 style={{
+              fontSize: '12px',
+              fontWeight: '800',
+              textAlign: 'center',
+              marginBottom: '50px',
+              letterSpacing: '4px',
+              textTransform: 'uppercase'
+            }}>
+              Los Más Deseados
+            </h2>
+            <ProductGrid products={products.slice(0, 6)} storeId={storeLocal.storeId} />
+          </div>
+        </section>
       )}
 
-      {/* Banner Split - Mujer / Hombre */}
-      <BannerGrid storeId={storeLocal.storeId} variant="split" />
-
-      {/* SHOP THE LOOK en Home */}
-      {shopTheLookProduct && (
-        <ShopTheLook
-          mainProduct={shopTheLookProduct}
-          relatedProducts={shopTheLookRelated}
-          storeId={storeLocal.storeId}
-        />
-      )}
-
-      {/* Sección BEST SELLERS */}
-      <section style={{ padding: '80px 0', backgroundColor: '#f8f8f8' }}>
-        <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 20px' }}>
-          <h2 style={{
-            fontSize: '12px',
-            fontWeight: '800',
-            textAlign: 'center',
-            marginBottom: '50px',
-            letterSpacing: '4px',
-            textTransform: 'uppercase'
-          }}>
-            BEST SELLERS
-          </h2>
-          <ProductGrid products={products.slice(8, 16)} storeId={storeLocal.storeId} />
+      {/* TRUST BADGES SECTION */}
+      <section style={{
+        padding: '60px 20px',
+        backgroundColor: '#fff',
+        borderTop: '1px solid #f0f0f0',
+        borderBottom: '1px solid #f0f0f0'
+      }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '40px', textAlign: 'center' }}>
+          <div>
+            <div style={{ fontSize: '24px', marginBottom: '10px' }}>🛡️</div>
+            <h3 style={{ fontSize: '12px', fontWeight: '800', marginBottom: '8px', letterSpacing: '2px' }}>100% PROTEGIDO</h3>
+            <p style={{ fontSize: '13px', color: '#666' }}>Compra segura garantizada</p>
+          </div>
+          <div>
+            <div style={{ fontSize: '24px', marginBottom: '10px' }}>📦</div>
+            <h3 style={{ fontSize: '12px', fontWeight: '800', marginBottom: '8px', letterSpacing: '2px' }}>ENVÍOS A TODO EL PAÍS</h3>
+            <p style={{ fontSize: '13px', color: '#666' }}>Entrega en 3-7 días hábiles</p>
+          </div>
+          <div>
+            <div style={{ fontSize: '24px', marginBottom: '10px' }}>↩️</div>
+            <h3 style={{ fontSize: '12px', fontWeight: '800', marginBottom: '8px', letterSpacing: '2px' }}>DEVOLUCIONES FÁCILES</h3>
+            <p style={{ fontSize: '13px', color: '#666' }}>Sin complicaciones</p>
+          </div>
+          <div>
+            <div style={{ fontSize: '24px', marginBottom: '10px' }}>⭐</div>
+            <h3 style={{ fontSize: '12px', fontWeight: '800', marginBottom: '8px', letterSpacing: '2px' }}>CALIDAD PREMIUM</h3>
+            <p style={{ fontSize: '13px', color: '#666' }}>Prendas duraderas</p>
+          </div>
         </div>
       </section>
 
-      {/* Sección ÚLTIMOS PRODUCTOS */}
-      <section style={{ padding: '80px 0', backgroundColor: '#fff' }}>
-        <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 20px' }}>
-          <h2 style={{
-            fontSize: '12px',
-            fontWeight: '800',
-            textAlign: 'center',
-            marginBottom: '50px',
-            letterSpacing: '4px',
-            textTransform: 'uppercase'
-          }}>
-            LO ÚLTIMO
-          </h2>
-          <ProductGrid products={products.slice(16, 24)} storeId={storeLocal.storeId} />
-        </div>
-      </section>
+      {/* ALL PRODUCTS SHOWCASE */}
+      {products.length > 0 && (
+        <section style={{ padding: '80px 0', backgroundColor: '#fff' }}>
+          <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 20px' }}>
+            <h2 style={{
+              fontSize: '12px',
+              fontWeight: '800',
+              textAlign: 'center',
+              marginBottom: '50px',
+              letterSpacing: '4px',
+              textTransform: 'uppercase'
+            }}>
+              Explorar Todo
+            </h2>
+            <ProductGrid products={allProducts} storeId={storeLocal.storeId} />
+            <div style={{ textAlign: 'center', marginTop: '40px' }}>
+              <button style={{
+                padding: '12px 40px',
+                border: '1px solid #000',
+                background: '#fff',
+                color: '#000',
+                fontSize: '12px',
+                fontWeight: '800',
+                letterSpacing: '2px',
+                cursor: 'pointer',
+                textTransform: 'uppercase'
+              }}>
+                Ver Todo
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
 
-      {/* Newsletter Banner */}
+      {/* NEWSLETTER - Mejorado con beneficio visual */}
       <section style={{
         padding: '80px 20px',
         backgroundColor: '#000',
@@ -153,17 +177,33 @@ export default async function Home({ searchParams }: any) {
             fontSize: '11px',
             fontWeight: '800',
             letterSpacing: '3px',
-            marginBottom: '20px'
+            marginBottom: '20px',
+            textTransform: 'uppercase'
           }}>
-            NEWSLETTER
+            Newsletter
           </h3>
           <p style={{
             fontSize: '24px',
             fontWeight: '300',
-            marginBottom: '30px',
+            marginBottom: '10px',
             lineHeight: '1.4'
           }}>
-            Suscribite y obtené un 10% de descuento
+            Suscríbete y obtén
+          </p>
+          <p style={{
+            fontSize: '32px',
+            fontWeight: '800',
+            marginBottom: '30px',
+            lineHeight: '1.2'
+          }}>
+            10% de Descuento
+          </p>
+          <p style={{
+            fontSize: '13px',
+            color: '#ccc',
+            marginBottom: '30px'
+          }}>
+            Recibe novedades sobre colecciones, reposiciones y ofertas exclusivas
           </p>
           <form style={{ display: 'flex', gap: '0', maxWidth: '450px', margin: '0 auto' }}>
             <input
@@ -174,7 +214,9 @@ export default async function Home({ searchParams }: any) {
                 padding: '16px 20px',
                 border: 'none',
                 fontSize: '13px',
-                outline: 'none'
+                outline: 'none',
+                backgroundColor: '#fff',
+                color: '#000'
               }}
             />
             <button
@@ -187,12 +229,20 @@ export default async function Home({ searchParams }: any) {
                 fontSize: '11px',
                 fontWeight: '800',
                 letterSpacing: '1px',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                textTransform: 'uppercase'
               }}
             >
-              SUSCRIBIRSE
+              Suscribirse
             </button>
           </form>
+          <p style={{
+            fontSize: '11px',
+            color: '#999',
+            marginTop: '15px'
+          }}>
+            ✓ Descuentos exclusivos • ✓ Acceso anticipado • ✓ Contenidos especiales
+          </p>
         </div>
       </section>
 
