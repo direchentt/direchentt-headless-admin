@@ -1,11 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MercadoPagoConfig, Preference } from 'mercadopago';
+import { parseMoney } from '@/lib/product-utils';
+
+function mercadoPagoErrorMessage(err: unknown): string {
+  if (err instanceof Error && err.message) return err.message;
+  if (typeof err === 'object' && err !== null) {
+    const o = err as Record<string, unknown>;
+    if (typeof o.message === 'string') return o.message;
+    const cause = o.cause;
+    if (Array.isArray(cause) && cause[0] && typeof cause[0] === 'object' && cause[0] !== null) {
+      const c0 = cause[0] as Record<string, unknown>;
+      if (typeof c0.description === 'string') return c0.description;
+    }
+  }
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return 'Error al crear la preferencia en Mercado Pago';
+  }
+}
 
 /**
  * Checkout Pro: crea preferencia con el Access Token (servidor).
  * La Public Key no hace falta para este flujo (redirección a init_point).
  * Public Key = Bricks / tokenización en el front; ver docs MP.
  */
+/**
+ * URL pública para back_urls y notification_url.
+ * Prioridad: host de esta petición (coincide con donde el usuario compra) → env → Vercel.
+ * Así evitamos rechazos de MP cuando NEXT_PUBLIC_APP_URL no coincide con el dominio real (www, custom domain, etc.).
+ */
+function resolvePublicBaseUrl(req: NextRequest): string | null {
+  const fromRequest = req.nextUrl?.origin?.replace(/\/$/, '').trim();
+  const fromEnv = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '').trim();
+  const vercel = process.env.VERCEL_URL?.replace(/\/$/, '').trim();
+  const fromVercel = vercel ? `https://${vercel}` : '';
+  if (fromRequest) return fromRequest;
+  if (fromEnv) return fromEnv;
+  if (fromVercel) return fromVercel;
+  return null;
+}
+
 export async function POST(req: NextRequest) {
   const accessToken = process.env.MP_ACCESS_TOKEN?.trim();
   if (!accessToken) {
@@ -18,10 +53,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '');
+  const baseUrl = resolvePublicBaseUrl(req);
   if (!baseUrl) {
     return NextResponse.json(
-      { error: 'Definí NEXT_PUBLIC_APP_URL para back_urls y webhooks' },
+      {
+        error:
+          'No se pudo determinar la URL pública (back_urls). Definí NEXT_PUBLIC_APP_URL o desplegá en Vercel.',
+      },
       { status: 500 }
     );
   }
@@ -40,10 +78,10 @@ export async function POST(req: NextRequest) {
 
     const mapped = items.map((item: any) => {
       const title = String(item.name || 'Producto').slice(0, 250);
-      const unit = Number(item.price);
+      const unit = Math.round(parseMoney(item.price) * 100) / 100;
       const qty = Math.min(99, Math.max(1, parseInt(String(item.quantity), 10) || 1));
       if (!Number.isFinite(unit) || unit <= 0) {
-        throw new Error(`Precio inválido para ítem: ${title}`);
+        throw new Error(`Precio inválido para ítem: ${title} (recibido: ${JSON.stringify(item.price)})`);
       }
       return {
         id: String(item.variantId ?? item.id ?? ''),
@@ -54,24 +92,29 @@ export async function POST(req: NextRequest) {
       };
     });
 
-    const result = await preference.create({
-      body: {
-        items: mapped,
-        back_urls: {
-          success: `${baseUrl}/checkout/success`,
-          failure: `${baseUrl}/checkout/failure`,
-          pending: `${baseUrl}/checkout/pending`,
-        },
-        auto_return: 'approved',
-        notification_url: `${baseUrl}/api/checkout/mercadopago/webhook`,
-        metadata: {
-          store_id: String(storeId || '5112334'),
-          cart_items: JSON.stringify(
-            items.map((i: any) => ({ id: i.variantId, q: i.quantity }))
-          ),
-        },
+    const backUrls = {
+      success: `${baseUrl}/checkout/success`,
+      failure: `${baseUrl}/checkout/failure`,
+      pending: `${baseUrl}/checkout/pending`,
+    };
+
+    // MP exige HTTPS en back_urls y notification_url (no http://localhost salvo túnel).
+    const body: Parameters<Preference['create']>[0]['body'] = {
+      items: mapped,
+      back_urls: backUrls,
+      notification_url: `${baseUrl}/api/checkout/mercadopago/webhook`,
+      metadata: {
+        store_id: String(storeId || '5112334'),
+        cart_items: JSON.stringify(
+          items.map((i: any) => ({ id: i.variantId, q: i.quantity }))
+        ),
       },
-    });
+    };
+    if (baseUrl.startsWith('https://')) {
+      body.auto_return = 'approved';
+    }
+
+    const result = await preference.create({ body });
 
     const payUrl = result.init_point || result.sandbox_init_point;
     if (!payUrl) {
@@ -81,11 +124,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       id: result.id,
       init_point: payUrl,
+      sandbox_init_point: result.sandbox_init_point,
     });
   } catch (error) {
     console.error('❌ Error creando preferencia de Mercado Pago:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Error interno del servidor' },
+      { error: mercadoPagoErrorMessage(error) },
       { status: 500 }
     );
   }

@@ -139,7 +139,8 @@ export default function ProductInfo({
     setExpressBusy(true);
     try {
       const { current } = getVariantDisplayPrices(selectedVariant);
-      const res = await fetch('/api/checkout/mercadopago/preference', {
+      const prefUrl = `${window.location.origin}/api/checkout/mercadopago/preference`;
+      const res = await fetch(prefUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -154,17 +155,37 @@ export default function ProductInfo({
           ],
         }),
       });
-      const data = (await res.json().catch(() => ({}))) as { init_point?: string; error?: string };
-      if (res.ok && typeof data.init_point === 'string' && data.init_point) {
-        window.location.href = data.init_point;
+      const data = (await res.json().catch(() => ({}))) as {
+        init_point?: string;
+        sandbox_init_point?: string;
+        error?: string;
+      };
+      const payUrl =
+        (typeof data.init_point === 'string' && data.init_point) ||
+        (typeof data.sandbox_init_point === 'string' && data.sandbox_init_point) ||
+        '';
+      if (res.ok && payUrl) {
+        window.location.href = payUrl;
         return;
       }
-    } catch {
-      /* fallback Tiendanube */
+      console.error('[Pago exprés MP]', res.status, data);
+      const msg =
+        typeof data.error === 'string' && data.error
+          ? data.error
+          : !res.ok
+            ? `Respuesta ${res.status}`
+            : 'MP no devolvió URL de pago (init_point).';
+      window.alert(`Mercado Pago: ${msg}`);
+    } catch (e) {
+      console.error('[Pago exprés MP] red', e);
+      window.alert('No se pudo conectar con Mercado Pago. Revisá tu conexión o probá más tarde.');
     } finally {
       setExpressBusy(false);
     }
-    redirectToCheckout(selectedVariant.id.toString(), 1);
+    // Solo Tienda Nube si lo habilitás (por defecto: no confundir con checkout MP).
+    if (process.env.NEXT_PUBLIC_MP_EXPRESS_FALLBACK_TN === 'true') {
+      redirectToCheckout(selectedVariant.id.toString(), 1);
+    }
   };
 
   const handleSelectSizeCta = () => {

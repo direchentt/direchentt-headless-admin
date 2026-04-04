@@ -9,7 +9,7 @@ export default function MercadoPagoButton({ items, storeId }: { items: any[], st
     const handlePayment = async () => {
         setLoading(true);
         try {
-            const res = await fetch('/api/checkout/mercadopago/preference', {
+            const res = await fetch(`${window.location.origin}/api/checkout/mercadopago/preference`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ items, storeId }),
