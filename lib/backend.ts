@@ -5,20 +5,57 @@ import path from 'path';
 // Extensiones de imagen soportadas para banners locales
 const SUPPORTED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif'];
 
-// Singleton MongoDB (comportamiento original del proyecto; sin ping ni segundas bases).
-const uri = process.env.MONGODB_URI || "";
-let cachedClient: MongoClient | null = null;
+// MongoDB en Vercel/serverless: la conexión idle se cierra; el singleton del módulo queda inválido.
+// Patrón recomendado: cliente en globalThis + ping; si falla, cerrar y reconectar. URI sin espacios/saltos.
+const mongoUri = (process.env.MONGODB_URI || "").trim();
+
+type WithMongo = typeof globalThis & { __direchenttMongoClient?: MongoClient };
+
+function mongoGlobal(): WithMongo {
+  return globalThis as WithMongo;
+}
+
+/** Invalida cliente (p. ej. tras error TLS / topology closed). */
+export function invalidateMongoClientCache(): void {
+  const c = mongoGlobal().__direchenttMongoClient;
+  mongoGlobal().__direchenttMongoClient = undefined;
+  if (c) {
+    void c.close().catch(() => {});
+  }
+}
 
 export async function getMongoClient(): Promise<MongoClient> {
-  if (cachedClient) return cachedClient;
-  if (!uri) throw new Error("MONGODB_URI no definida");
+  if (!mongoUri) throw new Error("MONGODB_URI no definida");
 
-  cachedClient = new MongoClient(uri, {
-    connectTimeoutMS: 10000,
-    serverSelectionTimeoutMS: 10000,
+  const g = mongoGlobal();
+  if (g.__direchenttMongoClient) {
+    try {
+      await g.__direchenttMongoClient.db("admin").command({ ping: 1 }, { timeoutMS: 5000 });
+      return g.__direchenttMongoClient;
+    } catch {
+      invalidateMongoClientCache();
+    }
+  }
+
+  const client = new MongoClient(mongoUri, {
+    connectTimeoutMS: 20_000,
+    serverSelectionTimeoutMS: 20_000,
+    maxPoolSize: 1,
   });
-  await cachedClient.connect();
-  return cachedClient;
+  await client.connect();
+  g.__direchenttMongoClient = client;
+  return client;
+}
+
+async function findStoreInMongo(shopId: string) {
+  const client = await getMongoClient();
+  const coll = client.db("direchentt-headless-admin").collection("stores");
+  const n = parseInt(shopId, 10);
+  let store = Number.isFinite(n) ? await coll.findOne({ storeId: n }) : null;
+  if (!store && Number.isFinite(n)) {
+    store = await coll.findOne({ storeId: String(n) });
+  }
+  return store;
 }
 
 /**
@@ -27,27 +64,33 @@ export async function getMongoClient(): Promise<MongoClient> {
  * @returns Datos de la tienda o null si no existe
  */
 export async function getStoreData(shopId: string) {
-  try {
+  const run = async () => {
     console.log(`🔍 Buscando tienda ${shopId} en MongoDB...`);
-    const client = await getMongoClient();
-    const coll = client.db('direchentt-headless-admin').collection('stores');
-    const n = parseInt(shopId, 10);
-    let store = Number.isFinite(n) ? await coll.findOne({ storeId: n }) : null;
-    if (!store && Number.isFinite(n)) {
-      store = await coll.findOne({ storeId: String(n) });
-    }
+    const store = await findStoreInMongo(shopId);
     if (!store) {
       console.warn(`⚠️ No se encontró la tienda ${shopId} en la base de datos.`);
     } else {
       console.log(`✅ Tienda ${shopId} encontrada:`, {
         domain: store.domain,
-        accessToken: store.accessToken?.substring(0, 10) + '...',
+        accessToken: store.accessToken?.substring(0, 10) + "...",
       });
     }
     return store;
-  } catch (error: any) {
-    console.error("❌ Error conectando a MongoDB:", error instanceof Error ? error.message : error);
-    return null;
+  };
+
+  try {
+    return await run();
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("❌ Error MongoDB (reintento 1 vez):", msg);
+    invalidateMongoClientCache();
+    try {
+      return await run();
+    } catch (e2: unknown) {
+      const msg2 = e2 instanceof Error ? e2.message : String(e2);
+      console.error("❌ Error MongoDB tras reintento:", msg2);
+      return null;
+    }
   }
 }
 
