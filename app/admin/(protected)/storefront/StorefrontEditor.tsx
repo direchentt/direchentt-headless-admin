@@ -300,39 +300,59 @@ export default function StorefrontEditor({ storeId, initialConfig }: Props) {
   return (
     <div className="sf">
       <div className="sf-head">
-        <div>
+        <div className="sf-head-text">
           <h1 className="sf-title">Tienda en línea</h1>
-          <p className="sf-sub">Home pública: orden de bloques, visibilidad y aspecto.</p>
+          <p className="sf-sub">
+            Editás la home y colecciones que ven tus clientes. Los productos siguen en Tiendanube.
+          </p>
         </div>
         <div className="sf-head-actions">
           <label className="sf-shop">
-            ID tienda
+            ID de tienda (Nuvemshop)
             <input
               type="number"
               value={storeId}
               readOnly
               className="sf-shop-input"
-              title="Usá ?shop= en la URL para otra tienda"
+              title="Cambiá de tienda con ?shop= en la barra de direcciones"
             />
           </label>
-          <button type="button" className="sf-btn primary" onClick={save} disabled={status === 'saving'}>
-            {status === 'saving' ? 'Guardando…' : 'Guardar'}
+          <button
+            type="button"
+            className="sf-btn primary sf-btn-desktop"
+            onClick={save}
+            disabled={status === 'saving'}
+          >
+            {status === 'saving' ? 'Guardando…' : 'Guardar cambios'}
           </button>
         </div>
       </div>
-      {msg && (
-        <p className={status === 'err' ? 'sf-banner err' : 'sf-banner ok'}>{msg}</p>
-      )}
+
+      <aside className="sf-intro" aria-label="Ayuda rápida">
+        <p className="sf-intro-title">En 3 pasos</p>
+        <ol className="sf-intro-list">
+          <li>Activá o desactivá bloques y subí las URLs del hero o banners.</li>
+          <li>Tocá <strong>Guardar cambios</strong> (abajo en el celular también).</li>
+          <li>Abrí la tienda pública con <code>?shop={storeId}</code> y recargá para ver el resultado.</li>
+        </ol>
+      </aside>
+
+      {msg ? (
+        <p className={status === 'err' ? 'sf-banner err' : 'sf-banner ok'} role="status">
+          {msg}
+        </p>
+      ) : null}
       <p className="sf-hint">
-        Otra tienda: abrí{' '}
-        <code>
-          /admin/storefront?shop=TU_ID
-        </code>
+        Otra tienda: en el navegador usá la ruta{' '}
+        <code>/admin/storefront?shop=TU_ID</code>
       </p>
 
       <section className="sf-panel">
         <h2 className="sf-h2">Bloques de la home</h2>
-        <p className="sf-p">Arrastrá con los botones ↑ ↓. Desactivá los que no quieras mostrar.</p>
+        <p className="sf-p">
+          Usá <strong>Subir / Bajar</strong> para el orden vertical. Desmarcá un bloque para ocultarlo en
+          la tienda pública.
+        </p>
         <ul className="sf-list">
           {orderedSections.map((row, idx) => (
             <li key={row.id} className="sf-row">
@@ -793,9 +813,16 @@ export default function StorefrontEditor({ storeId, initialConfig }: Props) {
         </div>
       </section>
 
+      <div className="sf-save-dock">
+        <button type="button" className="sf-btn primary sf-btn-block" onClick={save} disabled={status === 'saving'}>
+          {status === 'saving' ? 'Guardando…' : 'Guardar cambios'}
+        </button>
+      </div>
+
       <style jsx>{`
         .sf {
-          max-width: 880px;
+          max-width: min(880px, 100%);
+          padding-bottom: 0;
         }
         .sf-head {
           display: flex;
@@ -803,22 +830,62 @@ export default function StorefrontEditor({ storeId, initialConfig }: Props) {
           align-items: flex-start;
           justify-content: space-between;
           gap: 16px;
-          margin-bottom: 20px;
+          margin-bottom: 16px;
+        }
+        .sf-head-text {
+          min-width: 0;
+          flex: 1 1 200px;
         }
         .sf-title {
-          margin: 0 0 6px;
-          font-size: 22px;
+          margin: 0 0 8px;
+          font-size: clamp(1.25rem, 4vw, 1.5rem);
           font-weight: 700;
           color: #202223;
+          letter-spacing: -0.02em;
+          line-height: 1.2;
         }
         .sf-sub {
           margin: 0;
-          color: #6d7175;
+          color: #45494d;
           font-size: 14px;
+          line-height: 1.5;
+          max-width: 36rem;
+        }
+        .sf-intro {
+          background: linear-gradient(135deg, #f0faf7 0%, #fff 100%);
+          border: 1px solid #c5e6dc;
+          border-radius: 12px;
+          padding: 16px 18px;
+          margin-bottom: 18px;
+        }
+        .sf-intro-title {
+          margin: 0 0 10px;
+          font-size: 13px;
+          font-weight: 700;
+          color: #004c3f;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+        .sf-intro-list {
+          margin: 0;
+          padding-left: 1.2rem;
+          font-size: 14px;
+          color: #202223;
+          line-height: 1.55;
+        }
+        .sf-intro-list li {
+          margin-bottom: 6px;
+        }
+        .sf-intro-list code {
+          background: rgba(0, 0, 0, 0.06);
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-size: 12px;
         }
         .sf-head-actions {
           display: flex;
           align-items: flex-end;
+          flex-wrap: wrap;
           gap: 12px;
         }
         .sf-shop {
@@ -831,16 +898,24 @@ export default function StorefrontEditor({ storeId, initialConfig }: Props) {
         }
         .sf-shop-input {
           width: 120px;
-          padding: 8px 10px;
+          min-height: 44px;
+          padding: 10px 12px;
           border: 1px solid #c9cccf;
-          border-radius: 8px;
-          font-size: 14px;
+          border-radius: 10px;
+          font-size: 16px;
+        }
+        .sf-btn-block {
+          width: 100%;
+          min-height: 48px;
+        }
+        .sf-save-dock {
+          display: none;
         }
         .sf-btn {
-          padding: 10px 20px;
-          border-radius: 8px;
+          padding: 12px 20px;
+          border-radius: 10px;
           font-weight: 600;
-          font-size: 14px;
+          font-size: 15px;
           cursor: pointer;
           border: none;
         }
@@ -887,14 +962,18 @@ export default function StorefrontEditor({ storeId, initialConfig }: Props) {
           margin-bottom: 16px;
         }
         .sf-h2 {
-          margin: 0 0 6px;
-          font-size: 15px;
-          font-weight: 600;
+          margin: 0 0 8px;
+          font-size: 16px;
+          font-weight: 700;
+          color: #202223;
+          padding-bottom: 8px;
+          border-bottom: 2px solid #e3f1ed;
         }
         .sf-p {
           margin: 0 0 16px;
-          font-size: 13px;
-          color: #6d7175;
+          font-size: 14px;
+          color: #45494d;
+          line-height: 1.55;
         }
         .sf-list {
           list-style: none;
@@ -905,8 +984,8 @@ export default function StorefrontEditor({ storeId, initialConfig }: Props) {
           display: grid;
           grid-template-columns: auto 1fr 1fr;
           gap: 12px;
-          align-items: center;
-          padding: 10px 0;
+          align-items: start;
+          padding: 14px 0;
           border-bottom: 1px solid #e1e3e5;
         }
         .sf-row:last-child {
@@ -917,13 +996,15 @@ export default function StorefrontEditor({ storeId, initialConfig }: Props) {
           gap: 4px;
         }
         .sf-icon-btn {
-          width: 32px;
-          height: 32px;
+          min-width: 44px;
+          min-height: 44px;
+          width: 44px;
+          height: 44px;
           border: 1px solid #c9cccf;
           background: #fff;
-          border-radius: 6px;
+          border-radius: 10px;
           cursor: pointer;
-          font-size: 14px;
+          font-size: 16px;
         }
         .sf-icon-btn:hover:not(:disabled) {
           background: #f6f6f7;
@@ -943,10 +1024,11 @@ export default function StorefrontEditor({ storeId, initialConfig }: Props) {
           font-weight: 500;
         }
         .sf-title-input {
-          padding: 8px 10px;
+          min-height: 44px;
+          padding: 10px 12px;
           border: 1px solid #c9cccf;
-          border-radius: 8px;
-          font-size: 13px;
+          border-radius: 10px;
+          font-size: 16px;
         }
         .sf-grid {
           display: grid;
@@ -961,12 +1043,18 @@ export default function StorefrontEditor({ storeId, initialConfig }: Props) {
           font-weight: 600;
           color: #202223;
         }
-        .sf-field input {
-          padding: 10px 12px;
+        .sf-field input,
+        .sf-field select,
+        .sf-field textarea {
+          padding: 12px 12px;
           border: 1px solid #c9cccf;
-          border-radius: 8px;
-          font-size: 14px;
+          border-radius: 10px;
+          font-size: 16px;
           font-weight: 400;
+        }
+        .sf-field select {
+          min-height: 48px;
+          background: #fff;
         }
         .sf-field.span-2 {
           grid-column: span 2;
@@ -976,19 +1064,76 @@ export default function StorefrontEditor({ storeId, initialConfig }: Props) {
           box-sizing: border-box;
           padding: 12px;
           border: 1px solid #c9cccf;
-          border-radius: 8px;
-          font-size: 13px;
-          font-family: ui-monospace, monospace;
+          border-radius: 10px;
+          font-size: 15px;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+          line-height: 1.45;
         }
-        @media (max-width: 700px) {
+        .sf-hint code {
+          word-break: break-all;
+        }
+        @media (max-width: 767px) {
           .sf-row {
             grid-template-columns: 1fr;
+            gap: 10px;
+          }
+          .sf-row-move {
+            flex-direction: row;
+            justify-content: flex-start;
           }
           .sf-grid {
             grid-template-columns: 1fr;
           }
           .sf-field.span-2 {
             grid-column: span 1;
+          }
+          .sf-head-actions {
+            flex: 1 1 100%;
+            flex-direction: column;
+            align-items: stretch;
+          }
+          .sf-shop {
+            width: 100%;
+          }
+          .sf-shop-input {
+            width: 100%;
+          }
+          .sf-btn-desktop {
+            display: none;
+          }
+          .sf-save-dock {
+            display: block;
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 60;
+            padding: 12px 16px;
+            padding-bottom: max(12px, env(safe-area-inset-bottom));
+            background: rgba(255, 255, 255, 0.94);
+            -webkit-backdrop-filter: blur(12px);
+            backdrop-filter: blur(12px);
+            border-top: 1px solid #e1e3e5;
+            box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.06);
+          }
+          .sf {
+            padding-bottom: 100px;
+          }
+          .sf-panel {
+            padding: 18px 16px;
+          }
+        }
+        @media (min-width: 768px) {
+          .sf-shop-input {
+            font-size: 14px;
+          }
+          .sf-title-input {
+            font-size: 14px;
+          }
+          .sf-field input,
+          .sf-field select,
+          .sf-field textarea {
+            font-size: 14px;
           }
         }
       `}</style>

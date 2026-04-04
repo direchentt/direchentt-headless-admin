@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getStoreData } from '../../../lib/backend';
+import { getMongoClient, getStoreData } from '@/lib/backend';
 
 export async function GET(request: Request) {
   try {
@@ -11,18 +11,11 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: false, error: 'Tienda no encontrada' });
     }
 
-    // Obtener productos reales de MongoDB
-    const { MongoClient } = require('mongodb');
-    const uri = process.env.MONGODB_URI || "";
-    const client = new MongoClient(uri);
-    await client.connect();
-    
+    const client = await getMongoClient();
     const products = await client.db('AppRegaloDB').collection('products')
       .find({ storeId: shop })
       .limit(5)
       .toArray();
-    
-    await client.close();
 
     // Dominio
     let domain = storeData.domain;

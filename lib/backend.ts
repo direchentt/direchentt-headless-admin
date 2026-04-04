@@ -53,15 +53,25 @@ export async function getMongoClient(): Promise<MongoClient> {
   return client;
 }
 
+/** Bases donde puede estar `stores`. Por defecto: headless primero; AppRegaloDB como respaldo (OAuth antiguo). */
+function storesDatabaseCandidates(): string[] {
+  const only = process.env.MONGODB_STORES_DB?.trim();
+  if (only) return [only];
+  return ['direchentt-headless-admin', 'AppRegaloDB'];
+}
+
 async function findStoreInMongo(shopId: string) {
   const client = await getMongoClient();
-  const coll = client.db("direchentt-headless-admin").collection("stores");
   const n = parseInt(shopId, 10);
-  let store = Number.isFinite(n) ? await coll.findOne({ storeId: n }) : null;
-  if (!store && Number.isFinite(n)) {
-    store = await coll.findOne({ storeId: String(n) });
+  for (const dbName of storesDatabaseCandidates()) {
+    const coll = client.db(dbName).collection('stores');
+    let store = Number.isFinite(n) ? await coll.findOne({ storeId: n }) : null;
+    if (!store && Number.isFinite(n)) {
+      store = await coll.findOne({ storeId: String(n) });
+    }
+    if (store) return store;
   }
-  return store;
+  return null;
 }
 
 /**

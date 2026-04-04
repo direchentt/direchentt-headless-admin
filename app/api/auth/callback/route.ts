@@ -1,13 +1,11 @@
 import { NextResponse } from 'next/server';
-import { MongoClient } from 'mongodb';
+import { getMongoClient } from '@/lib/backend';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
 
   if (!code) return NextResponse.json({ error: 'No se recibió el código' }, { status: 400 });
-
-  const client = new MongoClient(process.env.MONGODB_URI || "");
 
   try {
     const response = await fetch("https://www.tiendanube.com/apps/authorize/token", {
@@ -24,7 +22,7 @@ export async function GET(request: Request) {
     const data = await response.json();
 
     if (data.access_token) {
-      await client.connect();
+      const client = await getMongoClient();
       // Forzamos el uso de AppRegaloDB
       const database = client.db('AppRegaloDB');
       const stores = database.collection('stores');
@@ -54,7 +52,5 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Error en el Token', data });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
-  } finally {
-    await client.close();
   }
 }

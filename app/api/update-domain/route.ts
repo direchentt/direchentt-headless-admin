@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { MongoClient } from 'mongodb';
+import { getMongoClient } from '@/lib/backend';
 
 export async function POST(request: Request) {
   try {
@@ -12,13 +12,7 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
-    const uri = process.env.MONGODB_URI || "";
-    if (!uri) {
-      throw new Error("MONGODB_URI no definida");
-    }
-
-    const client = new MongoClient(uri);
-    await client.connect();
+    const client = await getMongoClient();
 
     const result = await client.db('AppRegaloDB').collection('stores').updateOne(
       { storeId },
@@ -29,8 +23,6 @@ export async function POST(request: Request) {
         } 
       }
     );
-
-    await client.close();
 
     if (result.matchedCount === 0) {
       return NextResponse.json({ 

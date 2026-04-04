@@ -2,6 +2,7 @@ import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import ModalsWrapper from '../../components/ModalsWrapper';
 import CategoryGrid from '../../components/CategoryGrid';
+import StoreUnavailable from '../../components/StoreUnavailable';
 import {
   getStoreData,
   fetchTN,
@@ -18,10 +19,10 @@ interface CategoryPageProps {
 export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {
   const { id } = await params;
   const query = await searchParams;
-  const storeId = query.shop || "5112334";
-  
-  const storeLocal = await getStoreData(storeId);
-  if (!storeLocal) return null;
+  const shopParam = query.shop || '5112334';
+
+  const storeLocal = await getStoreData(shopParam);
+  if (!storeLocal) return <StoreUnavailable shopId={String(shopParam)} />;
 
   // Construir query para productos de la categoría
   // TiendaNube usa category_id para filtrar

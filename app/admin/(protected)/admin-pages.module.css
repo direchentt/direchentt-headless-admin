@@ -1,0 +1,237 @@
+.wrap {
+  max-width: 1200px;
+}
+
+.shopBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 12px 14px;
+  background: #f4f6f8;
+  border: 1px solid #e1e3e5;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  font-size: 13px;
+  color: #45494d;
+}
+
+.shopBar strong {
+  color: #202223;
+}
+
+.shopBar code {
+  background: #e4e5e7;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e1e3e5;
+}
+
+.pager a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 10px;
+  background: #111;
+  color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.pager a[aria-disabled='true'] {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.pagerMuted {
+  font-size: 13px;
+  color: #6d7175;
+}
+
+.alert {
+  padding: 14px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+.alertErr {
+  background: #fed3d1;
+  color: #6b1d12;
+  border: 1px solid #f2948e;
+}
+
+.alertInfo {
+  background: #e3f1ed;
+  color: #0d3d32;
+  border: 1px solid #9dcfc0;
+}
+
+.tableScroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 -4px;
+  padding: 4px;
+}
+
+.table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+  font-size: 14px;
+  background: #fff;
+  border: 1px solid #e1e3e5;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.table th,
+.table td {
+  padding: 12px 14px;
+  text-align: left;
+  border-bottom: 1px solid #e1e3e5;
+  vertical-align: top;
+}
+
+.table th {
+  background: #fafbfb;
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #45494d;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.table a {
+  color: #004c3f;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.table a:hover {
+  text-decoration: underline;
+}
+
+.thumb {
+  width: 48px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: #f0f0f0;
+}
+
+.badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.badgeOk {
+  background: #e3f1df;
+  color: #1a4d1a;
+}
+
+.badgeWarn {
+  background: #fff5e6;
+  color: #7a4a00;
+}
+
+.badgeMuted {
+  background: #f1f2f4;
+  color: #45494d;
+}
+
+/* Tarjetas móvil (misma data que la tabla) */
+.cardList {
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card {
+  border: 1px solid #e1e3e5;
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: #fff;
+}
+
+.cardRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  font-size: 14px;
+  border-bottom: 1px solid #f1f2f4;
+}
+
+.cardRow:last-child {
+  border-bottom: none;
+}
+
+.cardLabel {
+  color: #6d7175;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
+}
+
+.cardVal {
+  text-align: right;
+  word-break: break-word;
+}
+
+.cardHead {
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 10px;
+  color: #202223;
+}
+
+@media (max-width: 767px) {
+  .tableScroll {
+    display: none;
+  }
+  .cardList {
+    display: flex;
+  }
+}
+
+.pageTitle {
+  margin: 0 0 8px;
+  font-size: clamp(1.35rem, 4vw, 1.65rem);
+  font-weight: 700;
+  color: #202223;
+  letter-spacing: -0.02em;
+}
+
+.lead {
+  margin: 0 0 20px;
+  font-size: 15px;
+  color: #45494d;
+  line-height: 1.55;
+  max-width: 42rem;
+}

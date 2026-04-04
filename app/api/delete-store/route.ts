@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getMongoClient } from '@/lib/backend';
 
 export async function DELETE(request: Request) {
   try {
@@ -9,25 +10,19 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ success: false, error: 'storeId requerido' });
     }
 
-    const { MongoClient } = require('mongodb');
-    const uri = process.env.MONGODB_URI || "";
-    const client = new MongoClient(uri);
-    await client.connect();
+    const client = await getMongoClient();
     
     // Mostrar información antes de eliminar
     const storeToDelete = await client.db('AppRegaloDB').collection('stores')
       .findOne({ storeId });
     
     if (!storeToDelete) {
-      await client.close();
       return NextResponse.json({ success: false, error: 'Store no encontrado' });
     }
 
     // Eliminar el store
     const result = await client.db('AppRegaloDB').collection('stores')
       .deleteOne({ storeId });
-    
-    await client.close();
 
     return NextResponse.json({
       success: true,

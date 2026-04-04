@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import Link from 'next/link';
 import {
   formatPrice,
@@ -21,21 +22,38 @@ function safeProductName(product: any): string {
   return String(product.name);
 }
 
+/** Una fila de productos únicos para móvil (sin marquee). */
+function buildMobileStrip(products: any[], max: number): any[] {
+  const seen = new Set<number>();
+  const out: any[] = [];
+  for (const p of products) {
+    const id = Number(p?.id);
+    if (!Number.isFinite(id) || seen.has(id)) continue;
+    if (!getProductPrimaryImageUrl(p)) continue;
+    seen.add(id);
+    out.push(p);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
 export default function CrazyCarousel({ products, title = 'TRENDING', storeId }: CrazyCarouselProps) {
-  let list = (products || []).filter((p) => getProductPrimaryImageUrl(p));
-  if (list.length === 0) return null;
+  const { baseList, mobileStrip } = useMemo(() => {
+    let list = (products || []).filter((p) => getProductPrimaryImageUrl(p));
+    if (list.length === 0) return { baseList: [] as any[], mobileStrip: [] as any[] };
+    while (list.length < 4) {
+      list = [...list, ...list];
+    }
+    list = list.slice(0, 24);
+    return { baseList: list, mobileStrip: buildMobileStrip(list, 18) };
+  }, [products]);
 
-  while (list.length < 4) {
-    list = [...list, ...list];
-  }
-  list = list.slice(0, 24);
+  if (baseList.length === 0) return null;
 
-  let midPoint = Math.ceil(list.length / 2);
-  let row1 = list.slice(0, midPoint);
-  let row2 = list.slice(midPoint);
-  if (row2.length === 0) {
-    row2 = [...row1];
-  }
+  const midPoint = Math.ceil(baseList.length / 2);
+  let row1 = baseList.slice(0, midPoint);
+  let row2 = baseList.slice(midPoint);
+  if (row2.length === 0) row2 = [...row1];
 
   const copies = 4;
   const loopRow1 = Array(copies).fill(row1).flat();
@@ -45,41 +63,61 @@ export default function CrazyCarousel({ products, title = 'TRENDING', storeId }:
   return (
     <section className="cc-section" aria-labelledby="cc-heading">
       <div className="cc-inner">
-        <p id="cc-heading" className="cc-sr-only">
-          {title}: carrusel de productos destacados
-        </p>
-        <div className="cc-bg-title" aria-hidden="true">
-          {title}
+        <header className="cc-header">
+          <h2 id="cc-heading" className="cc-heading">
+            {title}
+          </h2>
+          <p className="cc-sub">Deslizá para ver más — en escritorio, carrusel continuo.</p>
+        </header>
+
+        {/* Móvil: una sola franja horizontal, cards compactas fijas (sin animación). */}
+        <div className="cc-mobile">
+          <div className="cc-strip" role="list">
+            {mobileStrip.map((product) => (
+              <div key={`m-${product.id}`} className="cc-strip-item" role="listitem">
+                <TrendingCard product={product} storeId={storeId} layout="strip" />
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="cc-rows">
-          <div className="cc-row">
-            <div
-              className="cc-track cc-track--left"
-              style={{ ['--cc-marquee-pct' as string]: `${pct}%` }}
-            >
-              {loopRow1.map((product, index) => (
-                <ProductCardStream
-                  key={`r1-${product.id}-${index}`}
-                  product={product}
-                  storeId={storeId}
-                />
-              ))}
-            </div>
+        {/* Escritorio / tablet: doble carril marquee */}
+        <div className="cc-desktop" aria-hidden={false}>
+          <div className="cc-bg-title" aria-hidden="true">
+            {title}
           </div>
 
-          <div className="cc-row">
-            <div
-              className="cc-track cc-track--right"
-              style={{ ['--cc-marquee-pct' as string]: `${pct}%` }}
-            >
-              {loopRow2.map((product, index) => (
-                <ProductCardStream
-                  key={`r2-${product.id}-${index}`}
-                  product={product}
-                  storeId={storeId}
-                />
-              ))}
+          <div className="cc-rows">
+            <div className="cc-row">
+              <div
+                className="cc-track cc-track--left"
+                style={{ ['--cc-marquee-pct' as string]: `${pct}%` }}
+              >
+                {loopRow1.map((product, index) => (
+                  <TrendingCard
+                    key={`r1-${product.id}-${index}`}
+                    product={product}
+                    storeId={storeId}
+                    layout="marquee"
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="cc-row">
+              <div
+                className="cc-track cc-track--right"
+                style={{ ['--cc-marquee-pct' as string]: `${pct}%` }}
+              >
+                {loopRow2.map((product, index) => (
+                  <TrendingCard
+                    key={`r2-${product.id}-${index}`}
+                    product={product}
+                    storeId={storeId}
+                    layout="marquee"
+                  />
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -87,7 +125,7 @@ export default function CrazyCarousel({ products, title = 'TRENDING', storeId }:
 
       <style jsx>{`
         .cc-section {
-          padding: clamp(40px, 8vw, 72px) 0;
+          padding: clamp(32px, 5vw, 56px) 0;
           background: #fff;
           overflow: hidden;
           position: relative;
@@ -95,20 +133,93 @@ export default function CrazyCarousel({ products, title = 'TRENDING', storeId }:
 
         .cc-inner {
           position: relative;
-          max-width: 100vw;
+          max-width: min(1440px, 100%);
           margin: 0 auto;
+          padding: 0 clamp(12px, 3vw, 28px);
         }
 
-        .cc-sr-only {
-          position: absolute;
-          width: 1px;
-          height: 1px;
-          padding: 0;
-          margin: -1px;
-          overflow: hidden;
-          clip: rect(0, 0, 0, 0);
-          white-space: nowrap;
-          border: 0;
+        .cc-header {
+          position: relative;
+          z-index: 2;
+          text-align: left;
+          margin-bottom: 14px;
+        }
+        @media (min-width: 768px) {
+          .cc-header {
+            text-align: center;
+            margin-bottom: clamp(10px, 2vw, 18px);
+            max-width: 32rem;
+            margin-left: auto;
+            margin-right: auto;
+          }
+        }
+
+        .cc-heading {
+          margin: 0 0 4px;
+          font-size: clamp(0.95rem, 2.8vw, 1.15rem);
+          font-weight: 700;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: #111;
+        }
+        .cc-sub {
+          margin: 0;
+          font-size: 12px;
+          color: #777;
+          line-height: 1.4;
+        }
+        @media (min-width: 768px) {
+          .cc-sub {
+            font-size: 13px;
+          }
+        }
+
+        .cc-mobile {
+          display: block;
+        }
+        .cc-desktop {
+          display: none;
+        }
+        @media (min-width: 768px) {
+          .cc-mobile {
+            display: none;
+          }
+          .cc-desktop {
+            display: block;
+          }
+        }
+
+        .cc-strip {
+          display: flex;
+          flex-direction: row;
+          flex-wrap: nowrap;
+          gap: 10px;
+          overflow-x: auto;
+          overflow-y: hidden;
+          -webkit-overflow-scrolling: touch;
+          scroll-snap-type: x mandatory;
+          scroll-padding: 0 12px;
+          padding: 4px 0 12px;
+          margin: 0 -12px;
+          padding-left: 12px;
+          padding-right: 12px;
+        }
+        .cc-strip::-webkit-scrollbar {
+          height: 4px;
+        }
+        .cc-strip::-webkit-scrollbar-thumb {
+          background: #ccc;
+          border-radius: 4px;
+        }
+        .cc-strip-item {
+          flex: 0 0 auto;
+          scroll-snap-align: start;
+          width: 132px;
+        }
+        @media (min-width: 480px) {
+          .cc-strip-item {
+            width: 144px;
+          }
         }
 
         .cc-bg-title {
@@ -120,22 +231,14 @@ export default function CrazyCarousel({ products, title = 'TRENDING', storeId }:
           z-index: 0;
           pointer-events: none;
           text-align: center;
-          font-size: clamp(2.5rem, 11vw, 9rem);
-          font-weight: 900;
+          font-size: clamp(3rem, 12vw, 6.5rem);
+          font-weight: 800;
           text-transform: uppercase;
-          line-height: 0.95;
+          line-height: 0.92;
           margin: 0;
-          color: transparent;
-          -webkit-text-stroke: 1px rgba(0, 0, 0, 0.08);
-          letter-spacing: -0.04em;
+          color: rgba(0, 0, 0, 0.03);
+          letter-spacing: -0.02em;
           user-select: none;
-        }
-
-        @media (min-width: 1024px) {
-          .cc-bg-title {
-            font-size: clamp(5rem, 12vw, 10rem);
-            -webkit-text-stroke: 1px rgba(0, 0, 0, 0.1);
-          }
         }
 
         .cc-rows {
@@ -143,35 +246,21 @@ export default function CrazyCarousel({ products, title = 'TRENDING', storeId }:
           z-index: 1;
           display: flex;
           flex-direction: column;
-          gap: clamp(14px, 3vw, 24px);
-          padding: clamp(24px, 5vw, 48px) 0;
+          gap: 14px;
+          padding: clamp(16px, 3vw, 32px) 0;
         }
 
         .cc-row {
           width: 100%;
           overflow: hidden;
           position: relative;
-          mask-image: linear-gradient(
-            90deg,
-            transparent 0%,
-            black 4%,
-            black 96%,
-            transparent 100%
-          );
-          -webkit-mask-image: linear-gradient(
-            90deg,
-            transparent 0%,
-            black 4%,
-            black 96%,
-            transparent 100%
-          );
         }
 
         .cc-track {
           display: flex;
           flex-direction: row;
           align-items: flex-start;
-          gap: clamp(10px, 2vw, 18px);
+          gap: 14px;
           width: max-content;
           will-change: transform;
         }
@@ -181,11 +270,11 @@ export default function CrazyCarousel({ products, title = 'TRENDING', storeId }:
         }
 
         .cc-track--left {
-          animation: ccSlideLeft 55s linear infinite;
+          animation: ccSlideLeft 72s linear infinite;
         }
 
         .cc-track--right {
-          animation: ccSlideRight 55s linear infinite;
+          animation: ccSlideRight 72s linear infinite;
         }
 
         @keyframes ccSlideLeft {
@@ -218,113 +307,101 @@ export default function CrazyCarousel({ products, title = 'TRENDING', storeId }:
   );
 }
 
-function ProductCardStream({ product, storeId }: { product: any; storeId: string }) {
+function TrendingCard({
+  product,
+  storeId,
+  layout,
+}: {
+  product: any;
+  storeId: string;
+  layout: 'strip' | 'marquee';
+}) {
   const { current } = getVariantDisplayPrices(product.variants?.[0] || {});
   const src = getProductPrimaryImageUrl(product);
   const name = safeProductName(product);
 
   return (
-    <Link href={`/product/${product.id}?shop=${storeId}`} className="cc-card">
-      <div className="cc-img-wrap">
+    <Link href={`/product/${product.id}?shop=${storeId}`} className={`t-card t-card--${layout}`}>
+      <div className="t-img">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt="" className="cc-img" width={280} height={360} />
-        <div className="cc-overlay">
-          <span className="cc-price">{formatPrice(current)}</span>
-        </div>
+        <img src={src || ''} alt="" className="t-img-el" width={200} height={267} loading="lazy" />
       </div>
-      <div className="cc-meta">
-        <span className="cc-name">{name}</span>
+      <div className="t-meta">
+        <span className="t-name">{name}</span>
+        <span className="t-price">{formatPrice(current)}</span>
       </div>
 
       <style jsx>{`
-        .cc-card {
+        .t-card {
           flex-shrink: 0;
           display: flex;
           flex-direction: column;
-          width: clamp(150px, 38vw, 220px);
           text-decoration: none;
           color: #111;
-          transition: filter 0.35s ease, opacity 0.35s ease, transform 0.35s ease;
-          filter: grayscale(100%);
-          opacity: 0.88;
+          border-radius: 8px;
+          overflow: hidden;
+          background: #fff;
+          border: 1px solid #ececec;
+          transition: transform 0.25s ease, box-shadow 0.25s ease;
         }
-
-        @media (min-width: 480px) {
-          .cc-card {
-            width: clamp(170px, 32vw, 240px);
+        .t-card--strip {
+          width: 100%;
+        }
+        .t-card--marquee {
+          width: 160px;
+        }
+        @media (min-width: 900px) {
+          .t-card--marquee {
+            width: 176px;
+          }
+        }
+        @media (min-width: 1200px) {
+          .t-card--marquee {
+            width: 188px;
           }
         }
 
-        @media (min-width: 1024px) {
-          .cc-card {
-            width: 220px;
-          }
+        .t-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
         }
 
-        .cc-card:hover {
-          filter: grayscale(0%);
-          opacity: 1;
-          transform: translateY(-4px);
-          z-index: 2;
-        }
-
-        .cc-img-wrap {
+        .t-img {
           position: relative;
           width: 100%;
           aspect-ratio: 3 / 4;
           background: #f4f4f4;
-          border-radius: 2px;
           overflow: hidden;
-          margin-bottom: 8px;
         }
-
-        .cc-img {
+        .t-img-el {
           width: 100%;
           height: 100%;
           display: block;
           object-fit: cover;
-          object-position: center;
+          object-position: center top;
         }
 
-        .cc-overlay {
-          position: absolute;
-          inset: 0;
-          background: rgba(0, 0, 0, 0.12);
+        .t-meta {
+          padding: 8px 8px 10px;
           display: flex;
-          align-items: center;
-          justify-content: center;
-          opacity: 0;
-          transition: opacity 0.25s ease;
+          flex-direction: column;
+          gap: 4px;
         }
-
-        .cc-card:hover .cc-overlay {
-          opacity: 1;
-        }
-
-        .cc-price {
-          background: #fff;
-          padding: 6px 14px;
-          font-weight: 700;
-          font-size: 12px;
-          letter-spacing: 0.02em;
-        }
-
-        .cc-meta {
-          width: 100%;
-          min-height: 2.6em;
-        }
-
-        .cc-name {
+        .t-name {
+          font-size: 10px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          line-height: 1.3;
           display: -webkit-box;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
           overflow: hidden;
-          font-size: 10px;
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 0.06em;
-          line-height: 1.35;
-          word-break: break-word;
+        }
+        .t-price {
+          font-size: 11px;
+          font-weight: 700;
+          color: #111;
         }
       `}</style>
     </Link>

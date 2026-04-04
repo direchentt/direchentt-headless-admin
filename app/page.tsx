@@ -3,6 +3,7 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import ModalsWrapper from './components/ModalsWrapper';
 import HomePageBlocks from './components/home/HomePageBlocks';
+import StoreUnavailable from './components/StoreUnavailable';
 import {
   getStoreData,
   fetchTN,
@@ -23,8 +24,9 @@ const defaultFont =
 
 export default async function Home({ searchParams }: any) {
   const params = await searchParams;
-  const storeLocal = await getStoreData(params.shop || '5112334');
-  if (!storeLocal) return null;
+  const shopParam = params.shop || '5112334';
+  const storeLocal = await getStoreData(shopParam);
+  if (!storeLocal) return <StoreUnavailable shopId={String(shopParam)} />;
 
   let apiQuery = 'published=true&sort_by=created-descending';
   if (params.category) apiQuery += `&category=${params.category}`;

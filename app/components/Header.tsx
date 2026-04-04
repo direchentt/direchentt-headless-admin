@@ -234,7 +234,8 @@ export default function Header({ logo, storeId, domain, categories }: HeaderProp
       </header>
 
       {subNavGroups.length > 0 && (
-        <nav className="subcategory-bar" aria-label="Subcategorías">
+        <div className="subcategory-bar-wrap">
+          <nav className="subcategory-bar" aria-label="Subcategorías">
           <div className="subcategory-bar-inner">
             <Link href={`/?shop=${storeId}`} className="subcategory-link subcategory-link-featured">
               Novedades
@@ -270,6 +271,10 @@ export default function Header({ logo, storeId, domain, categories }: HeaderProp
             })}
           </div>
         </nav>
+          <span className="subcategory-scroll-hint" aria-hidden="true">
+            Más →
+          </span>
+        </div>
       )}
       </div>
 
@@ -391,16 +396,38 @@ export default function Header({ logo, storeId, domain, categories }: HeaderProp
           align-items: center;
         }
 
-        .subcategory-bar {
+        .subcategory-bar-wrap {
+          position: relative;
           border-bottom: 1px solid rgba(0,0,0,0.08);
           background: #fff;
+        }
+        .subcategory-bar {
           overflow-x: auto;
           overflow-y: hidden;
           -webkit-overflow-scrolling: touch;
-          scrollbar-width: none;
+          scrollbar-width: thin;
+          mask-image: linear-gradient(90deg, #000 0%, #000 calc(100% - 40px), transparent 100%);
+          -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 calc(100% - 40px), transparent 100%);
         }
         .subcategory-bar::-webkit-scrollbar {
-          display: none;
+          height: 3px;
+        }
+        .subcategory-scroll-hint {
+          position: absolute;
+          right: 10px;
+          top: 50%;
+          transform: translateY(-50%);
+          font-size: 11px;
+          font-weight: 700;
+          color: #999;
+          letter-spacing: 0.06em;
+          pointer-events: none;
+          z-index: 1;
+        }
+        @media (min-width: 1024px) {
+          .subcategory-scroll-hint {
+            right: 24px;
+          }
         }
         .subcategory-bar-inner {
           display: flex;

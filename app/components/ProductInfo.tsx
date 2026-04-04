@@ -61,6 +61,7 @@ export default function ProductInfo({
   const images = product.images || [];
   const [selectedVariantId, setSelectedVariantId] = useState<number | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  const [expressBusy, setExpressBusy] = useState(false);
   /** Móvil: hasta que el usuario toque una variante, solo se muestra el CTA crema tipo EME */
   const [pdpVariantAck, setPdpVariantAck] = useState(false);
 
@@ -128,9 +129,41 @@ export default function ProductInfo({
     setTimeout(() => setIsAdding(false), 500);
   };
 
-  /** Checkout inmediato (equivalente a “Pago exprés” en vitrinas de referencia) */
-  const handlePagoExpres = () => {
+  /**
+   * Pago exprés: Mercado Pago Checkout Pro (preferencia con MP_ACCESS_TOKEN en servidor).
+   * La Public Key de MP no se usa en este flujo; sirve para Bricks u otros SDK en el front.
+   * Si MP no está configurado o falla → checkout TiendaNube (/api/checkout).
+   */
+  const handlePagoExpres = async () => {
     if (!selectedVariant) return;
+    setExpressBusy(true);
+    try {
+      const { current } = getVariantDisplayPrices(selectedVariant);
+      const res = await fetch('/api/checkout/mercadopago/preference', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          storeId,
+          items: [
+            {
+              variantId: selectedVariant.id,
+              name: safeGetName(product.name),
+              price: current,
+              quantity: 1,
+            },
+          ],
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { init_point?: string; error?: string };
+      if (res.ok && typeof data.init_point === 'string' && data.init_point) {
+        window.location.href = data.init_point;
+        return;
+      }
+    } catch {
+      /* fallback Tiendanube */
+    } finally {
+      setExpressBusy(false);
+    }
     redirectToCheckout(selectedVariant.id.toString(), 1);
   };
 
@@ -482,12 +515,15 @@ export default function ProductInfo({
           <button
             type="button"
             className="btn-express"
-            onClick={handlePagoExpres}
+            onClick={() => void handlePagoExpres()}
             disabled={
-              checkoutRedirectLoading || (variants.length > 1 && !selectedVariantId) || !selectedVariant
+              expressBusy ||
+              checkoutRedirectLoading ||
+              (variants.length > 1 && !selectedVariantId) ||
+              !selectedVariant
             }
           >
-            {checkoutRedirectLoading ? '…' : 'Pago exprés'}
+            {expressBusy || checkoutRedirectLoading ? '…' : 'Pago exprés'}
           </button>
         </div>
       </div>

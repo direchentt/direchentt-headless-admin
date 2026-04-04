@@ -59,12 +59,14 @@ export default function AdminLoginPage() {
       <style jsx>{`
         .login-root {
           min-height: 100vh;
+          min-height: 100dvh;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: #f1f1f1;
+          background: linear-gradient(165deg, #eef2f5 0%, #f8f9fa 100%);
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          padding: 24px;
+          padding: max(24px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right))
+            max(24px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
         }
         .login-card {
           width: 100%;
@@ -95,9 +97,9 @@ export default function AdminLoginPage() {
         }
         .login-brand p {
           margin: 0;
-          font-size: 13px;
-          color: #6d7175;
-          line-height: 1.5;
+          font-size: 14px;
+          color: #45494d;
+          line-height: 1.55;
         }
         .login-label {
           display: block;
@@ -109,10 +111,11 @@ export default function AdminLoginPage() {
         .login-input {
           width: 100%;
           box-sizing: border-box;
-          padding: 12px 14px;
+          min-height: 48px;
+          padding: 14px 14px;
           border: 1px solid #c9cccf;
-          border-radius: 8px;
-          font-size: 15px;
+          border-radius: 10px;
+          font-size: 16px;
           margin-bottom: 16px;
         }
         .login-input:focus {
@@ -127,12 +130,13 @@ export default function AdminLoginPage() {
         }
         .login-btn {
           width: 100%;
-          padding: 12px;
+          min-height: 48px;
+          padding: 14px;
           background: #008060;
           color: #fff;
           border: none;
-          border-radius: 8px;
-          font-size: 14px;
+          border-radius: 10px;
+          font-size: 15px;
           font-weight: 600;
           cursor: pointer;
         }

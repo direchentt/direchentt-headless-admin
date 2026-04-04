@@ -22,6 +22,7 @@ import {
   collectUsedProductIds,
   resolveCollectionsEditorialBlocks,
 } from '../../lib/collections-editorial';
+import StoreUnavailable from '../components/StoreUnavailable';
 
 const PRODUCTS_LIMIT = 48;
 
@@ -29,8 +30,9 @@ export const dynamic = 'force-dynamic';
 
 export default async function CollectionsPage({ searchParams }: { searchParams: Promise<{ shop?: string }> }) {
   const params = await searchParams;
-  const storeLocal = await getStoreData(params.shop || '5112334');
-  if (!storeLocal) return null;
+  const shopParam = params.shop || '5112334';
+  const storeLocal = await getStoreData(shopParam);
+  if (!storeLocal) return <StoreUnavailable shopId={String(shopParam)} />;
 
   const storeIdNum = Number(storeLocal.storeId);
 
