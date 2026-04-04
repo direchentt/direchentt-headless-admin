@@ -5,75 +5,20 @@ import path from 'path';
 // Extensiones de imagen soportadas para banners locales
 const SUPPORTED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif'];
 
-// MongoDB: en Next/Vercel el módulo puede recargarse; globalThis evita singletons rotos.
+// Singleton MongoDB (comportamiento original del proyecto; sin ping ni segundas bases).
 const uri = process.env.MONGODB_URI || "";
+let cachedClient: MongoClient | null = null;
 
-type MongoGlobal = typeof globalThis & { __direchenttMongoClient?: MongoClient | null };
-
-function mongoOptions(): ConstructorParameters<typeof MongoClient>[1] {
-  const onVercel = Boolean(process.env.VERCEL);
-  return {
-    connectTimeoutMS: onVercel ? 15_000 : 5_000,
-    serverSelectionTimeoutMS: onVercel ? 15_000 : 5_000,
-    /** Serverless: pocas conexiones por instancia (Atlas tiene límite) */
-    maxPoolSize: onVercel ? 1 : 10,
-  };
-}
-
-/**
- * En dev (HMR), tras idle o en serverless, la topología puede cerrarse.
- * Ping + recreación; caché en globalThis para supervivencia entre invocaciones en Vercel.
- */
 export async function getMongoClient(): Promise<MongoClient> {
+  if (cachedClient) return cachedClient;
   if (!uri) throw new Error("MONGODB_URI no definida");
 
-  const g = globalThis as MongoGlobal;
-
-  async function disposeStale() {
-    if (!g.__direchenttMongoClient) return;
-    try {
-      await g.__direchenttMongoClient.close();
-    } catch {
-      /* ya cerrado */
-    }
-    g.__direchenttMongoClient = null;
-  }
-
-  async function connectNew(): Promise<MongoClient> {
-    await disposeStale();
-    const client = new MongoClient(uri, mongoOptions());
-    await client.connect();
-    g.__direchenttMongoClient = client;
-    return client;
-  }
-
-  if (g.__direchenttMongoClient) {
-    try {
-      await g.__direchenttMongoClient.db('admin').command({ ping: 1 });
-      return g.__direchenttMongoClient;
-    } catch {
-      return connectNew();
-    }
-  }
-
-  return connectNew();
-}
-
-const MONGO_DB_HEADLESS = 'direchentt-headless-admin';
-/** OAuth `/api/auth/callback` persiste acá con `storeId` string */
-const MONGO_DB_OAUTH_LEGACY = 'AppRegaloDB';
-
-/** Coincide con documentos que guardan storeId como número o como string (muy común en Mongo). */
-function storeIdMatchFilter(shopId: string) {
-  const s = String(shopId).trim();
-  if (!s) return { storeId: '' };
-  const n = parseInt(s, 10);
-  const variants: Array<{ storeId: string | number }> = [{ storeId: s }];
-  if (Number.isFinite(n)) {
-    variants.push({ storeId: n });
-    if (String(n) !== s) variants.push({ storeId: String(n) });
-  }
-  return variants.length === 1 ? variants[0]! : { $or: variants };
+  cachedClient = new MongoClient(uri, {
+    connectTimeoutMS: 10000,
+    serverSelectionTimeoutMS: 10000,
+  });
+  await cachedClient.connect();
+  return cachedClient;
 }
 
 /**
@@ -85,15 +30,14 @@ export async function getStoreData(shopId: string) {
   try {
     console.log(`🔍 Buscando tienda ${shopId} en MongoDB...`);
     const client = await getMongoClient();
-    const filter = storeIdMatchFilter(shopId);
-
-    let store = await client.db(MONGO_DB_HEADLESS).collection('stores').findOne(filter);
-    if (!store) {
-      store = await client.db(MONGO_DB_OAUTH_LEGACY).collection('stores').findOne(filter);
+    const coll = client.db('direchentt-headless-admin').collection('stores');
+    const n = parseInt(shopId, 10);
+    let store = Number.isFinite(n) ? await coll.findOne({ storeId: n }) : null;
+    if (!store && Number.isFinite(n)) {
+      store = await coll.findOne({ storeId: String(n) });
     }
-
     if (!store) {
-      console.warn(`⚠️ No se encontró la tienda ${shopId} en ${MONGO_DB_HEADLESS} ni ${MONGO_DB_OAUTH_LEGACY}.`);
+      console.warn(`⚠️ No se encontró la tienda ${shopId} en la base de datos.`);
     } else {
       console.log(`✅ Tienda ${shopId} encontrada:`, {
         domain: store.domain,
@@ -102,7 +46,7 @@ export async function getStoreData(shopId: string) {
     }
     return store;
   } catch (error: any) {
-    console.error('❌ Error conectando a MongoDB:', error instanceof Error ? error.message : error);
+    console.error("❌ Error conectando a MongoDB:", error instanceof Error ? error.message : error);
     return null;
   }
 }

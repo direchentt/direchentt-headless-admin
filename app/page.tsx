@@ -23,41 +23,8 @@ const defaultFont =
 
 export default async function Home({ searchParams }: any) {
   const params = await searchParams;
-  const shopParam = params.shop || process.env.NEXT_PUBLIC_DEFAULT_SHOP || '5112334';
-  const storeLocal = await getStoreData(String(shopParam));
-  if (!storeLocal) {
-    return (
-      <main
-        style={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 24,
-          fontFamily: defaultFont,
-          background: '#fafafa',
-          color: '#111',
-        }}
-      >
-        <div style={{ maxWidth: 480, textAlign: 'center' }}>
-          <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 16 }}>
-            No se pudo cargar la tienda
-          </h1>
-          <p style={{ color: '#555', fontSize: 15, lineHeight: 1.6, marginBottom: 12 }}>
-            No encontramos la tienda en MongoDB o la conexión falló. Revisá{' '}
-            <code style={{ fontSize: 13 }}>MONGODB_URI</code> en Vercel, Network Access en Atlas (0.0.0.0/0)
-            y que exista un documento en <code style={{ fontSize: 13 }}>stores</code> con tu{' '}
-            <code style={{ fontSize: 13 }}>storeId</code> (número o texto) en{' '}
-            <code style={{ fontSize: 13 }}>direchentt-headless-admin</code> o{' '}
-            <code style={{ fontSize: 13 }}>AppRegaloDB</code>.
-          </p>
-          <p style={{ color: '#666', fontSize: 14 }}>
-            Probá <code style={{ fontSize: 13 }}>?shop=ID</code> con el ID numérico de tu tienda.
-          </p>
-        </div>
-      </main>
-    );
-  }
+  const storeLocal = await getStoreData(params.shop || '5112334');
+  if (!storeLocal) return null;
 
   let apiQuery = 'published=true&sort_by=created-descending';
   if (params.category) apiQuery += `&category=${params.category}`;

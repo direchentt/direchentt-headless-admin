@@ -183,34 +183,13 @@ export default function HomePageBlocks({
     })(),
   };
 
-  const sectionNodes = config.homeSections.map((sec) => {
-    if (!sec.enabled) return null;
-    const node = blocks[sec.id];
-    return node ?? null;
-  });
-  const hasVisibleBlock = sectionNodes.some((n) => n != null);
-
   return (
     <>
-      {sectionNodes}
-      {!hasVisibleBlock ? (
-        <div key="fallback-hero">
-          {blocks.hero}
-          <p
-            style={{
-              textAlign: 'center',
-              padding: '24px 16px 48px',
-              fontSize: 13,
-              color: '#666',
-              maxWidth: 520,
-              margin: '0 auto',
-            }}
-          >
-            Todas las secciones de la home están desactivadas en el admin. Activá bloques en{' '}
-            <strong>Tienda en línea</strong> o revisá la configuración.
-          </p>
-        </div>
-      ) : null}
+      {config.homeSections.map((sec) => {
+        if (!sec.enabled) return null;
+        const node = blocks[sec.id];
+        return node ?? null;
+      })}
     </>
   );
 }
