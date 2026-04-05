@@ -34,7 +34,7 @@ function sanitizePayload(p: Record<string, unknown>): Record<string, unknown> {
   const clean: Record<string, unknown> = {};
   let k = 0;
   for (const [key, val] of Object.entries(p)) {
-    if (k++ > 24) break;
+    if (k++ > 40) break;
     if (typeof val === 'string') clean[key] = val.length > 500 ? val.slice(0, 500) : val;
     else if (typeof val === 'number' && Number.isFinite(val)) clean[key] = val;
     else if (typeof val === 'boolean') clean[key] = val;

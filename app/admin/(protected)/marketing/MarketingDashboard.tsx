@@ -49,13 +49,13 @@ function shortVisitor(v: string): string {
   return `…${v.slice(-8)}`;
 }
 
-function LiveNowPanel({ storeId }: { storeId: number }) {
+function LiveNowPanel({ storeId, shopParam }: { storeId: number; shopParam: string }) {
   const [live, setLive] = useState<Awaited<ReturnType<typeof loadActivePresenceAdmin>>>(null);
 
   useEffect(() => {
     let cancelled = false;
     const pull = () => {
-      void loadActivePresenceAdmin(storeId).then((r) => {
+      void loadActivePresenceAdmin(storeId, shopParam).then((r) => {
         if (!cancelled) setLive(r ?? { rows: [], count: 0, windowSec: 150 });
       });
     };
@@ -65,7 +65,7 @@ function LiveNowPanel({ storeId }: { storeId: number }) {
       cancelled = true;
       clearInterval(t);
     };
-  }, [storeId]);
+  }, [storeId, shopParam]);
 
   const byType = useMemo(() => {
     const m: Record<string, number> = {};
@@ -136,12 +136,20 @@ function LiveNowPanel({ storeId }: { storeId: number }) {
                     <td title={r.visitorId}>{shortVisitor(r.visitorId)}</td>
                     <td>
                       <span className={styles.typePill}>{PAGE_LABELS[r.pageType] ?? r.pageType}</span>
-                      {r.productId != null ? (
+                      {r.productTitle ? (
+                        <span style={{ marginLeft: 8, fontSize: 12, color: '#202223', fontWeight: 600 }}>
+                          {r.productTitle}
+                        </span>
+                      ) : r.productId != null ? (
                         <span style={{ marginLeft: 8, fontSize: 12, color: '#45494d' }}>
                           #{r.productId}
                         </span>
                       ) : null}
-                      {r.categoryId != null ? (
+                      {r.categoryTitle ? (
+                        <span style={{ marginLeft: 8, fontSize: 11, color: '#6d7175' }}>
+                          {r.categoryTitle}
+                        </span>
+                      ) : r.categoryId != null ? (
                         <span style={{ marginLeft: 8, fontSize: 12, color: '#45494d' }}>
                           cat. {r.categoryId}
                         </span>
@@ -165,8 +173,16 @@ function LiveNowPanel({ storeId }: { storeId: number }) {
                 </div>
                 <div>
                   <span className={styles.typePill}>{PAGE_LABELS[r.pageType] ?? r.pageType}</span>
-                  {r.productId != null ? ` · producto #${r.productId}` : ''}
-                  {r.categoryId != null ? ` · categoría ${r.categoryId}` : ''}
+                  {r.productTitle
+                    ? ` · ${r.productTitle}`
+                    : r.productId != null
+                      ? ` · #${r.productId}`
+                      : ''}
+                  {r.categoryTitle
+                    ? ` · ${r.categoryTitle}`
+                    : r.categoryId != null
+                      ? ` · cat. ${r.categoryId}`
+                      : ''}
                 </div>
                 <div className={styles.livePath} style={{ marginTop: 6, maxWidth: '100%' }} title={r.path}>
                   {r.path}
@@ -180,7 +196,7 @@ function LiveNowPanel({ storeId }: { storeId: number }) {
   );
 }
 
-function AiBriefPanel({ storeId }: { storeId: number }) {
+function AiBriefPanel({ storeId, shopParam }: { storeId: number; shopParam: string }) {
   const [text, setText] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -206,7 +222,7 @@ function AiBriefPanel({ storeId }: { storeId: number }) {
           setErr(null);
           setText(null);
           startTransition(async () => {
-            const r = await generateMarketingAiSummary(storeId);
+            const r = await generateMarketingAiSummary(storeId, shopParam);
             if (r.ok) setText(r.text);
             else setErr(r.error);
           });
@@ -248,11 +264,28 @@ export default function MarketingDashboard({ storeId, shopParam, initial }: Prop
     return Math.max(...data.topCartProductIds.map((x) => x.count), 1);
   }, [data]);
 
+  const maxProdViews = useMemo(() => {
+    if (!data?.topProductViews.length) return 1;
+    return Math.max(...data.topProductViews.map((x) => x.count), 1);
+  }, [data]);
+
+  const maxCatViews = useMemo(() => {
+    if (!data?.topCategoryViews.length) return 1;
+    return Math.max(...data.topCategoryViews.map((x) => x.count), 1);
+  }, [data]);
+
+  const maxNamed = (rows: { count: number }[]) =>
+    rows.length === 0 ? 1 : Math.max(...rows.map((x) => x.count), 1);
+
   const funnelPct = useMemo(() => {
-    if (!data) return { cart: 0, co: 0 };
-    const v = Math.max(data.funnel.productViews, 1);
+    if (!data) return { catToProd: null as number | null, cart: 0, co: 0 };
+    const cv = data.funnel.categoryViews;
+    const pv = Math.max(data.funnel.productViews, 1);
+    const catToProd =
+      cv > 0 ? Math.min(100, Math.round((data.funnel.productViews / cv) * 1000) / 10) : null;
     return {
-      cart: Math.min(100, Math.round((data.funnel.addToCart / v) * 1000) / 10),
+      catToProd,
+      cart: Math.min(100, Math.round((data.funnel.addToCart / pv) * 1000) / 10),
       co: Math.min(
         100,
         Math.round((data.funnel.checkoutStart / Math.max(data.funnel.addToCart, 1)) * 1000) / 10
@@ -262,15 +295,15 @@ export default function MarketingDashboard({ storeId, shopParam, initial }: Prop
 
   function refresh() {
     startTransition(async () => {
-      const next = await loadMarketingInsights(storeId);
+      const next = await loadMarketingInsights(storeId, shopParam);
       setData(next);
     });
   }
 
   return (
     <div className={styles.wrap}>
-      <AiBriefPanel storeId={storeId} />
-      <LiveNowPanel storeId={storeId} />
+      <AiBriefPanel storeId={storeId} shopParam={shopParam} />
+      <LiveNowPanel storeId={storeId} shopParam={shopParam} />
 
       {!data ? (
         <div className={`${apStyles.alert} ${apStyles.alertErr}`} role="status">
@@ -315,14 +348,26 @@ export default function MarketingDashboard({ storeId, shopParam, initial }: Prop
           </div>
 
           <div className={styles.panel}>
-            <h2 className={styles.panelTitle}>Embudo simplificado</h2>
+            <h2 className={styles.panelTitle}>Embudo (señales headless)</h2>
             <div className={styles.funnel}>
               <div className={styles.funnelStep}>
-                <span className={styles.funnelLabel}>Vistas de producto</span>
+                <span className={styles.funnelLabel}>Vistas de categoría</span>
+                <div className={styles.funnelBar}>
+                  <div className={styles.funnelFill} style={{ width: '100%', opacity: 0.55 }} />
+                </div>
+                <span className={styles.funnelPct}>{data.funnel.categoryViews} eventos</span>
+              </div>
+              <div className={styles.funnelStep}>
+                <span className={styles.funnelLabel}>→ Vistas de producto (PDP)</span>
                 <div className={styles.funnelBar}>
                   <div className={styles.funnelFill} style={{ width: '100%' }} />
                 </div>
-                <span className={styles.funnelPct}>{data.funnel.productViews} base</span>
+                <span className={styles.funnelPct}>
+                  {data.funnel.productViews}
+                  {funnelPct.catToProd != null
+                    ? ` (${funnelPct.catToProd}% vs vistas de categoría)`
+                    : ''}
+                </span>
               </div>
               <div className={styles.funnelStep}>
                 <span className={styles.funnelLabel}>→ Agregado al carrito</span>
@@ -330,7 +375,7 @@ export default function MarketingDashboard({ storeId, shopParam, initial }: Prop
                   <div className={styles.funnelFill} style={{ width: `${funnelPct.cart}%` }} />
                 </div>
                 <span className={styles.funnelPct}>
-                  {data.funnel.addToCart} ({funnelPct.cart}% vs vistas)
+                  {data.funnel.addToCart} ({funnelPct.cart}% vs vistas de producto)
                 </span>
               </div>
               <div className={styles.funnelStep}>
@@ -345,14 +390,179 @@ export default function MarketingDashboard({ storeId, shopParam, initial }: Prop
                   />
                 </div>
                 <span className={styles.funnelPct}>
-                  {data.funnel.checkoutStart} ({funnelPct.co}% vs agregados)
+                  {data.funnel.checkoutStart} ({funnelPct.co}% vs agregados al carrito)
                 </span>
               </div>
             </div>
             <div className={styles.algoBox}>
-              <strong>Cómo leer esto:</strong> los porcentajes son ratios entre pasos consecutivos sobre
-              tus propios eventos headless, no reemplazan Google Analytics. Sirven para ver si mucha gente
-              mira pero pocos agregan al carrito, o si el carrito no avanza al checkout.
+              <strong>Cómo leer esto:</strong> métricas propias del storefront (no es el panel de
+              estadísticas nativo de Tiendanube). Incluye atribución UTM y nombres de producto en los
+              eventos nuevos; el histórico sin esos campos se enriquece con la API de la tienda cuando hay
+              token de app.
+            </div>
+          </div>
+
+          <div className={styles.threeCol}>
+            <div className={styles.panel} style={{ marginTop: 0 }}>
+              <h2 className={styles.panelTitle}>Canal de tráfico (heurístico)</h2>
+              {data.trafficChannels.length === 0 ? (
+                <p className={styles.empty} style={{ margin: 0 }}>
+                  Sin datos de canal en esta ventana.
+                </p>
+              ) : (
+                <ul className={styles.barList}>
+                  {data.trafficChannels.map((row) => (
+                    <li key={row.key}>
+                      <div className={styles.barRow}>
+                        <span className={styles.barName}>{row.key}</span>
+                        <span className={styles.barCount}>{row.count}</span>
+                      </div>
+                      <div className={styles.barTrack}>
+                        <div
+                          className={styles.barFill}
+                          style={{ width: `${(row.count / maxNamed(data.trafficChannels)) * 100}%` }}
+                        />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className={styles.panel} style={{ marginTop: 0 }}>
+              <h2 className={styles.panelTitle}>UTM fuente</h2>
+              <ul className={styles.barList}>
+                {data.utmSources.map((row) => (
+                  <li key={`src-${row.key}`}>
+                    <div className={styles.barRow}>
+                      <span className={styles.barName}>{row.key}</span>
+                      <span className={styles.barCount}>{row.count}</span>
+                    </div>
+                    <div className={styles.barTrack}>
+                      <div
+                        className={styles.barFill}
+                        style={{ width: `${(row.count / maxNamed(data.utmSources)) * 100}%` }}
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className={styles.panel} style={{ marginTop: 0 }}>
+              <h2 className={styles.panelTitle}>UTM medio</h2>
+              <ul className={styles.barList}>
+                {data.utmMediums.map((row) => (
+                  <li key={`med-${row.key}`}>
+                    <div className={styles.barRow}>
+                      <span className={styles.barName}>{row.key}</span>
+                      <span className={styles.barCount}>{row.count}</span>
+                    </div>
+                    <div className={styles.barTrack}>
+                      <div
+                        className={styles.barFill}
+                        style={{ width: `${(row.count / maxNamed(data.utmMediums)) * 100}%` }}
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          <div className={styles.twoCol}>
+            <div className={styles.panel} style={{ marginTop: 0 }}>
+              <h2 className={styles.panelTitle}>UTM campaña</h2>
+              <ul className={styles.barList}>
+                {data.utmCampaigns.map((row) => (
+                  <li key={`cmp-${row.key}`}>
+                    <div className={styles.barRow}>
+                      <span className={styles.barName}>{row.key}</span>
+                      <span className={styles.barCount}>{row.count}</span>
+                    </div>
+                    <div className={styles.barTrack}>
+                      <div
+                        className={styles.barFill}
+                        style={{ width: `${(row.count / maxNamed(data.utmCampaigns)) * 100}%` }}
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className={styles.panel} style={{ marginTop: 0 }}>
+              <h2 className={styles.panelTitle}>Referrer (host de origen)</h2>
+              <ul className={styles.barList}>
+                {data.referrerHosts.map((row) => (
+                  <li key={`ref-${row.key}`}>
+                    <div className={styles.barRow}>
+                      <span className={styles.barName}>{row.key}</span>
+                      <span className={styles.barCount}>{row.count}</span>
+                    </div>
+                    <div className={styles.barTrack}>
+                      <div
+                        className={styles.barFill}
+                        style={{ width: `${(row.count / maxNamed(data.referrerHosts)) * 100}%` }}
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          <div className={styles.twoCol}>
+            <div className={styles.panel} style={{ marginTop: 0 }}>
+              <h2 className={styles.panelTitle}>Productos más vistos (PDP)</h2>
+              {data.topProductViews.length === 0 ? (
+                <p className={styles.empty}>Sin vistas de producto en 7 días.</p>
+              ) : (
+                <ul className={styles.productLinks}>
+                  {data.topProductViews.map((row) => (
+                    <li key={row.productId}>
+                      <a
+                        href={`/product/${row.productId}?shop=${encodeURIComponent(shopParam)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <span>{row.title || `Producto #${row.productId}`}</span>
+                        <span>{row.count}×</span>
+                      </a>
+                      <div className={styles.barTrack} style={{ marginTop: 6 }}>
+                        <div
+                          className={styles.barFill}
+                          style={{ width: `${(row.count / maxProdViews) * 100}%`, opacity: 0.75 }}
+                        />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className={styles.panel} style={{ marginTop: 0 }}>
+              <h2 className={styles.panelTitle}>Categorías más vistas</h2>
+              {data.topCategoryViews.length === 0 ? (
+                <p className={styles.empty}>Sin vistas de categoría en 7 días.</p>
+              ) : (
+                <ul className={styles.productLinks}>
+                  {data.topCategoryViews.map((row) => (
+                    <li key={row.categoryId}>
+                      <a
+                        href={`/categoria/${row.categoryId}?shop=${encodeURIComponent(shopParam)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <span>{row.title || `Categoría ${row.categoryId}`}</span>
+                        <span>{row.count}×</span>
+                      </a>
+                      <div className={styles.barTrack} style={{ marginTop: 6 }}>
+                        <div
+                          className={styles.barFill}
+                          style={{ width: `${(row.count / maxCatViews) * 100}%`, opacity: 0.65 }}
+                        />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
 
@@ -438,7 +648,7 @@ export default function MarketingDashboard({ storeId, shopParam, initial }: Prop
                       target="_blank"
                       rel="noreferrer"
                     >
-                      <span>Producto #{row.productId}</span>
+                      <span>{row.title || `Producto #${row.productId}`}</span>
                       <span>{row.count}×</span>
                     </a>
                     <div className={styles.barTrack} style={{ marginTop: 6 }}>

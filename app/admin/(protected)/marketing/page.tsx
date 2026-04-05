@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { getMarketingInsightsSnapshot } from '@/lib/shopper-intelligence-db';
+import { enrichMarketingInsightsSnapshot } from '@/lib/marketing-insights-enrich';
 import { getAdminDefaultShopId, parseAdminStoreIdParam, withAdminShopQuery } from '@/lib/admin-shop';
 import MarketingDashboard from './MarketingDashboard';
 import styles from '../admin-pages.module.css';
@@ -13,14 +14,17 @@ export default async function AdminMarketingPage({
   const sp = await searchParams;
   const shop = sp.shop?.trim() || getAdminDefaultShopId();
   const storeId = parseAdminStoreIdParam(shop);
-  const initial = await getMarketingInsightsSnapshot(storeId);
+  const rawInsights = await getMarketingInsightsSnapshot(storeId);
+  const initial = await enrichMarketingInsightsSnapshot(shop, rawInsights);
 
   return (
     <div className={styles.wrap}>
       <h1 className={styles.pageTitle}>Marketing e inteligencia</h1>
       <p className={mstyles.lead}>
-        Métricas calculadas desde las <strong>señales del storefront</strong> (MongoDB): vistas, carrito,
-        búsquedas, checkout y favoritos. Compará la semana actual con la anterior en cada tipo de evento.
+        Métricas desde <strong>señales del storefront headless</strong> (MongoDB): embudo, productos y
+        categorías con nombre, UTMs/canal/referrer por evento, y enriquecimiento de títulos vía{' '}
+        <strong>API de Tiendanube</strong> cuando la app tiene token. No duplica el informe analítico
+        nativo del admin de Tiendanube; lo complementa con lo que ocurre en tu vitrina propia.
       </p>
       <div className={styles.shopBar}>
         <span>

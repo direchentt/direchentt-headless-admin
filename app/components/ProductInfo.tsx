@@ -93,13 +93,18 @@ export default function ProductInfo({
     if (!Number.isFinite(pid) || pid <= 0) return;
     const cat0 = product.categories?.[0];
     const categoryId = typeof cat0?.id === 'number' ? cat0.id : undefined;
+    const categoryName =
+      categoryId != null ? safeGetName(cat0?.name).slice(0, 200) : undefined;
+    const productName = safeGetName(product?.name).slice(0, 240);
     const t = setTimeout(() => {
       queueStorefrontSignals(storeId, [
         {
           type: 'product_view',
           payload: {
             productId: pid,
+            productName,
             ...(categoryId != null ? { categoryId } : {}),
+            ...(categoryName ? { categoryName } : {}),
           },
         },
       ]);
@@ -540,13 +545,17 @@ export default function ProductInfo({
               if (Number.isFinite(pid) && pid > 0) {
                 const cat0 = product.categories?.[0];
                 const categoryId = typeof cat0?.id === 'number' ? cat0.id : undefined;
+                const categoryName =
+                  categoryId != null ? safeGetName(cat0?.name).slice(0, 200) : undefined;
                 queueStorefrontSignals(storeId, [
                   {
                     type: 'checkout_start',
                     payload: {
                       productId: pid,
+                      productName: safeGetName(product?.name).slice(0, 240),
                       source: 'pdp_express',
                       ...(categoryId != null ? { categoryId } : {}),
+                      ...(categoryName ? { categoryName } : {}),
                     },
                   },
                 ]);

@@ -137,6 +137,20 @@
   }
 }
 
+.threeCol {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+@media (min-width: 900px) {
+  .threeCol {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+}
+
 .barList {
   margin: 0;
   padding: 0;

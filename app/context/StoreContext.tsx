@@ -179,6 +179,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             type: 'add_to_cart',
             payload: {
               productId: pid,
+              productName: item.name.trim().slice(0, 240),
               ...(tracking.categoryId != null ? { categoryId: tracking.categoryId } : {}),
             },
           },

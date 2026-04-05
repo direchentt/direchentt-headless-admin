@@ -249,6 +249,8 @@ export function topCategoryIdsFromProfile(profile: ShopperProfileDoc | null, lim
   return entries.filter((n) => Number.isFinite(n));
 }
 
+export type MarketingNamedCount = { key: string; count: number };
+
 /** Resumen para el panel admin (últimos 7 días vs 7 anteriores). */
 export type MarketingInsightsSnapshot = {
   generatedAt: string;
@@ -256,14 +258,23 @@ export type MarketingInsightsSnapshot = {
   windowDays: 7;
   eventsByType: Record<string, number>;
   eventsByTypePrevPeriod: Record<string, number>;
-  topCartProductIds: { productId: number; count: number }[];
+  /** title opcional: evento en cliente o API Tiendanube en admin */
+  topCartProductIds: { productId: number; count: number; title?: string }[];
+  topProductViews: { productId: number; count: number; title?: string }[];
+  topCategoryViews: { categoryId: number; count: number; title?: string }[];
   topSearches: { query: string; count: number }[];
+  utmSources: MarketingNamedCount[];
+  utmMediums: MarketingNamedCount[];
+  utmCampaigns: MarketingNamedCount[];
+  trafficChannels: MarketingNamedCount[];
+  referrerHosts: MarketingNamedCount[];
   activeVisitorsApprox: number;
   profileCount: number;
   wishlistAdds: number;
   /** Heurística: más carritos/checkout y búsquedas suman; solo orientativa */
   activityPulse: number;
   funnel: {
+    categoryViews: number;
     productViews: number;
     addToCart: number;
     checkoutStart: number;
@@ -283,42 +294,157 @@ export async function getMarketingInsightsSnapshot(
     const d7 = new Date(now - 7 * 86400000);
     const d14 = new Date(now - 14 * 86400000);
 
-    const [byType, byTypePrev, topCart, topSearch, visitors, wishCount, profCount] =
-      await Promise.all([
-        coll
-          .aggregate<{ _id: string; c: number }>([
-            { $match: { storeId, createdAt: { $gte: d7 } } },
-            { $group: { _id: '$type', c: { $sum: 1 } } },
-          ])
-          .toArray(),
-        coll
-          .aggregate<{ _id: string; c: number }>([
-            { $match: { storeId, createdAt: { $gte: d14, $lt: d7 } } },
-            { $group: { _id: '$type', c: { $sum: 1 } } },
-          ])
-          .toArray(),
-        coll
-          .aggregate<{ _id: unknown; c: number }>([
-            { $match: { storeId, type: 'add_to_cart', createdAt: { $gte: d7 } } },
-            { $group: { _id: '$payload.productId', c: { $sum: 1 } } },
-            { $match: { _id: { $ne: null } } },
-            { $sort: { c: -1 } },
-            { $limit: 12 },
-          ])
-          .toArray(),
-        coll
-          .aggregate<{ _id: unknown; c: number }>([
-            { $match: { storeId, type: 'search', createdAt: { $gte: d7 } } },
-            { $group: { _id: '$payload.query', c: { $sum: 1 } } },
-            { $match: { _id: { $type: 'string' } } },
-            { $sort: { c: -1 } },
-            { $limit: 15 },
-          ])
-          .toArray(),
-        coll.distinct('visitorId', { storeId, createdAt: { $gte: d7 } }),
-        coll.countDocuments({ storeId, type: 'wishlist_add', createdAt: { $gte: d7 } }),
-        profColl.countDocuments({ storeId }),
-      ]);
+    const [
+      byType,
+      byTypePrev,
+      topCart,
+      topProdViews,
+      topCatViews,
+      topSearch,
+      utmSrc,
+      utmMed,
+      utmCamp,
+      trafficCh,
+      refHosts,
+      visitors,
+      wishCount,
+      profCount,
+    ] = await Promise.all([
+      coll
+        .aggregate<{ _id: string; c: number }>([
+          { $match: { storeId, createdAt: { $gte: d7 } } },
+          { $group: { _id: '$type', c: { $sum: 1 } } },
+        ])
+        .toArray(),
+      coll
+        .aggregate<{ _id: string; c: number }>([
+          { $match: { storeId, createdAt: { $gte: d14, $lt: d7 } } },
+          { $group: { _id: '$type', c: { $sum: 1 } } },
+        ])
+        .toArray(),
+      coll
+        .aggregate<{ _id: unknown; c: number; titles?: unknown[] }>([
+          { $match: { storeId, type: 'add_to_cart', createdAt: { $gte: d7 } } },
+          {
+            $group: {
+              _id: '$payload.productId',
+              c: { $sum: 1 },
+              titles: { $addToSet: '$payload.productName' },
+            },
+          },
+          { $match: { _id: { $ne: null } } },
+          { $sort: { c: -1 } },
+          { $limit: 12 },
+        ])
+        .toArray(),
+      coll
+        .aggregate<{ _id: unknown; c: number; titles?: unknown[] }>([
+          { $match: { storeId, type: 'product_view', createdAt: { $gte: d7 } } },
+          {
+            $group: {
+              _id: '$payload.productId',
+              c: { $sum: 1 },
+              titles: { $addToSet: '$payload.productName' },
+            },
+          },
+          { $match: { _id: { $ne: null } } },
+          { $sort: { c: -1 } },
+          { $limit: 15 },
+        ])
+        .toArray(),
+      coll
+        .aggregate<{ _id: unknown; c: number; titles?: unknown[] }>([
+          { $match: { storeId, type: 'category_view', createdAt: { $gte: d7 } } },
+          {
+            $group: {
+              _id: '$payload.categoryId',
+              c: { $sum: 1 },
+              titles: { $addToSet: '$payload.categoryName' },
+            },
+          },
+          { $match: { _id: { $ne: null } } },
+          { $sort: { c: -1 } },
+          { $limit: 12 },
+        ])
+        .toArray(),
+      coll
+        .aggregate<{ _id: unknown; c: number }>([
+          { $match: { storeId, type: 'search', createdAt: { $gte: d7 } } },
+          { $group: { _id: '$payload.query', c: { $sum: 1 } } },
+          { $match: { _id: { $type: 'string' } } },
+          { $sort: { c: -1 } },
+          { $limit: 15 },
+        ])
+        .toArray(),
+      coll
+        .aggregate<{ _id: string; c: number }>([
+          { $match: { storeId, createdAt: { $gte: d7 } } },
+          {
+            $group: {
+              _id: { $ifNull: ['$payload.utm_source', ''] },
+              c: { $sum: 1 },
+            },
+          },
+          { $sort: { c: -1 } },
+          { $limit: 12 },
+        ])
+        .toArray(),
+      coll
+        .aggregate<{ _id: string; c: number }>([
+          { $match: { storeId, createdAt: { $gte: d7 } } },
+          {
+            $group: {
+              _id: { $ifNull: ['$payload.utm_medium', ''] },
+              c: { $sum: 1 },
+            },
+          },
+          { $sort: { c: -1 } },
+          { $limit: 12 },
+        ])
+        .toArray(),
+      coll
+        .aggregate<{ _id: string; c: number }>([
+          { $match: { storeId, createdAt: { $gte: d7 } } },
+          {
+            $group: {
+              _id: { $ifNull: ['$payload.utm_campaign', ''] },
+              c: { $sum: 1 },
+            },
+          },
+          { $sort: { c: -1 } },
+          { $limit: 12 },
+        ])
+        .toArray(),
+      coll
+        .aggregate<{ _id: string; c: number }>([
+          { $match: { storeId, createdAt: { $gte: d7 } } },
+          {
+            $group: {
+              _id: { $ifNull: ['$payload.trafficChannel', ''] },
+              c: { $sum: 1 },
+            },
+          },
+          { $sort: { c: -1 } },
+          { $limit: 12 },
+        ])
+        .toArray(),
+      coll
+        .aggregate<{ _id: string; c: number }>([
+          { $match: { storeId, createdAt: { $gte: d7 } } },
+          {
+            $group: {
+              _id: { $ifNull: ['$payload.referrerHost', ''] },
+              c: { $sum: 1 },
+            },
+          },
+          { $sort: { c: -1 } },
+          { $limit: 12 },
+        ])
+        .toArray(),
+      coll.distinct('visitorId', { storeId, createdAt: { $gte: d7 } }),
+      coll.countDocuments({ storeId, type: 'wishlist_add', createdAt: { $gte: d7 } }),
+      profColl.countDocuments({ storeId }),
+    ]);
 
     const eventsByType: Record<string, number> = {};
     for (const r of byType) {
@@ -329,7 +455,20 @@ export async function getMarketingInsightsSnapshot(
       if (r._id) eventsByTypePrevPeriod[r._id] = r.c;
     }
 
-    const topCartProductIds: { productId: number; count: number }[] = [];
+    const firstHintTitle = (titles: unknown[] | undefined): string | undefined => {
+      if (!Array.isArray(titles)) return undefined;
+      for (const t of titles) {
+        if (typeof t === 'string' && t.trim()) return t.trim().slice(0, 240);
+      }
+      return undefined;
+    };
+
+    const utmLabel = (k: unknown, empty: string): string => {
+      if (typeof k === 'string' && k.trim()) return k.trim().slice(0, 120);
+      return empty;
+    };
+
+    const topCartProductIds: { productId: number; count: number; title?: string }[] = [];
     for (const r of topCart) {
       const id =
         typeof r._id === 'number'
@@ -337,7 +476,47 @@ export async function getMarketingInsightsSnapshot(
           : typeof r._id === 'string'
             ? parseInt(r._id, 10)
             : NaN;
-      if (Number.isFinite(id) && id > 0) topCartProductIds.push({ productId: id, count: r.c });
+      if (!Number.isFinite(id) || id <= 0) continue;
+      const hint = firstHintTitle(r.titles);
+      topCartProductIds.push({
+        productId: id,
+        count: r.c,
+        ...(hint ? { title: hint } : {}),
+      });
+    }
+
+    const topProductViews: { productId: number; count: number; title?: string }[] = [];
+    for (const r of topProdViews) {
+      const id =
+        typeof r._id === 'number'
+          ? r._id
+          : typeof r._id === 'string'
+            ? parseInt(r._id, 10)
+            : NaN;
+      if (!Number.isFinite(id) || id <= 0) continue;
+      const hint = firstHintTitle(r.titles);
+      topProductViews.push({
+        productId: id,
+        count: r.c,
+        ...(hint ? { title: hint } : {}),
+      });
+    }
+
+    const topCategoryViews: { categoryId: number; count: number; title?: string }[] = [];
+    for (const r of topCatViews) {
+      const id =
+        typeof r._id === 'number'
+          ? r._id
+          : typeof r._id === 'string'
+            ? parseInt(r._id, 10)
+            : NaN;
+      if (!Number.isFinite(id) || id <= 0) continue;
+      const hint = firstHintTitle(r.titles);
+      topCategoryViews.push({
+        categoryId: id,
+        count: r.c,
+        ...(hint ? { title: hint } : {}),
+      });
     }
 
     const topSearches: { query: string; count: number }[] = [];
@@ -348,14 +527,37 @@ export async function getMarketingInsightsSnapshot(
       if (q.length >= 2) topSearches.push({ query: q, count: r.c });
     }
 
+    const utmSources: MarketingNamedCount[] = utmSrc.map((r) => ({
+      key: utmLabel(r._id, '(sin UTM)'),
+      count: r.c,
+    }));
+    const utmMediums: MarketingNamedCount[] = utmMed.map((r) => ({
+      key: utmLabel(r._id, '(sin UTM)'),
+      count: r.c,
+    }));
+    const utmCampaigns: MarketingNamedCount[] = utmCamp.map((r) => ({
+      key: utmLabel(r._id, '(sin UTM)'),
+      count: r.c,
+    }));
+    const trafficChannels: MarketingNamedCount[] = trafficCh.map((r) => ({
+      key: utmLabel(r._id, 'Directo / sin etiqueta'),
+      count: r.c,
+    }));
+    const referrerHosts: MarketingNamedCount[] = refHosts.map((r) => ({
+      key: utmLabel(r._id, '(sin referrer conocido)'),
+      count: r.c,
+    }));
+
     const funnel = {
+      categoryViews: eventsByType.category_view ?? 0,
       productViews: eventsByType.product_view ?? 0,
       addToCart: eventsByType.add_to_cart ?? 0,
       checkoutStart: eventsByType.checkout_start ?? 0,
       searches: eventsByType.search ?? 0,
     };
     const activityPulse = Math.round(
-      funnel.addToCart * 3 +
+      funnel.categoryViews * 0.15 +
+        funnel.addToCart * 3 +
         funnel.checkoutStart * 5 +
         funnel.searches * 0.6 +
         funnel.productViews * 0.08
@@ -368,7 +570,14 @@ export async function getMarketingInsightsSnapshot(
       eventsByType,
       eventsByTypePrevPeriod,
       topCartProductIds,
+      topProductViews,
+      topCategoryViews,
       topSearches,
+      utmSources,
+      utmMediums,
+      utmCampaigns,
+      trafficChannels,
+      referrerHosts,
       activeVisitorsApprox: Array.isArray(visitors) ? visitors.length : 0,
       profileCount: profCount,
       wishlistAdds: wishCount,

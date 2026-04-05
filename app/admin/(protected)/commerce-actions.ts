@@ -10,6 +10,10 @@ import {
 } from '@/lib/admin-panel-db';
 import { getMarketingInsightsSnapshot } from '@/lib/shopper-intelligence-db';
 import {
+  enrichMarketingInsightsSnapshot,
+  enrichPresenceRows,
+} from '@/lib/marketing-insights-enrich';
+import {
   listActivePresence,
   countActivePresence,
 } from '@/lib/storefront-presence-db';
@@ -149,15 +153,16 @@ export async function saveAdminPanelRules(storeId: number, patch: SaveAdminPanel
 }
 
 /** Métricas agregadas desde señales del storefront (Mongo). Solo admin autenticado. */
-export async function loadMarketingInsights(storeId: number) {
+export async function loadMarketingInsights(storeId: number, shopParam: string) {
   if (!(await isAdminAuthenticated())) {
     return null;
   }
-  return getMarketingInsightsSnapshot(storeId);
+  const raw = await getMarketingInsightsSnapshot(storeId);
+  return enrichMarketingInsightsSnapshot(shopParam, raw);
 }
 
 /** Visitantes con ping reciente (presencia en vitrina). */
-export async function loadActivePresenceAdmin(storeId: number) {
+export async function loadActivePresenceAdmin(storeId: number, shopParam: string) {
   if (!(await isAdminAuthenticated())) {
     return null;
   }
@@ -166,20 +171,23 @@ export async function loadActivePresenceAdmin(storeId: number) {
     listActivePresence(storeId, windowSec),
     countActivePresence(storeId, windowSec),
   ]);
-  return { rows, count, windowSec };
+  const enriched = await enrichPresenceRows(shopParam, rows);
+  return { rows: enriched, count, windowSec };
 }
 
 /** Resumen con IA (Gemini → Claude → OpenAI según claves; ver MARKETING_AI_PROVIDER). */
-export async function generateMarketingAiSummary(storeId: number) {
+export async function generateMarketingAiSummary(storeId: number, shopParam: string) {
   if (!(await isAdminAuthenticated())) {
     return { ok: false as const, error: 'No autorizado' };
   }
-  const snapshot = await getMarketingInsightsSnapshot(storeId);
+  const raw = await getMarketingInsightsSnapshot(storeId);
+  const snapshot = await enrichMarketingInsightsSnapshot(shopParam, raw);
   const windowSec = 150;
-  const [presence, activeCount] = await Promise.all([
+  const [rows, activeCount] = await Promise.all([
     listActivePresence(storeId, windowSec),
     countActivePresence(storeId, windowSec),
   ]);
+  const presence = await enrichPresenceRows(shopParam, rows);
   return generateMarketingAiBrief({
     snapshot,
     presence,

@@ -91,6 +91,9 @@ export type PresenceRow = {
   pageType: string;
   productId?: number;
   categoryId?: number;
+  /** Resuelto en admin con API Tiendanube (opcional) */
+  productTitle?: string;
+  categoryTitle?: string;
   lastSeen: string;
   deviceHint?: string;
   secondsAgo: number;

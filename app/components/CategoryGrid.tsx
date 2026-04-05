@@ -48,8 +48,16 @@ export default function CategoryGrid({
   useEffect(() => {
     const id = parseInt(categoryId, 10);
     if (!Number.isFinite(id) || id <= 0 || !storeId) return;
-    queueStorefrontSignals(storeId, [{ type: 'category_view', payload: { categoryId: id } }]);
-  }, [categoryId, storeId]);
+    queueStorefrontSignals(storeId, [
+      {
+        type: 'category_view',
+        payload: {
+          categoryId: id,
+          categoryName: categoryName.trim().slice(0, 200),
+        },
+      },
+    ]);
+  }, [categoryId, categoryName, storeId]);
 
   // Detectar tamaño de pantalla
   useEffect(() => {

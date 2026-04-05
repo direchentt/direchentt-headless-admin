@@ -19,20 +19,42 @@ export type MarketingBriefInput = {
 };
 
 function buildPayload(input: MarketingBriefInput) {
+  const s = input.snapshot;
   return {
-    ventanaDias: input.snapshot?.windowDays ?? 7,
-    embudo: input.snapshot?.funnel ?? null,
-    eventosPorTipo: input.snapshot?.eventsByType ?? {},
-    topBusquedas: input.snapshot?.topSearches?.slice(0, 8) ?? [],
-    topCarrito: input.snapshot?.topCartProductIds?.slice(0, 8) ?? [],
-    pulso: input.snapshot?.activityPulse ?? 0,
+    ventanaDias: s?.windowDays ?? 7,
+    embudo: s?.funnel ?? null,
+    eventosPorTipo: s?.eventsByType ?? {},
+    topBusquedas: s?.topSearches?.slice(0, 10) ?? [],
+    topVistasProducto: (s?.topProductViews ?? []).slice(0, 10).map((r) => ({
+      id: r.productId,
+      nombre: r.title ?? null,
+      veces: r.count,
+    })),
+    topCategorias: (s?.topCategoryViews ?? []).slice(0, 8).map((r) => ({
+      id: r.categoryId,
+      nombre: r.title ?? null,
+      veces: r.count,
+    })),
+    topCarrito: (s?.topCartProductIds ?? []).slice(0, 10).map((r) => ({
+      id: r.productId,
+      nombre: r.title ?? null,
+      veces: r.count,
+    })),
+    canalesTrafico: (s?.trafficChannels ?? []).slice(0, 10),
+    utmFuente: (s?.utmSources ?? []).slice(0, 8),
+    utmMedio: (s?.utmMediums ?? []).slice(0, 8),
+    utmCampaña: (s?.utmCampaigns ?? []).slice(0, 8),
+    referrers: (s?.referrerHosts ?? []).slice(0, 8),
+    pulso: s?.activityPulse ?? 0,
     visitantesActivosAhora: input.activeCount,
     muestraEnVivo: input.presence.slice(0, 12).map((p) => ({
       haceSeg: p.secondsAgo,
       tipo: p.pageType,
       path: p.path,
-      producto: p.productId,
-      categoria: p.categoryId,
+      productoId: p.productId,
+      productoNombre: p.productTitle ?? null,
+      categoriaId: p.categoryId,
+      categoriaNombre: p.categoryTitle ?? null,
     })),
   };
 }
