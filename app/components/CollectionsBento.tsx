@@ -1,6 +1,7 @@
 'use client';
 
 import ProductCard from './ProductCard';
+import StoreImage from './StoreImage';
 
 interface CollectionsBentoProps {
   editorialLeftUrl: string;
@@ -19,8 +20,14 @@ export default function CollectionsBento({
   const [p0, p1, p2, p3] = products;
   const gridSlot = editorialGridUrl ? (
     <div className="bento-editorial-slot">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={editorialGridUrl} alt="" className="bento-editorial-img" />
+      <StoreImage
+        src={editorialGridUrl}
+        alt=""
+        fill
+        className="bento-editorial-img"
+        style={{ objectFit: 'cover', objectPosition: 'center' }}
+        sizes="(max-width: 900px) 50vw, 25vw"
+      />
     </div>
   ) : p3 ? (
     <div className="bento-product-slot">
@@ -31,8 +38,15 @@ export default function CollectionsBento({
   return (
     <section className="collections-bento" aria-label="Colección destacada">
       <div className="collections-bento-left">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={editorialLeftUrl} alt="" className="collections-bento-hero-img" />
+        <StoreImage
+          src={editorialLeftUrl}
+          alt=""
+          fill
+          className="collections-bento-hero-img"
+          style={{ objectFit: 'cover', objectPosition: 'center' }}
+          sizes="(max-width: 900px) 100vw, 50vw"
+          priority
+        />
       </div>
       <div className="collections-bento-right">
         <div className="collections-bento-grid2">

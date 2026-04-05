@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { formatPrice, getVariantDisplayPrices } from '@/lib/product-utils';
+import StoreImage from '@/app/components/StoreImage';
 
 export default function VariantSelector({ product, storeDomain }: { product: any, storeDomain: string }) {
   if (!product || !product.variants) return null;
@@ -36,8 +37,8 @@ export default function VariantSelector({ product, storeDomain }: { product: any
           {product.variants.map((v: any) => {
             const img = product.images.find((i: any) => i.id === v.image_id)?.src || product.images[0].src;
             return (
-              <button key={v.id} className={`v-btn ${selectedVariant.id === v.id ? 'active' : ''}`} onClick={() => setSelectedVariant(v)}>
-                <img src={img} alt="variant" />
+              <button type="button" key={v.id} className={`v-btn ${selectedVariant.id === v.id ? 'active' : ''}`} onClick={() => setSelectedVariant(v)}>
+                <StoreImage src={img} alt="" fill style={{ objectFit: 'cover' }} sizes="80px" />
               </button>
             );
           })}
@@ -55,7 +56,7 @@ export default function VariantSelector({ product, storeDomain }: { product: any
         .p-price { font-size: 18px; margin: 15px 0 45px; font-weight: 300; }
         .v-label { font-size: 9px; font-weight: 800; letter-spacing: 2px; color: #999; margin-bottom: 20px; }
         .v-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(65px, 1fr)); gap: 10px; margin-bottom: 50px; }
-        .v-btn { border: 1px solid #eee; background: #fff; padding: 0; cursor: pointer; aspect-ratio: 3/4; overflow: hidden; }
+        .v-btn { position: relative; border: 1px solid #eee; background: #fff; padding: 0; cursor: pointer; aspect-ratio: 3/4; overflow: hidden; }
         .v-btn.active { border: 2px solid #000; }
         .v-btn img { width: 100%; height: 100%; object-fit: cover; }
         .btn-buy { width: 100%; background: #000; color: #fff; border: none; padding: 22px; font-weight: 800; letter-spacing: 3px; font-size: 11px; cursor: pointer; }

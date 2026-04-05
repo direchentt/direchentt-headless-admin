@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import StoreImage from './StoreImage';
 
 export type LightboxImage = { id: string | number; src: string };
 
@@ -113,8 +114,7 @@ export default function ProductImageLightbox({
               aria-label={`Imagen ${i + 1}`}
               aria-current={i === active ? 'true' : undefined}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={img.src} alt="" />
+              <StoreImage src={img.src} alt="" width={44} height={44} sizes="44px" style={{ objectFit: 'cover' }} />
             </button>
           ))}
         </div>
@@ -128,8 +128,15 @@ export default function ProductImageLightbox({
               }}
               className="pdp-lb-slide"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={img.src} alt={`${productName} — ${i + 1}`} />
+              <StoreImage
+                src={img.src}
+                alt={`${productName} — ${i + 1}`}
+                width={1600}
+                height={2000}
+                sizes="100vw"
+                className="pdp-lb-slide-img"
+                style={{ width: '100%', height: 'auto', display: 'block' }}
+              />
             </div>
           ))}
         </div>
@@ -226,8 +233,8 @@ export default function ProductImageLightbox({
         .pdp-lb-slide + .pdp-lb-slide {
           margin-top: 2px;
         }
-        .pdp-lb-slide img {
-          width: 100%;
+        .pdp-lb-slide-img {
+          max-width: 100%;
           height: auto;
           display: block;
         }

@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import SearchModal from './SearchModal';
-import AuthModal from './AuthModal';
-import CartDrawer from './CartDrawer';
+import dynamic from 'next/dynamic';
+
+const SearchModal = dynamic(() => import('./SearchModal'), { ssr: false });
+const AuthModal = dynamic(() => import('./AuthModal'), { ssr: false });
+const CartDrawer = dynamic(() => import('./CartDrawer'), { ssr: false });
 
 interface ModalsWrapperProps {
   products: any[];
@@ -11,14 +12,6 @@ interface ModalsWrapperProps {
 }
 
 export default function ModalsWrapper({ products, storeId }: ModalsWrapperProps) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) return null;
-
   return (
     <>
       <SearchModal products={products} storeId={storeId} />

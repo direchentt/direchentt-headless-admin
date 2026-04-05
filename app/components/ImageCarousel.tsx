@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import StoreImage from './StoreImage';
 
 interface Image {
   id: string | number;
@@ -75,10 +76,11 @@ export default function ImageCarousel({ images, productName, variantName }: Imag
         .carousel-main-image {
           width: 100%;
           aspect-ratio: 4/5;
-          object-fit: cover;
           display: block;
           background: #f5f5f5;
           cursor: grab;
+          position: relative;
+          overflow: hidden;
         }
         .carousel-main-image.no-image {
           display: flex;
@@ -154,14 +156,20 @@ export default function ImageCarousel({ images, productName, variantName }: Imag
         {variantName && (
           <div className="carousel-variant-label">{variantName}</div>
         )}
-        <img
-          src={images[currentIndex].src}
-          alt={`${productName} - Imagen ${currentIndex + 1}`}
+        <div
           className="carousel-main-image"
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
-          loading="eager"
-        />
+        >
+          <StoreImage
+            src={images[currentIndex].src}
+            alt={`${productName} - Imagen ${currentIndex + 1}`}
+            fill
+            style={{ objectFit: 'cover' }}
+            sizes="100vw"
+            priority
+          />
+        </div>
       </div>
 
       {images.length > 1 && (
@@ -175,7 +183,7 @@ export default function ImageCarousel({ images, productName, variantName }: Imag
                 aria-label={`Ver imagen ${idx + 1}`}
                 aria-current={idx === currentIndex}
               >
-                <img src={img.src} alt="" />
+                <StoreImage src={img.src} alt="" width={50} height={50} sizes="50px" style={{ objectFit: 'cover' }} />
               </button>
             ))}
           </div>

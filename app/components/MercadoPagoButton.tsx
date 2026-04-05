@@ -1,6 +1,6 @@
-
 'use client';
 
+import Image from 'next/image';
 import { useState } from 'react';
 
 export default function MercadoPagoButton({ items, storeId }: { items: any[], storeId: string }) {
@@ -41,10 +41,13 @@ export default function MercadoPagoButton({ items, storeId }: { items: any[], st
                 <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
             ) : (
                 <>
-                    <img
+                    <Image
                         src="https://http2.mlstatic.com/frontend-assets/marketplace-web/mkt-web-navigation/current/mp-logo.svg"
                         alt="Mercado Pago"
-                        className="h-6 invert brightness-0"
+                        width={120}
+                        height={32}
+                        className="h-6 w-auto invert brightness-0"
+                        unoptimized
                     />
                     Pagar con Mercado Pago
                 </>

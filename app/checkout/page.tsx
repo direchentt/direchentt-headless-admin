@@ -1,9 +1,12 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import MercadoPagoButton from '../components/MercadoPagoButton';
+import StoreImage from '../components/StoreImage';
 import { formatPrice, parseMoney } from '@/lib/product-utils';
+
+const DEFAULT_SHOP = process.env.NEXT_PUBLIC_DEFAULT_SHOP || '5112334';
 
 // Definición de tipo para los items del carrito
 interface CartItem {
@@ -38,17 +41,37 @@ export default function CheckoutPage() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black"></div>
+            <div
+                className="flex flex-col items-center justify-center min-h-screen gap-4 bg-zinc-50"
+                role="status"
+                aria-live="polite"
+                aria-busy="true"
+            >
+                <div
+                    className="h-10 w-10 rounded-full border-2 border-zinc-200 border-t-zinc-900 animate-spin"
+                    aria-hidden
+                />
+                <p className="text-sm font-medium text-zinc-600">Cargando tu carrito…</p>
             </div>
         );
     }
 
     if (items.length === 0) {
+        const home = `/?shop=${encodeURIComponent(DEFAULT_SHOP)}`;
         return (
-            <div className="p-12 text-center">
-                <h1 className="text-2xl font-bold">Tu carrito está vacío</h1>
-                <p className="mt-4 text-zinc-500">Agrega algunos productos antes de finalizar la compra.</p>
+            <div className="min-h-[70vh] flex flex-col items-center justify-center px-6 py-16 bg-zinc-50">
+                <div className="max-w-md w-full text-center bg-white border border-zinc-200 rounded-2xl shadow-sm px-8 py-12">
+                    <h1 className="text-xl font-bold tracking-tight text-zinc-900">Tu carrito está vacío</h1>
+                    <p className="mt-3 text-sm text-zinc-600 leading-relaxed">
+                        Agregá productos desde la tienda y volvé acá para completar el pago con Mercado Pago.
+                    </p>
+                    <Link
+                        href={home}
+                        className="mt-8 inline-flex min-h-11 items-center justify-center rounded-full bg-zinc-900 px-8 text-sm font-semibold text-white transition hover:bg-zinc-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
+                    >
+                        Ir a la tienda
+                    </Link>
+                </div>
             </div>
         );
     }
@@ -58,12 +81,19 @@ export default function CheckoutPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                 {/* Resumen del Pedido */}
                 <div className="space-y-6">
-                    <h1 className="text-3xl font-bold tracking-tight">Finalizar Compra</h1>
+                    <h1 className="text-3xl font-bold tracking-tight text-zinc-900">Finalizar compra</h1>
+                    <p className="text-sm text-zinc-500 -mt-2">Revisá los productos y completá el pago.</p>
                     <div className="border-t border-zinc-100 pt-6">
                         {items.map((item) => (
                             <div key={item.variantId} className="flex gap-4 mb-6">
-                                <div className="w-20 h-24 bg-zinc-100 rounded-lg overflow-hidden flex-shrink-0">
-                                    <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                                <div className="relative w-20 h-24 bg-zinc-100 rounded-lg overflow-hidden flex-shrink-0">
+                                    <StoreImage
+                                      src={item.image}
+                                      alt={item.name}
+                                      fill
+                                      style={{ objectFit: 'cover' }}
+                                      sizes="80px"
+                                    />
                                 </div>
                                 <div className="flex-1">
                                     <h3 className="font-medium text-sm">{item.name}</h3>

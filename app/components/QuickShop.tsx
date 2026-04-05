@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 import { formatPrice, getVariantDisplayPrices } from '@/lib/product-utils';
 import ProductCucardas from './ProductCucardas';
+import StoreImage from './StoreImage';
 
 interface QuickShopProps {
   product: any;
@@ -138,20 +139,16 @@ export default function QuickShop({ product, storeId, domain, isOpen, onClose }:
           {/* Imagen */}
           <div className="quickshop-image">
             <ProductCucardas product={currentProduct} />
-            {currentImage && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img 
-                src={currentImage} 
+            {currentImage ? (
+              <StoreImage
+                src={currentImage}
                 alt={typeof product.name === 'object' ? product.name.es : product.name}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover'
-                }}
-                referrerPolicy="no-referrer"
-                crossOrigin="anonymous"
+                fill
+                style={{ objectFit: 'cover' }}
+                sizes="(max-width: 768px) 100vw, 50vw"
+                priority
               />
-            )}
+            ) : null}
           </div>
 
           {/* Info */}
@@ -386,12 +383,13 @@ export default function QuickShop({ product, storeId, domain, isOpen, onClose }:
                                     disabled={!hasStock}
                                   >
                                     {variantImg ? (
-                                      // eslint-disable-next-line @next/next/no-img-element
-                                      <img 
-                                        src={variantImg} 
+                                      <StoreImage
+                                        src={variantImg}
                                         alt={value}
-                                        referrerPolicy="no-referrer"
-                                        crossOrigin="anonymous"
+                                        width={60}
+                                        height={60}
+                                        sizes="60px"
+                                        style={{ objectFit: 'cover' }}
                                       />
                                     ) : (
                                       <span className="color-name">{value}</span>

@@ -135,21 +135,25 @@ export async function fetchTN(endpoint: string, shopId: string, token: string, q
 
   const queryPrefix = query ? (query.startsWith('&') ? query : `&${query}`) : '';
   const perPage = endpoint === 'products' ? 200 : 200; // Aumentado a 200 para traer más productos
-  
+  const qsSep = endpoint.includes('?') ? '&' : '?';
+
   // Timeout de 10 segundos para peticiones a la API (aumentado)
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000);
 
   try {
-    const res = await fetch(`https://api.tiendanube.com/v1/${shopId}/${endpoint}?per_page=${perPage}${queryPrefix}`, {
-      headers: { 
-        'Authentication': `bearer ${token}`, 
-        'User-Agent': 'Direchentt' 
-      },
-      signal: controller.signal,
-      next: { revalidate: 60 }
-    });
-    
+    const res = await fetch(
+      `https://api.tiendanube.com/v1/${shopId}/${endpoint}${qsSep}per_page=${perPage}${queryPrefix}`,
+      {
+        headers: {
+          Authentication: `bearer ${token}`,
+          'User-Agent': 'Direchentt',
+        },
+        signal: controller.signal,
+        next: { revalidate: 60 },
+      }
+    );
+
     clearTimeout(timeoutId);
     const data = res.ok ? await res.json() : [];
     apiCache.set(cacheKey, { data, timestamp: now });

@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useStore } from '../context/StoreContext';
 import Link from 'next/link';
 import { formatPrice, getVariantDisplayPrices } from '@/lib/product-utils';
+import StoreImage from './StoreImage';
 
 interface SearchModalProps {
   products: any[];
@@ -98,13 +99,16 @@ export default function SearchModal({ products, storeId }: SearchModalProps) {
             </svg>
             <input
               ref={inputRef}
-              type="text"
+              type="search"
+              enterKeyHint="search"
+              autoComplete="off"
               placeholder="Encuentra tu estilo..."
+              aria-label="Buscar productos"
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
             />
           </div>
-          <button className="close-btn" onClick={() => setSearchOpen(false)}>
+          <button type="button" className="close-btn" onClick={() => setSearchOpen(false)} aria-label="Cerrar búsqueda">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
               <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
@@ -121,7 +125,9 @@ export default function SearchModal({ products, storeId }: SearchModalProps) {
                 <ul>
                   {popularSearches.map(term => (
                     <li key={term}>
-                      <button onClick={() => setSearchTerm(term)}>{term}</button>
+                      <button type="button" onClick={() => setSearchTerm(term)}>
+                        {term}
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -132,8 +138,16 @@ export default function SearchModal({ products, storeId }: SearchModalProps) {
                   {recommendedProducts.map(prod => (
                     <Link key={prod.id} href={`/product/${prod.id}?shop=${storeId}`} onClick={() => setSearchOpen(false)} className="rec-card">
                       <div className="img-wrapper">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={prod.images[0]?.src} alt="" />
+                        {prod.images[0]?.src ? (
+                          <StoreImage
+                            src={prod.images[0].src}
+                            alt=""
+                            fill
+                            className="search-modal-thumb"
+                            style={{ objectFit: 'cover' }}
+                            sizes="(max-width: 768px) 45vw, 18vw"
+                          />
+                        ) : null}
                       </div>
                       <div className="info">
                         <p className="name">{typeof prod.name === 'object' ? (prod.name.es || prod.name.en) : prod.name}</p>
@@ -151,7 +165,9 @@ export default function SearchModal({ products, storeId }: SearchModalProps) {
                           })()}
                         </p>
                       </div>
-                      <button className="add-btn">+</button>
+                      <span className="add-btn" aria-hidden>
+                        +
+                      </span>
                     </Link>
                   ))}
                 </div>
@@ -167,8 +183,16 @@ export default function SearchModal({ products, storeId }: SearchModalProps) {
                     {searchResults.map(prod => (
                       <Link key={prod.id} href={`/product/${prod.id}?shop=${storeId}`} onClick={() => setSearchOpen(false)} className="result-card">
                         <div className="img-wrapper">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={prod.images[0]?.src} alt="" />
+                          {prod.images[0]?.src ? (
+                            <StoreImage
+                              src={prod.images[0].src}
+                              alt=""
+                              fill
+                              className="search-modal-thumb"
+                              style={{ objectFit: 'cover' }}
+                              sizes="(max-width: 768px) 25vw, 22vw"
+                            />
+                          ) : null}
                         </div>
                         <div className="info">
                           <p className="name">{typeof prod.name === 'object' ? (prod.name.es || prod.name.en) : prod.name}</p>
@@ -336,13 +360,10 @@ export default function SearchModal({ products, storeId }: SearchModalProps) {
                 position: relative;
                 overflow: hidden;
             }
-            .img-wrapper img {
-                width: 100%;
-                height: 100%;
-                object-fit: cover;
+            .img-wrapper .search-modal-thumb {
                 transition: transform 0.5s;
             }
-            .rec-card:hover .img-wrapper img {
+            .rec-card:hover .img-wrapper .search-modal-thumb {
                 transform: scale(1.05);
             }
             .info .name {
@@ -424,11 +445,6 @@ export default function SearchModal({ products, storeId }: SearchModalProps) {
             .result-card .img-wrapper {
                 aspect-ratio: 3/4;
                 margin-bottom: 10px;
-            }
-            .result-card .img-wrapper img {
-                width: 100%;
-                height: 100%;
-                object-fit: cover;
             }
         `}</style>
     </>

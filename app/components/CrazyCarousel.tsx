@@ -7,6 +7,7 @@ import {
   getVariantDisplayPrices,
   getProductPrimaryImageUrl,
 } from '@/lib/product-utils';
+import StoreImage from './StoreImage';
 
 interface CrazyCarouselProps {
   products: any[];
@@ -323,8 +324,16 @@ function TrendingCard({
   return (
     <Link href={`/product/${product.id}?shop=${storeId}`} className={`t-card t-card--${layout}`}>
       <div className="t-img">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src || ''} alt="" className="t-img-el" width={200} height={267} loading="lazy" />
+        {src ? (
+          <StoreImage
+            src={src}
+            alt=""
+            fill
+            className="t-img-el"
+            style={{ objectFit: 'cover', objectPosition: 'center top' }}
+            sizes="(max-width: 768px) 40vw, 188px"
+          />
+        ) : null}
       </div>
       <div className="t-meta">
         <span className="t-name">{name}</span>

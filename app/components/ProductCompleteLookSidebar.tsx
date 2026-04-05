@@ -6,6 +6,7 @@ import {
   getVariantDisplayPrices,
   getProductTagsArray,
 } from '@/lib/product-utils';
+import StoreImage from './StoreImage';
 
 interface ProductCompleteLookSidebarProps {
   products: any[];
@@ -65,12 +66,16 @@ export default function ProductCompleteLookSidebar({
             >
               <div className="pdp-ctl-thumb">
                 <Link href={`/product/${prod.id}?shop=${sid}`} className="pdp-ctl-visual">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={prod.images?.[0]?.src || ''}
-                    alt={productName(prod)}
-                    className="pdp-ctl-img"
-                  />
+                  {prod.images?.[0]?.src ? (
+                    <StoreImage
+                      src={prod.images[0].src}
+                      alt={productName(prod)}
+                      fill
+                      className="pdp-ctl-img"
+                      style={{ objectFit: 'cover' }}
+                      sizes="120px"
+                    />
+                  ) : null}
                   {backBadge && (
                     <span className="pdp-ctl-badge">Back in stock</span>
                   )}

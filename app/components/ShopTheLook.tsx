@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { formatPrice, getVariantDisplayPrices } from '@/lib/product-utils';
 import ProductCucardas from './ProductCucardas';
+import StoreImage from './StoreImage';
 
 interface ShopTheLookProps {
   mainProduct: any;
@@ -63,12 +64,16 @@ export default function ShopTheLook({ mainProduct, relatedProducts, storeId }: S
             return (
               <article key={prod.id} className="ctl-card">
                 <Link href={`/product/${prod.id}?shop=${sid}`} className="ctl-card-visual">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={prod.images?.[0]?.src || ''}
-                    alt={productName(prod)}
-                    className="ctl-img"
-                  />
+                  {prod.images?.[0]?.src ? (
+                    <StoreImage
+                      src={prod.images[0].src}
+                      alt={productName(prod)}
+                      fill
+                      className="ctl-img"
+                      style={{ objectFit: 'cover' }}
+                      sizes="(max-width: 640px) 42vw, 220px"
+                    />
+                  ) : null}
                   <ProductCucardas product={prod} />
                   {inStock && <span className="ctl-stock-pill">En stock</span>}
                 </Link>

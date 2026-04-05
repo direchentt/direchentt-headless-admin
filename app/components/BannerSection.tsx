@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import StoreImage from './StoreImage';
 
 interface BannerSectionProps {
   banners?: string[];
@@ -84,23 +85,39 @@ export default function BannerSection({
             key={index}
             className={`banner-vertical-slide ${index === currentBanner ? 'active' : ''}`}
             style={{
-              backgroundImage: `url(${banner})`,
-              transform: `translateX(${(index - currentBanner) * 100}%)`
+              transform: `translateX(${(index - currentBanner) * 100}%)`,
             }}
-          />
+          >
+            <StoreImage
+              src={banner}
+              alt={`Banner ${index + 1}`}
+              fill
+              className="banner-vertical-img"
+              style={{ objectFit: 'cover', objectPosition: 'center' }}
+              sizes="100vw"
+              priority={index === 0}
+            />
+          </div>
         ))}
       </div>
       
       {banners.length > 1 && (
         <>
-          <button className="banner-nav banner-prev" onClick={handlePrev}>‹</button>
-          <button className="banner-nav banner-next" onClick={handleNext}>›</button>
-          
+          <button type="button" className="banner-nav banner-prev" onClick={handlePrev} aria-label="Banner anterior">
+            ‹
+          </button>
+          <button type="button" className="banner-nav banner-next" onClick={handleNext} aria-label="Banner siguiente">
+            ›
+          </button>
+
           <div className="banner-indicators">
             {banners.map((_, index) => (
               <button
                 key={index}
+                type="button"
                 className={`banner-indicator ${index === currentBanner ? 'active' : ''}`}
+                aria-label={`Ir al banner ${index + 1}`}
+                aria-current={index === currentBanner ? 'true' : undefined}
                 onClick={() => setCurrentBanner(index)}
               />
             ))}
@@ -128,14 +145,20 @@ export default function BannerSection({
         >
           {banners.map((banner, index) => (
             <div key={index} className="banner-medium-slide">
-              <img 
-                src={banner} 
+              <StoreImage
+                src={banner}
                 alt={`Banner ${index + 1}`}
+                fill
                 className="banner-medium-image"
+                style={{ objectFit: 'cover', objectPosition: 'center' }}
+                sizes="100vw"
+                priority={index === 0}
               />
               <div className="banner-medium-overlay">
                 <h3>{title || 'Ofertas Especiales'}</h3>
-                <button className="banner-cta">Explorar</button>
+                <button type="button" className="banner-cta">
+                  Explorar
+                </button>
               </div>
             </div>
           ))}
@@ -144,14 +167,21 @@ export default function BannerSection({
       
       {banners.length > 1 && (
         <>
-          <button className="banner-nav banner-prev" onClick={handlePrev}>‹</button>
-          <button className="banner-nav banner-next" onClick={handleNext}>›</button>
-          
+          <button type="button" className="banner-nav banner-prev" onClick={handlePrev} aria-label="Banner anterior">
+            ‹
+          </button>
+          <button type="button" className="banner-nav banner-next" onClick={handleNext} aria-label="Banner siguiente">
+            ›
+          </button>
+
           <div className="banner-dots">
             {banners.map((_, index) => (
               <button
                 key={index}
+                type="button"
                 className={`banner-dot ${index === currentBanner ? 'active' : ''}`}
+                aria-label={`Ir al banner ${index + 1}`}
+                aria-current={index === currentBanner ? 'true' : undefined}
                 onClick={() => setCurrentBanner(index)}
               />
             ))}
@@ -172,7 +202,14 @@ export default function BannerSection({
                 key={index} 
                 className="banner-grid-item"
               >
-                <img src={banner} alt={label} />
+                <StoreImage
+                  src={banner}
+                  alt={label}
+                  fill
+                  className="banner-grid-img"
+                  style={{ objectFit: 'cover', objectPosition: 'center' }}
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                />
                 <div className="banner-grid-overlay">
                   <div className="grid-item-content">
                     <h3 className="grid-item-title">{label}</h3>
@@ -241,9 +278,7 @@ export default function BannerSection({
           left: 0;
           width: 100%;
           height: 100%;
-          background-size: cover;
-          background-position: center;
-          background-repeat: no-repeat;
+          overflow: hidden;
           transition: transform 0.8s cubic-bezier(0.165, 0.84, 0.44, 1);
         }
 
@@ -335,17 +370,12 @@ export default function BannerSection({
           background: #f4f4f4;
         }
 
-        .banner-grid-item img {
-          width: 100%;
-          height: 100%;
-          display: block;
-          object-fit: cover;
-          object-position: center;
+        .banner-grid-img {
           transition: transform 1.5s cubic-bezier(0.165, 0.84, 0.44, 1), opacity 0.5s ease;
           opacity: 0.95;
         }
 
-        .banner-grid-item:hover img {
+        .banner-grid-item:hover .banner-grid-img {
           transform: scale(1.05);
           opacity: 1;
         }

@@ -1,11 +1,19 @@
+import Image from 'next/image';
 import Link from 'next/link';
+import { normalizeStoreImageUrl } from '@/lib/store-image-url';
+import FooterNewsletter from './FooterNewsletter';
 
 interface FooterProps {
   logo?: string;
   storeName?: string;
+  /** Para enlaces “Inicio” / checkout con contexto de tienda */
+  storeId?: string;
 }
 
-export default function Footer({ logo, storeName = 'DIRECHENTT' }: FooterProps) {
+export default function Footer({ logo, storeName = 'DIRECHENTT', storeId }: FooterProps) {
+  const footerLogoSrc = logo ? normalizeStoreImageUrl(logo) : null;
+  const homeHref = storeId ? `/?shop=${encodeURIComponent(storeId)}` : '/';
+
   return (
     <>
       <footer className="scuffers-footer">
@@ -16,16 +24,7 @@ export default function Footer({ logo, storeName = 'DIRECHENTT' }: FooterProps) 
               <h3 className="newsletter-title">Newsletter</h3>
               <p className="newsletter-subtitle">Suscríbete y consigue un 10%</p>
               <p className="newsletter-desc">Recibe novedades sobre las colecciones, reposiciones, eventos y ofertas.</p>
-              
-              <form className="newsletter-form">
-                <input 
-                  type="email" 
-                  placeholder="Tu email" 
-                  className="newsletter-input" 
-                  required 
-                />
-                <button type="submit" className="newsletter-btn">Suscribirse</button>
-              </form>
+              <FooterNewsletter />
             </div>
           </section>
 
@@ -37,6 +36,9 @@ export default function Footer({ logo, storeName = 'DIRECHENTT' }: FooterProps) 
             <div className="footer-column">
               <h4 className="footer-heading">Contáctanos</h4>
               <ul className="footer-links">
+                <li>
+                  <Link href={homeHref}>Inicio</Link>
+                </li>
                 <li><Link href="#contact">Contacto</Link></li>
                 <li><Link href="#faq">FAQs</Link></li>
                 <li><Link href="#chat">Live chat</Link></li>
@@ -75,7 +77,17 @@ export default function Footer({ logo, storeName = 'DIRECHENTT' }: FooterProps) 
           {/* FOOTER BOTTOM */}
           <div className="footer-bottom">
             <p className="footer-copyright">{storeName} ® EVERYDAY URBAN AESTHETICS</p>
-            {logo && <img src={logo} alt={storeName} className="footer-logo" />}
+            {footerLogoSrc ? (
+              <Image
+                src={footerLogoSrc}
+                alt={storeName}
+                className="footer-logo"
+                width={200}
+                height={40}
+                sizes="200px"
+                style={{ height: 30, width: 'auto', maxWidth: 200 }}
+              />
+            ) : null}
           </div>
         </div>
       </footer>
@@ -118,33 +130,66 @@ export default function Footer({ logo, storeName = 'DIRECHENTT' }: FooterProps) 
         }
         .newsletter-form {
           display: flex;
+          flex-wrap: wrap;
           gap: 10px;
           margin-top: 20px;
+          justify-content: center;
+        }
+        @media (min-width: 480px) {
+          .newsletter-form {
+            flex-wrap: nowrap;
+          }
         }
         .newsletter-input {
           flex: 1;
-          padding: 10px 15px;
+          min-width: 200px;
+          padding: 12px 16px;
           border: 1px solid #ddd;
-          border-radius: 4px;
-          font-size: 12px;
+          border-radius: 6px;
+          font-size: 13px;
           font-family: inherit;
+          transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .newsletter-input:hover {
+          border-color: #bbb;
+        }
+        .newsletter-input:focus {
+          outline: none;
+          border-color: #111;
+          box-shadow: 0 0 0 3px rgba(0,0,0,0.08);
         }
         .newsletter-input::placeholder {
           color: #999;
         }
         .newsletter-btn {
-          padding: 10px 20px;
+          padding: 12px 22px;
           background: #000;
           color: #fff;
           border: none;
-          border-radius: 4px;
+          border-radius: 6px;
           font-size: 11px;
           font-weight: 700;
           cursor: pointer;
-          letter-spacing: 0.5px;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          transition: background 0.2s, transform 0.15s;
         }
         .newsletter-btn:hover {
           background: #333;
+        }
+        .newsletter-btn:active {
+          transform: scale(0.98);
+        }
+        .newsletter-btn:focus-visible {
+          outline: 2px solid #111;
+          outline-offset: 3px;
+        }
+        .newsletter-thanks {
+          margin-top: 20px;
+          font-size: 13px;
+          font-weight: 600;
+          color: #111;
+          line-height: 1.5;
         }
         .footer-divider {
           border: none;
@@ -189,6 +234,11 @@ export default function Footer({ logo, storeName = 'DIRECHENTT' }: FooterProps) 
         }
         .footer-links a:hover {
           color: #000;
+        }
+        .footer-links a:focus-visible {
+          outline: 2px solid #111;
+          outline-offset: 3px;
+          border-radius: 2px;
         }
         .footer-bottom {
           text-align: center;

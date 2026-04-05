@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { formatPrice, getVariantDisplayPrices } from '@/lib/product-utils';
 import QuickShop from './QuickShop';
 import ProductCucardas from './ProductCucardas';
+import StoreImage from './StoreImage';
 
 interface Category {
   id: number;
@@ -571,22 +572,22 @@ function NewArrivalsCard({ product, storeId, showAlternateImages, onQuickShop, f
         }}
       >
         {imageToUse ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={imageToUse.src}
-            alt={safeGetName(product.name)}
+          <div
             style={{
               position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              transition: 'transform 0.4s ease'
+              inset: 0,
+              transition: 'transform 0.4s ease',
             }}
-            referrerPolicy="no-referrer"
-            crossOrigin="anonymous"
-          />
+          >
+            <StoreImage
+              src={imageToUse.src}
+              alt={safeGetName(product.name)}
+              fill
+              className="na-card-main-img"
+              style={{ objectFit: 'cover' }}
+              sizes="(max-width: 768px) 50vw, 33vw"
+            />
+          </div>
         ) : (
           <div className="no-image">Sin imagen</div>
         )}
@@ -644,8 +645,8 @@ function NewArrivalsCard({ product, storeId, showAlternateImages, onQuickShop, f
 
       <style jsx>{`
                 .product-card { text-decoration: none; color: inherit; display: block; }
-                .product-image img { transition: transform 0.4s ease; }
-                .product-card:hover .product-image img { transform: scale(1.03); }
+                .product-image .na-card-main-img { transition: transform 0.4s ease; }
+                .product-card:hover .product-image .na-card-main-img { transform: scale(1.03); }
 
                 .slider-dots {
                     position: absolute;

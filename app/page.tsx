@@ -95,7 +95,7 @@ export default async function Home({ searchParams }: any) {
         shopTheLookRelated={shopTheLookRelated}
       />
 
-      <Footer logo={displayLogo} storeName={displayName} />
+      <Footer logo={displayLogo} storeName={displayName} storeId={String(storeLocal.storeId)} />
     </main>
   );
 }

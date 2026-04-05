@@ -1,5 +1,13 @@
+import Image from 'next/image';
+import { normalizeStoreImageUrl } from '@/lib/store-image-url';
+
 interface HeroSectionProps {
   banners: string[];
+}
+
+function bannerSrc(url: string): string {
+  const t = url.trim();
+  return normalizeStoreImageUrl(t) || t;
 }
 
 export default function HeroSection({ banners }: HeroSectionProps) {
@@ -9,7 +17,16 @@ export default function HeroSection({ banners }: HeroSectionProps) {
         <div className="hero-carousel">
           <div className="carousel-track">
             {banners.map((banner, idx) => (
-              <img key={idx} src={banner} alt={`Banner ${idx + 1}`} className="carousel-slide" loading="eager" />
+              <div key={idx} className="carousel-slide-wrap">
+                <Image
+                  src={bannerSrc(banner)}
+                  alt={`Banner ${idx + 1}`}
+                  fill
+                  className="carousel-slide"
+                  sizes="100vw"
+                  priority={idx === 0}
+                />
+              </div>
             ))}
           </div>
         </div>
@@ -39,12 +56,16 @@ export default function HeroSection({ banners }: HeroSectionProps) {
         .carousel-track::-webkit-scrollbar {
           display: none;
         }
-        .carousel-slide {
+        .carousel-slide-wrap {
           min-width: 100%;
           height: 100%;
-          object-fit: cover;
+          flex-shrink: 0;
+          position: relative;
           scroll-snap-align: start;
-          display: block;
+        }
+        .carousel-slide {
+          object-fit: cover;
+          object-position: center;
         }
       `}} />
     </>

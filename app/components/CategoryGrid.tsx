@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { formatPrice, getVariantDisplayPrices } from '@/lib/product-utils';
 import ProductCucardas from './ProductCucardas';
+import StoreImage from './StoreImage';
 
 interface CategoryGridProps {
   products: any[];
@@ -185,19 +186,27 @@ export default function CategoryGrid({
                       )}
                       {images.length > 0 ? (
                         <>
-                          <img 
-                            src={images[0].src} 
-                            alt={productName} 
-                            className="product-image primary" 
-                            loading="lazy" 
-                          />
-                          {images.length > 1 && (
-                            <img 
-                              src={images[1].src} 
-                              alt={productName} 
-                              className="product-image secondary" 
-                              loading="lazy" 
+                          <div className="product-image-layer product-image-layer--primary">
+                            <StoreImage
+                              src={images[0].src}
+                              alt={productName}
+                              fill
+                              className="product-image primary"
+                              style={{ objectFit: 'cover', objectPosition: 'center top' }}
+                              sizes="(max-width: 600px) 50vw, (max-width: 1024px) 33vw, 25vw"
                             />
+                          </div>
+                          {images.length > 1 && (
+                            <div className="product-image-layer product-image-layer--secondary">
+                              <StoreImage
+                                src={images[1].src}
+                                alt={productName}
+                                fill
+                                className="product-image secondary"
+                                style={{ objectFit: 'cover', objectPosition: 'center top' }}
+                                sizes="(max-width: 600px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                              />
+                            </div>
                           )}
                         </>
                       ) : (
@@ -393,15 +402,16 @@ export default function CategoryGrid({
           background: #f5f5f5;
           margin-bottom: 12px;
         }
-        .product-image {
+        .product-image-layer {
           position: absolute;
-          top: 0;
-          left: 0;
+          inset: 0;
+          transition: opacity 0.4s ease;
+        }
+        .product-image {
           width: 100%;
           height: 100%;
           object-fit: cover;
           object-position: center top;
-          transition: opacity 0.4s ease;
         }
         .product-image.secondary {
           opacity: 0;

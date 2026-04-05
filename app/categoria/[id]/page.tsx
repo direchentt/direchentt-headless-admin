@@ -74,7 +74,11 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
         installmentsInfo={installmentsInfo}
       />
       
-      <Footer logo={displayLogo} storeName={storeLocal.name || 'DIRECHENTT'} />
+      <Footer
+        logo={displayLogo}
+        storeName={storeLocal.name || 'DIRECHENTT'}
+        storeId={String(storeLocal.storeId)}
+      />
     </main>
   );
 }

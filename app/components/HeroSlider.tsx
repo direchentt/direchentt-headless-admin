@@ -1,6 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import Image from 'next/image';
+import StoreImage from './StoreImage';
+
+function isRemoteImageUrl(url: string): boolean {
+  return /^https?:\/\//i.test(url) || url.startsWith('//');
+}
 
 export type HeroSlideItem = { url: string; kind: 'image' | 'video' };
 
@@ -98,21 +104,56 @@ export default function HeroSlider({ slides: slidesProp, banners = [] }: HeroSli
                   loop
                   aria-label={`Video ${idx + 1}`}
                 />
+              ) : isRemoteImageUrl(slide.url) ? (
+                <StoreImage
+                  src={slide.url}
+                  alt={`Banner ${idx + 1}`}
+                  fill
+                  className="slide-media"
+                  style={{ objectFit: 'cover', objectPosition: 'center' }}
+                  sizes="100vw"
+                  priority={idx === 0}
+                  loading={idx === 0 ? 'eager' : 'lazy'}
+                />
               ) : (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img className="slide-media" src={slide.url} alt={`Banner ${idx + 1}`} />
+                <Image
+                  src={slide.url}
+                  alt={`Banner ${idx + 1}`}
+                  fill
+                  className="slide-media"
+                  style={{ objectFit: 'cover', objectPosition: 'center' }}
+                  sizes="100vw"
+                  priority={idx === 0}
+                  loading={idx === 0 ? 'eager' : 'lazy'}
+                />
               )}
             </div>
           ))}
         </div>
 
         {/* Arrows */}
-        <button className="nav-arrow prev" onClick={() => { prevSlide(); setIsAutoPlay(false); }}>
+        <button
+          type="button"
+          className="nav-arrow prev"
+          aria-label="Banner anterior"
+          onClick={() => {
+            prevSlide();
+            setIsAutoPlay(false);
+          }}
+        >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <button className="nav-arrow next" onClick={() => { nextSlide(); setIsAutoPlay(false); }}>
+        <button
+          type="button"
+          className="nav-arrow next"
+          aria-label="Banner siguiente"
+          onClick={() => {
+            nextSlide();
+            setIsAutoPlay(false);
+          }}
+        >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M9 19l7-7-7-7" />
           </svg>
@@ -123,7 +164,10 @@ export default function HeroSlider({ slides: slidesProp, banners = [] }: HeroSli
           {slides.map((_, idx) => (
             <button
               key={idx}
+              type="button"
               className={`dot ${idx === currentSlide ? 'active' : ''}`}
+              aria-label={`Ir al banner ${idx + 1}`}
+              aria-current={idx === currentSlide ? 'true' : undefined}
               onClick={() => goToSlide(idx)}
             />
           ))}

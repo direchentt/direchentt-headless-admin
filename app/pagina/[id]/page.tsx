@@ -1,4 +1,6 @@
+import Image from 'next/image';
 import Link from 'next/link';
+import { normalizeStoreImageUrl } from '@/lib/store-image-url';
 import {
   getStoreData,
   fetchTiendanubePageById,
@@ -42,7 +44,8 @@ export default async function PaginaInstitucional({ params, searchParams }: Prop
   const mainLang = tnStore?.main_language || 'es';
   const titulo = pickTiendanubeLocalizedText(pageRaw.name, mainLang);
   const html = pickTiendanubeLocalizedText(pageRaw.content, mainLang);
-  const logo = normalizeTiendanubeLogo(tnStore?.logo) || storeLocal.logo;
+  const logoRaw = normalizeTiendanubeLogo(tnStore?.logo) || storeLocal.logo;
+  const logo = logoRaw ? normalizeStoreImageUrl(logoRaw) || logoRaw : null;
 
   return (
     <main style={{ backgroundColor: '#fff', color: '#111', fontFamily: 'system-ui, sans-serif', minHeight: '100vh' }}>
@@ -62,8 +65,7 @@ export default async function PaginaInstitucional({ params, searchParams }: Prop
         </Link>
         {logo ? (
           <Link href={`/?shop=${shop}`}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={logo} alt="" style={{ maxHeight: 32, width: 'auto' }} />
+            <Image src={logo} alt="" width={160} height={32} style={{ maxHeight: 32, width: 'auto', height: 'auto' }} />
           </Link>
         ) : null}
       </header>

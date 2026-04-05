@@ -125,7 +125,11 @@ export default async function ProductPage({ params, searchParams }: any) {
 
       </div>
 
-      <Footer logo={displayLogo} storeName={storeLocal.name || 'DIRECHENTT'} />
+      <Footer
+        logo={displayLogo}
+        storeName={storeLocal.name || 'DIRECHENTT'}
+        storeId={String(storeLocal.storeId)}
+      />
       <ModalsWrapper products={allProducts} storeId={storeLocal.storeId} />
 
       <style dangerouslySetInnerHTML={{

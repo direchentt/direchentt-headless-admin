@@ -16,6 +16,7 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: '**.mitiendanube.com', pathname: '/**' },
       { protocol: 'https', hostname: 'http2.mlstatic.com', pathname: '/**' },
       { protocol: 'https', hostname: '**.mlstatic.com', pathname: '/**' },
+      { protocol: 'https', hostname: '**.cloudfront.net', pathname: '/**' },
     ],
   },
   turbopack: {

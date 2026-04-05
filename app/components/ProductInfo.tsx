@@ -5,6 +5,7 @@ import { useStore } from '../context/StoreContext';
 import { useAddToCart } from '../hooks/useAddToCart';
 import { formatPrice, getVariantDisplayPrices } from '@/lib/product-utils';
 import ProductCompleteLookSidebar from './ProductCompleteLookSidebar';
+import StoreImage from './StoreImage';
 
 interface ProductInfoProps {
   product: any;
@@ -426,12 +427,13 @@ export default function ProductInfo({
                               disabled={!hasStock}
                             >
                               {variantImg ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img 
-                                  src={variantImg} 
+                                <StoreImage
+                                  src={variantImg}
                                   alt={value}
-                                  referrerPolicy="no-referrer"
-                                  crossOrigin="anonymous"
+                                  width={52}
+                                  height={68}
+                                  sizes="52px"
+                                  style={{ objectFit: 'cover' }}
                                 />
                               ) : (
                                 <span className="color-name">{value}</span>

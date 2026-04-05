@@ -1,5 +1,12 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import type { HomeBannerSplitStored } from '@/lib/storefront-config';
+import { normalizeStoreImageUrl } from '@/lib/store-image-url';
+
+function splitBannerSrc(url: string): string {
+  const t = url.trim();
+  return normalizeStoreImageUrl(t) || t;
+}
 
 interface BannerGridProps {
   storeId: string;
@@ -20,7 +27,16 @@ export default function BannerGrid({ storeId, variant = 'split', split }: Banner
       <>
         <section className="banner-full">
           <Link href={`/categoria/32586185?shop=${storeId}`} className="banner-link">
-            <img src="/banners/HOME_HORIZONTAL_DEF_2.png" alt="Collection" />
+            <span className="banner-full-media">
+              <Image
+                src="/banners/HOME_HORIZONTAL_DEF_2.png"
+                alt="Collection"
+                fill
+                className="banner-full-img"
+                sizes="100vw"
+                priority
+              />
+            </span>
             <div className="banner-content">
               <span className="banner-subtitle">NEW COLLECTION</span>
               <h2 className="banner-title">WINTER 2026</h2>
@@ -43,13 +59,16 @@ export default function BannerGrid({ storeId, variant = 'split', split }: Banner
             height: 100%;
             position: relative;
           }
-          .banner-full img {
-            width: 100%;
-            height: 100%;
+          .banner-full-media {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+          }
+          .banner-full-img {
             object-fit: cover;
             transition: transform 1.5s ease;
           }
-          .banner-full:hover img {
+          .banner-full:hover .banner-full-img {
             transform: scale(1.05);
           }
           .banner-content {
@@ -121,16 +140,31 @@ export default function BannerGrid({ storeId, variant = 'split', split }: Banner
     <>
       <section className="banner-split">
         <Link href={leftHref} className="split-item">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={leftUrl} alt="" />
+          <span className="split-item-media">
+            <Image
+              src={splitBannerSrc(leftUrl)}
+              alt=""
+              fill
+              className="split-item-img"
+              sizes="(max-width: 768px) 100vw, 50vw"
+              priority
+            />
+          </span>
           <div className="split-overlay">
             <span className="split-label">{leftLabel}</span>
             <span className="split-cta">VER COLECCIÓN →</span>
           </div>
         </Link>
         <Link href={rightHref} className="split-item">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={rightUrl} alt="" />
+          <span className="split-item-media">
+            <Image
+              src={splitBannerSrc(rightUrl)}
+              alt=""
+              fill
+              className="split-item-img"
+              sizes="(max-width: 768px) 100vw, 50vw"
+            />
+          </span>
           <div className="split-overlay">
             <span className="split-label">{rightLabel}</span>
             <span className="split-cta">VER COLECCIÓN →</span>
@@ -158,20 +192,23 @@ export default function BannerGrid({ storeId, variant = 'split', split }: Banner
           overflow: hidden;
           display: block;
         }
+        .split-item-media {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+        }
         @media (max-width: 768px) {
           .split-item {
             height: 60vh;
             min-height: 400px;
           }
         }
-        .split-item img {
-          width: 100%;
-          height: 100%;
+        .split-item-img {
           object-fit: cover;
           object-position: center top;
           transition: transform 1.2s ease;
         }
-        .split-item:hover img {
+        .split-item:hover .split-item-img {
           transform: scale(1.05);
         }
         .split-overlay {

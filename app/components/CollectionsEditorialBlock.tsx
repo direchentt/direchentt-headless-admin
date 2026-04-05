@@ -1,6 +1,7 @@
 'use client';
 
 import ProductCard from './ProductCard';
+import StoreImage from './StoreImage';
 import type {
   ResolvedCollectionsCell,
   ResolvedCollectionsEditorialBlock,
@@ -12,8 +13,15 @@ function EditorialHero({ kind, url }: { kind: 'image' | 'video'; url: string }) 
       {kind === 'video' ? (
         <video className="ce-hero-media" src={url} muted playsInline autoPlay loop aria-label="" />
       ) : (
-        /* eslint-disable-next-line @next/next/no-img-element */
-        <img className="ce-hero-media" src={url} alt="" />
+        <StoreImage
+          className="ce-hero-media"
+          src={url}
+          alt=""
+          fill
+          style={{ objectFit: 'cover', objectPosition: 'center' }}
+          sizes="(max-width: 900px) 100vw, 50vw"
+          priority
+        />
       )}
       <style jsx>{`
         .ce-hero-wrap {
@@ -72,8 +80,14 @@ function GridCell({ cell, storeId }: { cell: ResolvedCollectionsCell; storeId: s
       {cell.type === 'video' ? (
         <video className="ce-slot-media" src={cell.url} muted playsInline autoPlay loop aria-label="" />
       ) : (
-        /* eslint-disable-next-line @next/next/no-img-element */
-        <img className="ce-slot-media" src={cell.url} alt="" />
+        <StoreImage
+          className="ce-slot-media"
+          src={cell.url}
+          alt=""
+          fill
+          style={{ objectFit: 'cover', objectPosition: 'center' }}
+          sizes="(max-width: 900px) 50vw, 25vw"
+        />
       )}
       <style jsx>{`
         .ce-cell--media {

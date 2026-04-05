@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
+import { normalizeStoreImageUrl } from '@/lib/store-image-url';
 import { useStore } from '../context/StoreContext';
 
 interface HeaderProps {
@@ -195,20 +197,24 @@ export default function Header({ logo, storeId, domain, categories }: HeaderProp
 
           {/* CENTER - Logo */}
           <Link href={`/?shop=${storeId}`} className="logo-link" aria-label="Inicio">
-            {logo && !logoFailed ? (
-              <img
-                src={logo}
-                alt=""
-                className="logo-img"
-                referrerPolicy="no-referrer"
-                width={120}
-                height={32}
-                decoding="async"
-                onError={() => setLogoFailed(true)}
-              />
-            ) : (
-              <span className="logo-text">Tienda</span>
-            )}
+            {(() => {
+              if (!logo || logoFailed) return <span className="logo-text">Tienda</span>;
+              const src = normalizeStoreImageUrl(logo);
+              if (!src) return <span className="logo-text">Tienda</span>;
+              return (
+                <Image
+                  src={src}
+                  alt=""
+                  className="logo-img"
+                  width={120}
+                  height={32}
+                  priority
+                  sizes="120px"
+                  referrerPolicy="no-referrer"
+                  onError={() => setLogoFailed(true)}
+                />
+              );
+            })()}
           </Link>
 
           {/* RIGHT SIDE - Actions */}

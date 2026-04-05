@@ -152,7 +152,7 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
         )}
       </div>
 
-      <Footer logo={displayLogo} storeName={displayName} />
+      <Footer logo={displayLogo} storeName={displayName} storeId={sid} />
 
       <style dangerouslySetInnerHTML={{
         __html: `

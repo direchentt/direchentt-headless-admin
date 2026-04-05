@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { listProductsAdmin } from '../commerce-actions';
 import styles from '../admin-pages.module.css';
@@ -111,8 +112,7 @@ export default async function AdminCatalogoPage({
                     <tr key={id}>
                       <td style={{ width: 56 }}>
                         {src ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={src} alt="" className={styles.thumb} width={48} height={64} />
+                          <Image src={src} alt="" className={styles.thumb} width={48} height={64} sizes="48px" />
                         ) : (
                           <span style={{ color: '#999', fontSize: 12 }}>—</span>
                         )}
@@ -139,8 +139,7 @@ export default async function AdminCatalogoPage({
                 <article key={id} className={styles.card}>
                   <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
                     {src ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={src} alt="" className={styles.thumb} width={48} height={64} />
+                      <Image src={src} alt="" className={styles.thumb} width={48} height={64} sizes="48px" />
                     ) : null}
                     <div>
                       <div className={styles.cardHead}>{productName(p)}</div>

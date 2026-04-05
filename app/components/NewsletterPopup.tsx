@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import type { StorefrontNewsletter } from '@/lib/storefront-config';
+import StoreImage from './StoreImage';
 
 const DEFAULT_SHOP = process.env.NEXT_PUBLIC_DEFAULT_SHOP || '5112334';
 
@@ -198,8 +199,14 @@ function NewsletterPopupContent() {
         <div className="newsletter-body">
           {imageUrl ? (
             <div className="newsletter-visual">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={imageUrl} alt="" className="newsletter-side-img" />
+              <StoreImage
+                src={imageUrl}
+                alt=""
+                fill
+                className="newsletter-side-img"
+                style={{ objectFit: 'cover' }}
+                sizes="(max-width: 640px) 100vw, 42vw"
+              />
             </div>
           ) : null}
           <div className="newsletter-content">
@@ -295,9 +302,11 @@ function NewsletterPopupContent() {
           }
         }
         .newsletter-visual {
+          position: relative;
           flex: 0 0 42%;
           min-height: 200px;
           background: #f4f4f4;
+          overflow: hidden;
         }
         @media (min-width: 640px) {
           .newsletter-popup:not(.newsletter-popup--wide) .newsletter-visual {
