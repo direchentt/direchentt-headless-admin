@@ -16,7 +16,7 @@ export default function ModalsWrapper({ products, storeId }: ModalsWrapperProps)
     <>
       <SearchModal products={products} storeId={storeId} />
       <AuthModal />
-      <CartDrawer storeId={storeId} />
+      <CartDrawer storeId={storeId} products={products} />
     </>
   );
 }

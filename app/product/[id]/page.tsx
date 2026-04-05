@@ -6,6 +6,7 @@ import ImageGallery from '../../components/ImageGallery';
 import ProductInfo from '../../components/ProductInfo';
 import ModalsWrapper from '../../components/ModalsWrapper';
 import ProductCarousel from '../../components/ProductCarousel';
+import RoutineShowcase from '../../components/RoutineShowcase';
 import {
   getStoreData,
   fetchTN,
@@ -22,6 +23,7 @@ import {
 } from '../../../lib/product-utils';
 import { getStorefrontConfigStored } from '../../../lib/storefront-db';
 import { newsletterFooterImageUrl, resolveStorefrontConfig } from '../../../lib/storefront-config';
+import { buildRoutineShowcaseSteps } from '../../../lib/routine-showcase';
 
 export default async function ProductPage({ params, searchParams }: any) {
   const { id } = await params;
@@ -63,6 +65,12 @@ export default async function ProductPage({ params, searchParams }: any) {
     : null;
   if (!processedProduct) return notFound();
 
+  const routineSteps = buildRoutineShowcaseSteps(
+    product,
+    relatedProducts,
+    processedProduct.name || ''
+  );
+
   // Helper para obtener nombre de categoría
   const getCategoryName = (catId: number) => {
     const cat = categories.find((c: any) => c.id == catId);
@@ -98,6 +106,15 @@ export default async function ProductPage({ params, searchParams }: any) {
           />
         </div>
       </div>
+
+      {routineSteps.length >= 2 ? (
+        <RoutineShowcase
+          storeId={String(storeLocal.storeId)}
+          title="ARMÁ TU RUTINA"
+          subtitle="Recorré los pasos como en una rutina de maquillaje: cada número cambia el foco y la imagen con una transición suave."
+          steps={routineSteps}
+        />
+      ) : null}
 
       {/* CARRUSELES DE PRODUCTOS */}
       <div className="related-section">
