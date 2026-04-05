@@ -6,6 +6,7 @@ import ProductGrid from '../ProductGrid';
 import NewArrivals from '../NewArrivals';
 import ShopTheLook from '../ShopTheLook';
 import CrazyCarousel from '../CrazyCarousel';
+import NewsletterHomeStrip from '../NewsletterHomeStrip';
 import type { StorefrontConfigResolved } from '@/lib/storefront-config';
 
 interface HomePageBlocksProps {
@@ -118,68 +119,7 @@ export default function HomePageBlocks({
     newsletter_strip: (() => {
       const s = config.homeSections.find((x) => x.id === 'newsletter_strip');
       const heading = s?.title || 'NEWSLETTER';
-      return (
-        <section
-          key="newsletter_strip"
-          style={{
-            padding: '80px 20px',
-            backgroundColor: '#000',
-            color: '#fff',
-            textAlign: 'center',
-          }}
-        >
-          <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-            <h3
-              style={{
-                fontSize: '11px',
-                fontWeight: 800,
-                letterSpacing: '3px',
-                marginBottom: '20px',
-              }}
-            >
-              {heading}
-            </h3>
-            <p
-              style={{
-                fontSize: '24px',
-                fontWeight: 300,
-                marginBottom: '30px',
-                lineHeight: 1.4,
-              }}
-            >
-              Suscribite y obtené un 10% de descuento
-            </p>
-            <form style={{ display: 'flex', gap: '0', maxWidth: '450px', margin: '0 auto' }}>
-              <input
-                type="email"
-                placeholder="Tu email"
-                style={{
-                  flex: 1,
-                  padding: '16px 20px',
-                  border: 'none',
-                  fontSize: '13px',
-                  outline: 'none',
-                }}
-              />
-              <button
-                type="submit"
-                style={{
-                  padding: '16px 30px',
-                  background: '#fff',
-                  color: '#000',
-                  border: 'none',
-                  fontSize: '11px',
-                  fontWeight: 800,
-                  letterSpacing: '1px',
-                  cursor: 'pointer',
-                }}
-              >
-                SUSCRIBIRSE
-              </button>
-            </form>
-          </div>
-        </section>
-      );
+      return <NewsletterHomeStrip key="newsletter_strip" storeId={storeId} heading={heading} />;
     })(),
   };
 

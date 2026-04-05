@@ -20,6 +20,8 @@ import {
   getBestSellers,
   modelNoteFromMetafields,
 } from '../../../lib/product-utils';
+import { getStorefrontConfigStored } from '../../../lib/storefront-db';
+import { newsletterFooterImageUrl, resolveStorefrontConfig } from '../../../lib/storefront-config';
 
 export default async function ProductPage({ params, searchParams }: any) {
   const { id } = await params;
@@ -27,13 +29,18 @@ export default async function ProductPage({ params, searchParams }: any) {
   const storeLocal = await getStoreData(shop);
   if (!storeLocal) return notFound();
 
-  const [product, categories, products, tnStore, productMetafields] = await Promise.all([
+  const storeIdNum = Number(storeLocal.storeId);
+
+  const [product, categories, products, tnStore, productMetafields, storedFront] = await Promise.all([
     fetchTN(`products/${id}?expand=variants`, storeLocal.storeId, storeLocal.accessToken),
     fetchTN('categories', storeLocal.storeId, storeLocal.accessToken),
     fetchTN('products', storeLocal.storeId, storeLocal.accessToken, 'limit=60&published=true'),
     fetchTiendanubeStore(storeLocal.storeId, storeLocal.accessToken),
     fetchTiendanubeProductMetafields(storeLocal.storeId, storeLocal.accessToken, String(id)),
+    getStorefrontConfigStored(storeIdNum),
   ]);
+
+  const storefrontConfig = resolveStorefrontConfig(storedFront);
 
   if (!product) return notFound();
 
@@ -129,6 +136,7 @@ export default async function ProductPage({ params, searchParams }: any) {
         logo={displayLogo}
         storeName={storeLocal.name || 'DIRECHENTT'}
         storeId={String(storeLocal.storeId)}
+        newsletterImageUrl={newsletterFooterImageUrl(storefrontConfig.newsletter)}
       />
       <ModalsWrapper products={allProducts} storeId={storeLocal.storeId} />
 

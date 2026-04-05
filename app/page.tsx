@@ -17,7 +17,7 @@ import {
 } from '../lib/backend';
 import { getRelatedProducts } from '../lib/product-utils';
 import { getStorefrontConfigStored } from '../lib/storefront-db';
-import { resolveStorefrontConfig } from '../lib/storefront-config';
+import { newsletterFooterImageUrl, resolveStorefrontConfig } from '../lib/storefront-config';
 
 const defaultFont =
   '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
@@ -95,7 +95,12 @@ export default async function Home({ searchParams }: any) {
         shopTheLookRelated={shopTheLookRelated}
       />
 
-      <Footer logo={displayLogo} storeName={displayName} storeId={String(storeLocal.storeId)} />
+      <Footer
+        logo={displayLogo}
+        storeName={displayName}
+        storeId={String(storeLocal.storeId)}
+        newsletterImageUrl={newsletterFooterImageUrl(storefrontConfig.newsletter)}
+      />
     </main>
   );
 }

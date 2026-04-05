@@ -8,9 +8,16 @@ interface FooterProps {
   storeName?: string;
   /** Para enlaces “Inicio” / checkout con contexto de tienda */
   storeId?: string;
+  /** Imagen opcional del bloque newsletter (storefront) */
+  newsletterImageUrl?: string | null;
 }
 
-export default function Footer({ logo, storeName = 'DIRECHENTT', storeId }: FooterProps) {
+export default function Footer({
+  logo,
+  storeName = 'DIRECHENTT',
+  storeId,
+  newsletterImageUrl,
+}: FooterProps) {
   const footerLogoSrc = logo ? normalizeStoreImageUrl(logo) : null;
   const homeHref = storeId ? `/?shop=${encodeURIComponent(storeId)}` : '/';
 
@@ -18,14 +25,14 @@ export default function Footer({ logo, storeName = 'DIRECHENTT', storeId }: Foot
     <>
       <footer className="scuffers-footer">
         <div className="footer-wrapper">
-          {/* NEWSLETTER */}
-          <section className="newsletter-section">
-            <div className="newsletter-content">
-              <h3 className="newsletter-title">Newsletter</h3>
-              <p className="newsletter-subtitle">Suscríbete y consigue un 10%</p>
-              <p className="newsletter-desc">Recibe novedades sobre las colecciones, reposiciones, eventos y ofertas.</p>
-              <FooterNewsletter />
-            </div>
+          {/* NEWSLETTER (un solo bloque; la home no duplica por defecto) */}
+          <section className="newsletter-section" aria-labelledby="footer-newsletter-heading">
+            <h2 id="footer-newsletter-heading" className="visually-hidden">
+              Newsletter
+            </h2>
+            {storeId ? (
+              <FooterNewsletter storeId={storeId} imageUrl={newsletterImageUrl} />
+            ) : null}
           </section>
 
           {/* DIVIDER */}
@@ -88,6 +95,15 @@ export default function Footer({ logo, storeName = 'DIRECHENTT', storeId }: Foot
                 style={{ height: 30, width: 'auto', maxWidth: 200 }}
               />
             ) : null}
+            <p className="footer-tn-credit">
+              <a
+                href="https://www.tiendanube.com/evolucion/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Con tecnología Tiendanube Evolución
+              </a>
+            </p>
           </div>
         </div>
       </footer>
@@ -104,29 +120,17 @@ export default function Footer({ logo, storeName = 'DIRECHENTT', storeId }: Foot
         }
         .newsletter-section {
           margin-bottom: 50px;
-          text-align: center;
         }
-        .newsletter-content {
-          max-width: 600px;
-          margin: 0 auto;
-        }
-        .newsletter-title {
-          font-size: 20px;
-          font-weight: 800;
-          margin: 0 0 5px 0;
-          letter-spacing: 0.5px;
-        }
-        .newsletter-subtitle {
-          font-size: 14px;
-          font-weight: 700;
-          margin: 0 0 10px 0;
-          color: #000;
-        }
-        .newsletter-desc {
-          font-size: 12px;
-          color: #666;
-          margin: 0 0 20px 0;
-          line-height: 1.5;
+        .visually-hidden {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          white-space: nowrap;
+          border: 0;
         }
         .newsletter-form {
           display: flex;
@@ -258,6 +262,20 @@ export default function Footer({ logo, storeName = 'DIRECHENTT', storeId }: Foot
         .footer-logo {
           height: 30px;
           width: auto;
+        }
+        .footer-tn-credit {
+          margin: 10px 0 0 0;
+          font-size: 11px;
+          letter-spacing: 0.02em;
+        }
+        .footer-tn-credit a {
+          color: #aaa;
+          text-decoration: none;
+          transition: color 0.2s;
+        }
+        .footer-tn-credit a:hover {
+          color: #666;
+          text-decoration: underline;
         }
       `}} />
     </>

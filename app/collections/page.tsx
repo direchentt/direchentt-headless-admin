@@ -16,7 +16,7 @@ import {
   processCategories,
 } from '../../lib/backend';
 import { getStorefrontConfigStored } from '../../lib/storefront-db';
-import { resolveStorefrontConfig } from '../../lib/storefront-config';
+import { newsletterFooterImageUrl, resolveStorefrontConfig } from '../../lib/storefront-config';
 import { shuffleArray } from '../../lib/product-utils';
 import {
   collectUsedProductIds,
@@ -152,7 +152,12 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
         )}
       </div>
 
-      <Footer logo={displayLogo} storeName={displayName} storeId={sid} />
+      <Footer
+        logo={displayLogo}
+        storeName={displayName}
+        storeId={sid}
+        newsletterImageUrl={newsletterFooterImageUrl(sf.newsletter)}
+      />
 
       <style dangerouslySetInnerHTML={{
         __html: `

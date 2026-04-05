@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import type { StorefrontNewsletter } from '@/lib/storefront-config';
+import { postNewsletterSubscribe } from '@/lib/post-newsletter-subscribe';
 import StoreImage from './StoreImage';
 
 const DEFAULT_SHOP = process.env.NEXT_PUBLIC_DEFAULT_SHOP || '5112334';
@@ -167,13 +168,16 @@ function NewsletterPopupContent() {
     setIsSubmitting(true);
     setMessage('');
 
-    setTimeout(() => {
+    const r = await postNewsletterSubscribe(shop, email.trim());
+    setIsSubmitting(false);
+    if (r.ok) {
       setMessage('¡Gracias por suscribirte!');
-      setIsSubmitting(false);
       setTimeout(() => {
         closeAfterSubscribe();
       }, 2000);
-    }, 1000);
+    } else {
+      setMessage(r.error);
+    }
   };
 
   if (!isVisible) return null;

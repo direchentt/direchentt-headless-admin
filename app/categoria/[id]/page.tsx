@@ -10,6 +10,8 @@ import {
   fetchTiendanubeStore,
   normalizeTiendanubeLogo,
 } from '../../../lib/backend';
+import { getStorefrontConfigStored } from '../../../lib/storefront-db';
+import { newsletterFooterImageUrl, resolveStorefrontConfig } from '../../../lib/storefront-config';
 
 interface CategoryPageProps {
   params: Promise<{ id: string }>;
@@ -30,12 +32,17 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
   if (query.sort) apiQuery += `&sort_by=${query.sort}`;
 
   // Fetch productos de la categoría, categorías y info de la tienda
-  const [productsRaw, categories, storeInfo, tnStore] = await Promise.all([
+  const storeIdNum = Number(storeLocal.storeId);
+
+  const [productsRaw, categories, storeInfo, tnStore, storedFront] = await Promise.all([
     fetchTN('products', storeLocal.storeId, storeLocal.accessToken, apiQuery),
     fetchTN('categories', storeLocal.storeId, storeLocal.accessToken),
     fetchTN('', storeLocal.storeId, storeLocal.accessToken),
     fetchTiendanubeStore(storeLocal.storeId, storeLocal.accessToken),
+    getStorefrontConfigStored(storeIdNum),
   ]);
+
+  const storefrontConfig = resolveStorefrontConfig(storedFront);
 
   const products = processProducts(productsRaw);
   const displayLogo = normalizeTiendanubeLogo(tnStore?.logo) || storeLocal.logo;
@@ -78,6 +85,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
         logo={displayLogo}
         storeName={storeLocal.name || 'DIRECHENTT'}
         storeId={String(storeLocal.storeId)}
+        newsletterImageUrl={newsletterFooterImageUrl(storefrontConfig.newsletter)}
       />
     </main>
   );

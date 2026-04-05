@@ -59,7 +59,23 @@ export interface StorefrontNewsletter {
   popupTitle?: string;
   popupSubtitle?: string;
   popupImageUrl?: string;
+  /** Imagen del bloque newsletter del pie (si falta, se puede usar popupImageUrl en la página) */
+  footerImageUrl?: string;
+  /**
+   * Si es true, se muestra la franja newsletter en la home (además del pie).
+   * Por defecto false: evita duplicar el mismo bloque cuando en Mongo quedó `sections.newsletter_strip.enabled: true`.
+   */
+  homeNewsletterStripEnabled?: boolean;
   popupDisclaimer?: string;
+}
+
+/** Imagen del bloque newsletter en el pie: prioridad footer → popup. */
+export function newsletterFooterImageUrl(
+  newsletter: StorefrontNewsletter | undefined
+): string | null {
+  const f = newsletter?.footerImageUrl?.trim();
+  const p = newsletter?.popupImageUrl?.trim();
+  return f || p || null;
 }
 
 /** Lo que guardás en Mongo (parcial sobre defaults) */
@@ -141,7 +157,8 @@ const DEFAULT_ENABLED: Record<HomeSectionId, boolean> = {
   shop_the_look: true,
   best_sellers: true,
   latest_products: true,
-  newsletter_strip: true,
+  /** El pie de página ya incluye newsletter; la franja en home queda desactivada para no duplicar. */
+  newsletter_strip: false,
 };
 
 const VALID_IDS = new Set<HomeSectionId>(DEFAULT_ORDER);
@@ -201,6 +218,15 @@ export function resolveStorefrontConfig(
 
   const homeSections: HomeSectionResolved[] = order.map((id) => {
     const o = sections[id];
+    if (id === 'newsletter_strip') {
+      const sectionOn = o?.enabled ?? DEFAULT_ENABLED[id];
+      const allowStrip = Boolean(stored?.newsletter?.homeNewsletterStripEnabled);
+      return {
+        id,
+        enabled: allowStrip && sectionOn,
+        title: o?.title?.trim() || undefined,
+      };
+    }
     return {
       id,
       enabled: o?.enabled ?? DEFAULT_ENABLED[id],
@@ -320,11 +346,25 @@ export function parseStorefrontConfigPatch(body: unknown): {
       if (!t) patch.newsletter.popupImageUrl = '';
       else if (isAllowedAssetUrl(t)) patch.newsletter.popupImageUrl = t;
     }
+    if ('footerImageUrl' in n) {
+      if (typeof n.footerImageUrl !== 'string') {
+        return { ok: false, error: 'footerImageUrl inválido' };
+      }
+      const t = n.footerImageUrl.trim().slice(0, 2048);
+      if (!t) patch.newsletter.footerImageUrl = '';
+      else if (isAllowedAssetUrl(t)) patch.newsletter.footerImageUrl = t;
+    }
     if ('popupDisclaimer' in n) {
       if (typeof n.popupDisclaimer !== 'string') {
         return { ok: false, error: 'popupDisclaimer inválido' };
       }
       patch.newsletter.popupDisclaimer = n.popupDisclaimer.trim().slice(0, 600);
+    }
+    if ('homeNewsletterStripEnabled' in n) {
+      if (typeof n.homeNewsletterStripEnabled !== 'boolean') {
+        return { ok: false, error: 'homeNewsletterStripEnabled debe ser booleano' };
+      }
+      patch.newsletter.homeNewsletterStripEnabled = n.homeNewsletterStripEnabled;
     }
     if (Object.keys(patch.newsletter).length === 0) delete patch.newsletter;
   }
@@ -552,7 +592,13 @@ export function mergeStorefrontPatch(
 
   if (patchNewsletter !== undefined) {
     const nk: StorefrontNewsletter = { ...(base.newsletter || {}), ...patchNewsletter };
-    for (const k of ['popupTitle', 'popupSubtitle', 'popupImageUrl', 'popupDisclaimer'] as const) {
+    for (const k of [
+      'popupTitle',
+      'popupSubtitle',
+      'popupImageUrl',
+      'footerImageUrl',
+      'popupDisclaimer',
+    ] as const) {
       const v = nk[k];
       if (typeof v === 'string' && v.trim() === '') {
         delete nk[k];

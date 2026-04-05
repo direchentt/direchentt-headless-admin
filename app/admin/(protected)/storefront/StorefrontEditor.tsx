@@ -140,7 +140,7 @@ const LABELS: Record<HomeSectionId, string> = {
   shop_the_look: 'Completa el look',
   best_sellers: 'Más vendidos',
   latest_products: 'Lo último',
-  newsletter_strip: 'Franja newsletter',
+  newsletter_strip: 'Franja newsletter (solo si activás “franja en home” abajo)',
 };
 
 interface Props {
@@ -173,6 +173,8 @@ export default function StorefrontEditor({ storeId, initialConfig }: Props) {
     popupTitle: initialConfig.newsletter?.popupTitle ?? '',
     popupSubtitle: initialConfig.newsletter?.popupSubtitle ?? '',
     popupImageUrl: initialConfig.newsletter?.popupImageUrl ?? '',
+    footerImageUrl: initialConfig.newsletter?.footerImageUrl ?? '',
+    homeNewsletterStripEnabled: initialConfig.newsletter?.homeNewsletterStripEnabled ?? false,
     popupDisclaimer: initialConfig.newsletter?.popupDisclaimer ?? '',
   });
   const [heroUrls, setHeroUrls] = useState(() => formatHeroInitial(initialConfig));
@@ -249,6 +251,8 @@ export default function StorefrontEditor({ storeId, initialConfig }: Props) {
       popupTitle: newsletter.popupTitle,
       popupSubtitle: newsletter.popupSubtitle,
       popupImageUrl: newsletter.popupImageUrl,
+      footerImageUrl: newsletter.footerImageUrl,
+      homeNewsletterStripEnabled: newsletter.homeNewsletterStripEnabled,
       popupDisclaimer: newsletter.popupDisclaimer,
     };
     if (newsletter.popupDelayMs !== '' && newsletter.popupDelayMs !== null) {
@@ -733,9 +737,21 @@ export default function StorefrontEditor({ storeId, initialConfig }: Props) {
       <section className="sf-panel">
         <h2 className="sf-h2">Newsletter (popup global)</h2>
         <p className="sf-p">
-          El popup lee esta config con <code>?shop=</code> en la URL (o tienda por defecto). Título,
-          textos e imagen vacíos = textos por defecto del sitio.
+          El popup y el pie leen esta config con <code>?shop=</code> en la URL (o tienda por defecto).
+          Si no cargás imagen de pie, se usa la del popup. Título y textos vacíos = valores por defecto.
         </p>
+        <label className="sf-check" style={{ marginBottom: 12, display: 'flex' }}>
+          <input
+            type="checkbox"
+            checked={newsletter.homeNewsletterStripEnabled}
+            onChange={(e) =>
+              setNewsletter((n) => ({ ...n, homeNewsletterStripEnabled: e.target.checked }))
+            }
+          />
+          <span className="sf-label-text">
+            Mostrar franja newsletter en la home (el pie ya tiene suscripción; activá solo si querés ambas)
+          </span>
+        </label>
         <label className="sf-check" style={{ marginBottom: 12, display: 'flex' }}>
           <input
             type="checkbox"
@@ -793,11 +809,19 @@ export default function StorefrontEditor({ storeId, initialConfig }: Props) {
             />
           </label>
           <label className="sf-field span-2">
-            Imagen lateral (URL, opcional)
+            Imagen lateral del popup (URL, opcional)
             <input
               value={newsletter.popupImageUrl}
               onChange={(e) => setNewsletter((n) => ({ ...n, popupImageUrl: e.target.value }))}
               placeholder="https://... o /banners/..."
+            />
+          </label>
+          <label className="sf-field span-2">
+            Imagen del bloque newsletter en el pie (opcional)
+            <input
+              value={newsletter.footerImageUrl}
+              onChange={(e) => setNewsletter((n) => ({ ...n, footerImageUrl: e.target.value }))}
+              placeholder="Vacío = misma imagen que el popup"
             />
           </label>
           <label className="sf-field span-2">
