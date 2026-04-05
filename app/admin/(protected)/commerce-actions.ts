@@ -169,7 +169,7 @@ export async function loadActivePresenceAdmin(storeId: number) {
   return { rows, count, windowSec };
 }
 
-/** Resumen con IA (Gemini si hay clave, si no OpenAI). */
+/** Resumen con IA (Gemini → Claude → OpenAI según claves; ver MARKETING_AI_PROVIDER). */
 export async function generateMarketingAiSummary(storeId: number) {
   if (!(await isAdminAuthenticated())) {
     return { ok: false as const, error: 'No autorizado' };

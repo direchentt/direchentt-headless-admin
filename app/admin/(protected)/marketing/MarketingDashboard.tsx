@@ -189,13 +189,14 @@ function AiBriefPanel({ storeId }: { storeId: number }) {
     <div className={`${styles.panel} ${styles.aiPanel}`}>
       <h2 className={styles.panelTitle}>Inteligencia artificial (resumen)</h2>
       <p className={styles.meta} style={{ marginBottom: 12 }}>
-        Usa Gemini u OpenAI con tus métricas y la muestra “en vivo”. Por defecto se usa{' '}
-        <code style={{ fontSize: 12 }}>GEMINI_API_KEY</code> si está definida; si no,{' '}
-        <code style={{ fontSize: 12 }}>OPENAI_API_KEY</code>. Opcional:{' '}
-        <code style={{ fontSize: 12 }}>GEMINI_MARKETING_MODEL</code> (ej. gemini-2.0-flash),{' '}
-        <code style={{ fontSize: 12 }}>OPENAI_MARKETING_MODEL</code>, o{' '}
-        <code style={{ fontSize: 12 }}>MARKETING_AI_PROVIDER=gemini|openai</code> si tenés ambas
-        claves.
+        Usa Gemini, Claude u OpenAI con tus métricas y la muestra “en vivo”. Orden por defecto:{' '}
+        <code style={{ fontSize: 12 }}>GEMINI_API_KEY</code>, luego{' '}
+        <code style={{ fontSize: 12 }}>CLAUDE_API_KEY</code> (o ANTHROPIC_API_KEY), luego{' '}
+        <code style={{ fontSize: 12 }}>OPENAI_API_KEY</code>. Modelos opcionales:{' '}
+        <code style={{ fontSize: 12 }}>GEMINI_MARKETING_MODEL</code>,{' '}
+        <code style={{ fontSize: 12 }}>CLAUDE_MARKETING_MODEL</code>,{' '}
+        <code style={{ fontSize: 12 }}>OPENAI_MARKETING_MODEL</code>. Con varias claves, forzá con{' '}
+        <code style={{ fontSize: 12 }}>MARKETING_AI_PROVIDER=gemini|claude|openai</code>.
       </p>
       <button
         type="button"

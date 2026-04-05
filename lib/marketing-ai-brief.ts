@@ -161,6 +161,73 @@ export async function generateMarketingBriefWithOpenAI(input: MarketingBriefInpu
   }
 }
 
+/**
+ * Resumen en español vía Anthropic Claude. Requiere CLAUDE_API_KEY o ANTHROPIC_API_KEY.
+ * @see https://docs.anthropic.com/en/api/messages
+ */
+export async function generateMarketingBriefWithClaude(input: MarketingBriefInput): Promise<
+  { ok: true; text: string } | { ok: false; error: string }
+> {
+  const key =
+    process.env.CLAUDE_API_KEY?.trim() || process.env.ANTHROPIC_API_KEY?.trim();
+  if (!key) {
+    return {
+      ok: false,
+      error:
+        'Configurá CLAUDE_API_KEY (o ANTHROPIC_API_KEY) en Vercel / .env para usar Claude.',
+    };
+  }
+
+  const model =
+    process.env.CLAUDE_MARKETING_MODEL?.trim() || 'claude-3-5-haiku-20241022';
+  const payload = buildPayload(input);
+  const user = userPromptFromPayload(payload);
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 900,
+        temperature: 0.35,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: user }],
+      }),
+    });
+
+    if (!res.ok) {
+      const t = await res.text().catch(() => '');
+      return { ok: false, error: `Claude (${res.status}): ${t.slice(0, 200)}` };
+    }
+
+    const data = (await res.json()) as {
+      content?: { type?: string; text?: string }[];
+      error?: { message?: string };
+    };
+    if (data.error?.message) {
+      return { ok: false, error: data.error.message };
+    }
+    const blocks = data.content ?? [];
+    const text = blocks
+      .filter((b) => b.type === 'text' && typeof b.text === 'string')
+      .map((b) => b.text)
+      .join('')
+      .trim();
+    if (!text) {
+      return { ok: false, error: 'Respuesta vacía del modelo.' };
+    }
+    return { ok: true, text };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Error de red';
+    return { ok: false, error: msg };
+  }
+}
+
 function hasGeminiKey(): boolean {
   return Boolean(
     process.env.GEMINI_API_KEY?.trim() || process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim(),
@@ -171,9 +238,15 @@ function hasOpenAiKey(): boolean {
   return Boolean(process.env.OPENAI_API_KEY?.trim());
 }
 
+function hasClaudeKey(): boolean {
+  return Boolean(
+    process.env.CLAUDE_API_KEY?.trim() || process.env.ANTHROPIC_API_KEY?.trim(),
+  );
+}
+
 /**
- * Genera el resumen de marketing: por defecto usa Gemini si hay clave, si no OpenAI.
- * Forzá el proveedor con MARKETING_AI_PROVIDER=gemini u openai.
+ * Genera el resumen de marketing: por defecto Gemini → Claude → OpenAI según claves disponibles.
+ * Forzá el proveedor con MARKETING_AI_PROVIDER=gemini|claude|openai.
  */
 export async function generateMarketingAiBrief(
   input: MarketingBriefInput,
@@ -202,8 +275,22 @@ export async function generateMarketingAiBrief(
     return generateMarketingBriefWithGemini(input);
   }
 
+  if (forced === 'claude') {
+    if (!hasClaudeKey()) {
+      return {
+        ok: false,
+        error:
+          'MARKETING_AI_PROVIDER=claude pero falta CLAUDE_API_KEY (o ANTHROPIC_API_KEY).',
+      };
+    }
+    return generateMarketingBriefWithClaude(input);
+  }
+
   if (hasGeminiKey()) {
     return generateMarketingBriefWithGemini(input);
+  }
+  if (hasClaudeKey()) {
+    return generateMarketingBriefWithClaude(input);
   }
   if (hasOpenAiKey()) {
     return generateMarketingBriefWithOpenAI(input);
@@ -212,7 +299,7 @@ export async function generateMarketingAiBrief(
   return {
     ok: false,
     error:
-      'Configurá GEMINI_API_KEY (recomendado) u OPENAI_API_KEY en el servidor (Vercel / .env). ' +
-      'Opcional: MARKETING_AI_PROVIDER=gemini|openai si tenés ambas claves.',
+      'Configurá al menos una clave en el servidor: GEMINI_API_KEY, CLAUDE_API_KEY (o ANTHROPIC_API_KEY), u OPENAI_API_KEY. ' +
+      'Opcional: MARKETING_AI_PROVIDER=gemini|claude|openai si tenés más de una.',
   };
 }
