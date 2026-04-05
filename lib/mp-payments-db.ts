@@ -37,6 +37,8 @@ export type MpPaymentDoc = {
   tiendanubeSync?: MpPaymentTiendanubeSync;
   /** Campos útiles del GET /payments/{id} (sin volcar todo el objeto) */
   paymentSummary?: Record<string, unknown>;
+  confirmationEmailSent?: boolean;
+  confirmationEmailSentAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -126,6 +128,24 @@ export async function upsertMpPaymentFromWebhook(input: {
     },
     { upsert: true }
   );
+}
+
+export async function findMpPaymentByPaymentId(paymentId: string): Promise<MpPaymentDoc | null> {
+  const client = await getMongoClient();
+  const coll = client.db(DB_NAME).collection<MpPaymentDoc>(COLLECTION);
+  const doc = await coll.findOne({ paymentId: String(paymentId) });
+  return doc;
+}
+
+/** Devuelve true solo la primera vez (para no duplicar emails ante reintentos de IPN). */
+export async function tryMarkConfirmationEmailSent(paymentId: string): Promise<boolean> {
+  const client = await getMongoClient();
+  const coll = client.db(DB_NAME).collection<MpPaymentDoc>(COLLECTION);
+  const r = await coll.updateOne(
+    { paymentId: String(paymentId), confirmationEmailSent: { $ne: true } },
+    { $set: { confirmationEmailSent: true, confirmationEmailSentAt: new Date() } }
+  );
+  return r.modifiedCount === 1;
 }
 
 export async function listMpPaymentsByStore(

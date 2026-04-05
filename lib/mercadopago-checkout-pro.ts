@@ -122,6 +122,15 @@ export async function createMercadoPagoCheckoutProPreference(
       cart_items: JSON.stringify(
         items.map((i) => ({ id: i.variantId ?? i.id, q: i.quantity }))
       ),
+      /** Detalle para thank-you page y emails (nombre + precio por línea) */
+      cart_lines_detail: JSON.stringify(
+        items.map((i) => ({
+          variantId: i.variantId ?? i.id,
+          name: String(i.name || 'Producto').slice(0, 250),
+          price: i.price,
+          quantity: Math.min(99, Math.max(1, parseInt(String(i.quantity), 10) || 1)),
+        }))
+      ),
     };
 
     if (buyer) {

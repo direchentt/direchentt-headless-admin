@@ -4,8 +4,12 @@ import { getStoreData } from '@/lib/backend';
 import {
   upsertMpPaymentFromWebhook,
   cartLinesForTiendanubeOrder,
+  findMpPaymentByPaymentId,
+  tryMarkConfirmationEmailSent,
   type MpPaymentTiendanubeSync,
 } from '@/lib/mp-payments-db';
+import { buildPublicCheckoutReceipt } from '@/lib/checkout-receipt';
+import { sendOrderConfirmationEmail } from '@/lib/order-confirmation-email';
 import type { ExpressCheckoutBuyerInput } from '@/lib/express-checkout-buyer';
 import {
   buildTiendanubeOrderBodyFromBuyer,
@@ -255,6 +259,33 @@ export async function POST(req: NextRequest) {
       paymentSummary,
       tiendanubeSync,
     });
+
+    if (p.status === 'approved' && storeIdForDb > 0) {
+      const pid = String(p.id ?? paymentId);
+      const storeData = await getStoreData(String(storeIdForDb));
+      const domain =
+        storeData?.domain?.replace(/^https?:\/\//, '').replace(/\/$/, '') ||
+        `${storeIdForDb}.mitiendanube.com`;
+      const shopHomeUrl = `https://${domain}`;
+      const storeLabel =
+        (typeof storeData?.shop_name === 'string' && storeData.shop_name.trim()) ||
+        (typeof storeData?.name === 'string' && storeData.name.trim()) ||
+        `Tienda ${storeIdForDb}`;
+      const doc = await findMpPaymentByPaymentId(pid);
+      const mergedPayment = { ...(p as unknown as Record<string, unknown>), metadata: meta ?? p.metadata };
+      const receipt = buildPublicCheckoutReceipt(mergedPayment, doc, { shopHomeUrl, storeLabel });
+      const to = receipt.payerEmail || receipt.buyer?.email?.trim();
+      if (to) {
+        const claimed = await tryMarkConfirmationEmailSent(pid);
+        if (claimed) {
+          void sendOrderConfirmationEmail(to, receipt).then((sendRes) => {
+            if (!sendRes.ok) {
+              console.warn('[MP webhook] Email de confirmación no enviado:', sendRes.error);
+            }
+          });
+        }
+      }
+    }
 
     return NextResponse.json({ received: true }, { status: 200 });
   } catch (err) {

@@ -59,6 +59,8 @@ export default function ExpressCheckoutModal({
   const [shipLoading, setShipLoading] = useState(false);
   const [shipFetchErr, setShipFetchErr] = useState<string | null>(null);
   const [selectedShipId, setSelectedShipId] = useState('');
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [geoErr, setGeoErr] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -114,6 +116,69 @@ export default function ExpressCheckoutModal({
 
   const update = useCallback((patch: Partial<ExpressCheckoutBuyerInput>) => {
     setForm((f) => ({ ...f, ...patch }));
+  }, []);
+
+  const fillFromGeolocation = useCallback(() => {
+    setGeoErr(null);
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setGeoErr('Tu navegador no permite geolocalización.');
+      return;
+    }
+    setGeoLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const r = await fetch(
+            `${window.location.origin}/api/geocode/reverse?lat=${encodeURIComponent(String(pos.coords.latitude))}&lon=${encodeURIComponent(String(pos.coords.longitude))}`
+          );
+          const data = (await r.json()) as {
+            ok?: boolean;
+            address?: {
+              address?: string;
+              streetNumber?: string;
+              locality?: string;
+              city?: string;
+              province?: string;
+              zipcode?: string;
+              country?: string;
+            };
+            error?: string;
+          };
+          if (!r.ok || !data.ok || !data.address) {
+            setGeoErr(data.error || 'No se pudo obtener la dirección.');
+            return;
+          }
+          const a = data.address;
+          setForm((f) => ({
+            ...f,
+            address: (a.address || f.address).trim() || f.address,
+            streetNumber: (a.streetNumber || f.streetNumber).trim() || f.streetNumber,
+            locality: (a.locality ?? f.locality).trim(),
+            city: (a.city || f.city).trim() || f.city,
+            province: (a.province || f.province).trim() || f.province,
+            zipcode: (a.zipcode || f.zipcode).trim() || f.zipcode,
+            country: String(a.country || f.country || 'AR')
+              .trim()
+              .toUpperCase()
+              .slice(0, 2) || 'AR',
+          }));
+        } catch {
+          setGeoErr('Error al geocodificar.');
+        } finally {
+          setGeoLoading(false);
+        }
+      },
+      (err) => {
+        const code = (err as GeolocationPositionError)?.code;
+        setGeoErr(
+          code === 1
+            ? 'Ubicación denegada. Activá el permiso en el navegador.'
+            : 'No se pudo obtener tu ubicación.'
+        );
+        setGeoLoading(false);
+      },
+      { enableHighAccuracy: false, timeout: 14_000, maximumAge: 300_000 }
+    );
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -271,6 +336,18 @@ export default function ExpressCheckoutModal({
 
           <fieldset className="ecm-fieldset">
             <legend>Envío</legend>
+            <div className="ecm-geo">
+              <button
+                type="button"
+                className="ecm-geo-btn"
+                onClick={fillFromGeolocation}
+                disabled={geoLoading || busy}
+              >
+                {geoLoading ? 'Obteniendo ubicación…' : 'Usar mi ubicación'}
+              </button>
+              <span className="ecm-geo-hint">Completá calle y altura con tu GPS (podés editar después).</span>
+              {geoErr ? <p className="ecm-geo-err">{geoErr}</p> : null}
+            </div>
             <div className="ecm-row2">
               <label className="ecm-label ecm-grow">
                 Calle <span className="ecm-req">*</span>
@@ -529,6 +606,41 @@ export default function ExpressCheckoutModal({
           text-transform: uppercase;
           color: #888;
           margin-bottom: 12px;
+        }
+        .ecm-geo {
+          margin-bottom: 14px;
+          padding: 12px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 6px;
+        }
+        .ecm-geo-btn {
+          display: inline-block;
+          padding: 8px 14px;
+          font-size: 12px;
+          font-weight: 600;
+          border: 1px solid #0f172a;
+          background: #fff;
+          color: #0f172a;
+          border-radius: 4px;
+          cursor: pointer;
+          font-family: inherit;
+        }
+        .ecm-geo-btn:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
+        }
+        .ecm-geo-hint {
+          display: block;
+          margin-top: 8px;
+          font-size: 11px;
+          color: #64748b;
+          line-height: 1.4;
+        }
+        .ecm-geo-err {
+          margin: 8px 0 0;
+          font-size: 12px;
+          color: #b00000;
         }
         .ecm-label {
           display: block;
