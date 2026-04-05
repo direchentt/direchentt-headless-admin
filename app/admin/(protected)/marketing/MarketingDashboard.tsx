@@ -189,9 +189,13 @@ function AiBriefPanel({ storeId }: { storeId: number }) {
     <div className={`${styles.panel} ${styles.aiPanel}`}>
       <h2 className={styles.panelTitle}>Inteligencia artificial (resumen)</h2>
       <p className={styles.meta} style={{ marginBottom: 12 }}>
-        Usa OpenAI con tus métricas y la muestra “en vivo”. Configurá{' '}
-        <code style={{ fontSize: 12 }}>OPENAI_API_KEY</code> en el servidor (Vercel → Environment
-        Variables). Opcional: <code>OPENAI_MARKETING_MODEL</code> (default gpt-4o-mini).
+        Usa Gemini u OpenAI con tus métricas y la muestra “en vivo”. Por defecto se usa{' '}
+        <code style={{ fontSize: 12 }}>GEMINI_API_KEY</code> si está definida; si no,{' '}
+        <code style={{ fontSize: 12 }}>OPENAI_API_KEY</code>. Opcional:{' '}
+        <code style={{ fontSize: 12 }}>GEMINI_MARKETING_MODEL</code> (ej. gemini-2.0-flash),{' '}
+        <code style={{ fontSize: 12 }}>OPENAI_MARKETING_MODEL</code>, o{' '}
+        <code style={{ fontSize: 12 }}>MARKETING_AI_PROVIDER=gemini|openai</code> si tenés ambas
+        claves.
       </p>
       <button
         type="button"

@@ -13,7 +13,7 @@ import {
   listActivePresence,
   countActivePresence,
 } from '@/lib/storefront-presence-db';
-import { generateMarketingBriefWithOpenAI } from '@/lib/marketing-ai-brief';
+import { generateMarketingAiBrief } from '@/lib/marketing-ai-brief';
 import { getStoreData } from '@/lib/backend';
 import { parseAdminStoreIdParam } from '@/lib/admin-shop';
 import { listMpPaymentsByStore } from '@/lib/mp-payments-db';
@@ -169,7 +169,7 @@ export async function loadActivePresenceAdmin(storeId: number) {
   return { rows, count, windowSec };
 }
 
-/** Resumen con IA (OpenAI). */
+/** Resumen con IA (Gemini si hay clave, si no OpenAI). */
 export async function generateMarketingAiSummary(storeId: number) {
   if (!(await isAdminAuthenticated())) {
     return { ok: false as const, error: 'No autorizado' };
@@ -180,7 +180,7 @@ export async function generateMarketingAiSummary(storeId: number) {
     listActivePresence(storeId, windowSec),
     countActivePresence(storeId, windowSec),
   ]);
-  return generateMarketingBriefWithOpenAI({
+  return generateMarketingAiBrief({
     snapshot,
     presence,
     activeCount,
