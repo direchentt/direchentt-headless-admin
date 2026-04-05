@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Image from 'next/image';
+import { isVideoAssetUrl } from '@/lib/media-url';
 import StoreImage from './StoreImage';
 
 function isRemoteImageUrl(url: string): boolean {
@@ -34,8 +35,17 @@ export default function HeroSlider({ slides: slidesProp, banners = [] }: HeroSli
   const [touchEnd, setTouchEnd] = useState(0);
 
   const slides = useMemo((): HeroSlideItem[] => {
-    if (slidesProp && slidesProp.length > 0) return slidesProp;
-    if (banners.length > 0) return banners.map((url) => ({ url, kind: 'image' as const }));
+    if (slidesProp && slidesProp.length > 0) {
+      return slidesProp.map((s) =>
+        s.kind === 'video' || isVideoAssetUrl(s.url) ? { ...s, kind: 'video' as const } : s
+      );
+    }
+    if (banners.length > 0) {
+      return banners.map((url) => ({
+        url,
+        kind: isVideoAssetUrl(url) ? ('video' as const) : ('image' as const),
+      }));
+    }
     return DEFAULT_SLIDES;
   }, [slidesProp, banners]);
 
@@ -94,7 +104,7 @@ export default function HeroSlider({ slides: slidesProp, banners = [] }: HeroSli
               key={`${slide.kind}-${slide.url}-${idx}`}
               className={`slide ${idx === currentSlide ? 'active' : ''}`}
             >
-              {slide.kind === 'video' ? (
+              {slide.kind === 'video' || isVideoAssetUrl(slide.url) ? (
                 <video
                   className="slide-media"
                   src={slide.url}

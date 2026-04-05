@@ -17,6 +17,12 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'http2.mlstatic.com', pathname: '/**' },
       { protocol: 'https', hostname: '**.mlstatic.com', pathname: '/**' },
       { protocol: 'https', hostname: '**.cloudfront.net', pathname: '/**' },
+      { protocol: 'https', hostname: 'scuffers.com', pathname: '/**' },
+      { protocol: 'https', hostname: '**.scuffers.com', pathname: '/**' },
+      { protocol: 'https', hostname: 'nude-project.com', pathname: '/**' },
+      { protocol: 'https', hostname: '**.nude-project.com', pathname: '/**' },
+      { protocol: 'https', hostname: 'scdn.emestudios.com', pathname: '/**' },
+      { protocol: 'https', hostname: '**.emestudios.com', pathname: '/**' },
     ],
   },
   turbopack: {

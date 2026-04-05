@@ -6,8 +6,11 @@
     "node": "20.x"
   },
   "scripts": {
-    "dev": "next dev",
-    "dev:high-memory": "NODE_OPTIONS='--max-old-space-size=4096' next dev",
+    "dev": "next dev --webpack",
+    "dev:clean": "rm -rf .next && next dev --webpack",
+    "dev:turbo": "next dev",
+    "dev:clean:turbo": "rm -rf .next && next dev",
+    "dev:high-memory": "NODE_OPTIONS='--max-old-space-size=4096' next dev --webpack",
     "dev:webpack": "next dev --webpack",
     "build": "next build",
     "start": "next start",

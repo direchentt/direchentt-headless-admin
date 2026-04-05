@@ -7,7 +7,7 @@ import {
   getVariantDisplayPrices,
   getProductPrimaryImageUrl,
 } from '@/lib/product-utils';
-import StoreImage from './StoreImage';
+import { normalizeStoreImageUrl } from '@/lib/store-image-url';
 
 interface CrazyCarouselProps {
   products: any[];
@@ -260,7 +260,7 @@ export default function CrazyCarousel({ products, title = 'TRENDING', storeId }:
         .cc-track {
           display: flex;
           flex-direction: row;
-          align-items: flex-start;
+          align-items: stretch;
           gap: 14px;
           width: max-content;
           will-change: transform;
@@ -320,31 +320,56 @@ function TrendingCard({
   const { current } = getVariantDisplayPrices(product.variants?.[0] || {});
   const src = getProductPrimaryImageUrl(product);
   const name = safeProductName(product);
+  const imgUrl = src ? normalizeStoreImageUrl(src) || src.trim() : '';
 
   return (
-    <Link href={`/product/${product.id}?shop=${storeId}`} className={`t-card t-card--${layout}`}>
-      <div className="t-img">
-        {src ? (
-          <StoreImage
-            src={src}
-            alt=""
-            fill
-            className="t-img-el"
-            style={{ objectFit: 'cover', objectPosition: 'center top' }}
-            sizes="(max-width: 768px) 40vw, 188px"
-          />
-        ) : null}
-      </div>
-      <div className="t-meta">
-        <span className="t-name">{name}</span>
-        <span className="t-price">{formatPrice(current)}</span>
-      </div>
+    <div className={`t-shell t-shell--${layout}`}>
+      <Link href={`/product/${product.id}?shop=${storeId}`} className="t-card">
+        <div className="t-img">
+          {imgUrl ? (
+            <img
+              src={imgUrl}
+              alt=""
+              className="t-img-el"
+              loading="lazy"
+              decoding="async"
+              referrerPolicy="no-referrer"
+            />
+          ) : null}
+        </div>
+        <div className="t-meta">
+          <span className="t-name">{name}</span>
+          <span className="t-price">{formatPrice(current)}</span>
+        </div>
+      </Link>
 
       <style jsx>{`
-        .t-card {
+        /* Raíz en <div>: styled-jsx aplica bien; Link como raíz rompía el layout en Next */
+        .t-shell {
           flex-shrink: 0;
+        }
+        .t-shell--strip {
+          width: 100%;
+        }
+        .t-shell--marquee {
+          width: 160px;
+        }
+        @media (min-width: 900px) {
+          .t-shell--marquee {
+            width: 176px;
+          }
+        }
+        @media (min-width: 1200px) {
+          .t-shell--marquee {
+            width: 188px;
+          }
+        }
+
+        .t-card {
           display: flex;
           flex-direction: column;
+          align-items: stretch;
+          width: 100%;
           text-decoration: none;
           color: #111;
           border-radius: 8px;
@@ -352,22 +377,6 @@ function TrendingCard({
           background: #fff;
           border: 1px solid #ececec;
           transition: transform 0.25s ease, box-shadow 0.25s ease;
-        }
-        .t-card--strip {
-          width: 100%;
-        }
-        .t-card--marquee {
-          width: 160px;
-        }
-        @media (min-width: 900px) {
-          .t-card--marquee {
-            width: 176px;
-          }
-        }
-        @media (min-width: 1200px) {
-          .t-card--marquee {
-            width: 188px;
-          }
         }
 
         .t-card:hover {
@@ -378,11 +387,35 @@ function TrendingCard({
         .t-img {
           position: relative;
           width: 100%;
-          aspect-ratio: 3 / 4;
+          flex: 0 0 auto;
           background: #f4f4f4;
           overflow: hidden;
         }
+        .t-shell--strip .t-img {
+          height: calc(132px * 4 / 3);
+        }
+        @media (min-width: 480px) {
+          .t-shell--strip .t-img {
+            height: calc(144px * 4 / 3);
+          }
+        }
+        .t-shell--marquee .t-img {
+          height: calc(160px * 4 / 3);
+        }
+        @media (min-width: 900px) {
+          .t-shell--marquee .t-img {
+            height: calc(176px * 4 / 3);
+          }
+        }
+        @media (min-width: 1200px) {
+          .t-shell--marquee .t-img {
+            height: calc(188px * 4 / 3);
+          }
+        }
+
         .t-img-el {
+          position: absolute;
+          inset: 0;
           width: 100%;
           height: 100%;
           display: block;
@@ -395,6 +428,7 @@ function TrendingCard({
           display: flex;
           flex-direction: column;
           gap: 4px;
+          min-width: 0;
         }
         .t-name {
           font-size: 10px;
@@ -413,6 +447,6 @@ function TrendingCard({
           color: #111;
         }
       `}</style>
-    </Link>
+    </div>
   );
 }
