@@ -64,6 +64,7 @@ export default function ProductInfo({
   const {
     isWishlisted,
     toggle: toggleWishlist,
+    lastError: wishlistError,
   } = useWishlist(storeId);
   const [wishlistBusy, setWishlistBusy] = useState(false);
   const variants = product.variants || [];
@@ -200,7 +201,10 @@ export default function ProductInfo({
             aria-label={
               inWishlist ? 'Quitar de lista de deseos' : 'Guardar en lista de deseos'
             }
-            title={inWishlist ? 'En favoritos' : 'Guardar'}
+            title={
+              wishlistError ||
+              (inWishlist ? 'En favoritos (guardado en este dispositivo)' : 'Guardar en favoritos')
+            }
             disabled={wishlistBusy}
             onClick={() => void handleWishlistClick()}
           >

@@ -14,7 +14,7 @@ interface ProductCardProps {
 
 export default function ProductCard({ product, storeId }: ProductCardProps) {
   const router = useRouter();
-  const { isWishlisted, toggle: toggleWishlist } = useWishlist(storeId);
+  const { isWishlisted, toggle: toggleWishlist, lastError: wishlistError } = useWishlist(storeId);
   const [wishBusy, setWishBusy] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const touchStartX = useRef(0);
@@ -167,6 +167,10 @@ export default function ProductCard({ product, storeId }: ProductCardProps) {
               className={`product-card-wishlist${wishlisted ? ' product-card-wishlist--on' : ''}`}
               aria-label={
                 wishlisted ? 'Quitar de favoritos' : 'Agregar a favoritos'
+              }
+              title={
+                wishlistError ||
+                (wishlisted ? 'En favoritos (también en este dispositivo)' : 'Guardar favorito')
               }
               disabled={wishBusy}
               onClick={handleWishlistClick}

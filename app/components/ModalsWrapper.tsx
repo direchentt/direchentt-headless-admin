@@ -1,6 +1,8 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { Suspense } from 'react';
+import PresenceReporter from './PresenceReporter';
 
 const SearchModal = dynamic(() => import('./SearchModal'), { ssr: false });
 const AuthModal = dynamic(() => import('./AuthModal'), { ssr: false });
@@ -15,6 +17,9 @@ export default function ModalsWrapper({ products, storeId }: ModalsWrapperProps)
   const sid = String(storeId);
   return (
     <>
+      <Suspense fallback={null}>
+        <PresenceReporter storeId={sid} />
+      </Suspense>
       <SearchModal products={products} storeId={sid} />
       <AuthModal defaultShopId={sid} />
       <CartDrawer storeId={sid} products={products} />

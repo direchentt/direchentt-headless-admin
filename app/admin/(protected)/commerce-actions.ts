@@ -9,6 +9,11 @@ import {
   type AdminMarketingPlaybook,
 } from '@/lib/admin-panel-db';
 import { getMarketingInsightsSnapshot } from '@/lib/shopper-intelligence-db';
+import {
+  listActivePresence,
+  countActivePresence,
+} from '@/lib/storefront-presence-db';
+import { generateMarketingBriefWithOpenAI } from '@/lib/marketing-ai-brief';
 import { getStoreData } from '@/lib/backend';
 import { parseAdminStoreIdParam } from '@/lib/admin-shop';
 import { listMpPaymentsByStore } from '@/lib/mp-payments-db';
@@ -149,6 +154,37 @@ export async function loadMarketingInsights(storeId: number) {
     return null;
   }
   return getMarketingInsightsSnapshot(storeId);
+}
+
+/** Visitantes con ping reciente (presencia en vitrina). */
+export async function loadActivePresenceAdmin(storeId: number) {
+  if (!(await isAdminAuthenticated())) {
+    return null;
+  }
+  const windowSec = 150;
+  const [rows, count] = await Promise.all([
+    listActivePresence(storeId, windowSec),
+    countActivePresence(storeId, windowSec),
+  ]);
+  return { rows, count, windowSec };
+}
+
+/** Resumen con IA (OpenAI). */
+export async function generateMarketingAiSummary(storeId: number) {
+  if (!(await isAdminAuthenticated())) {
+    return { ok: false as const, error: 'No autorizado' };
+  }
+  const snapshot = await getMarketingInsightsSnapshot(storeId);
+  const windowSec = 150;
+  const [presence, activeCount] = await Promise.all([
+    listActivePresence(storeId, windowSec),
+    countActivePresence(storeId, windowSec),
+  ]);
+  return generateMarketingBriefWithOpenAI({
+    snapshot,
+    presence,
+    activeCount,
+  });
 }
 
 /** Pagos registrados vía webhook de Mercado Pago (Mongo), por tienda. */
