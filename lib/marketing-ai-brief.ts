@@ -1,6 +1,17 @@
 import type { MarketingInsightsSnapshot } from '@/lib/shopper-intelligence-db';
 import type { PresenceRow } from '@/lib/storefront-presence-db';
 
+/**
+ * Lee env en runtime. Next.js puede inlined `process.env.FOO` en build y dejarlo vacío
+ * en Vercel si la clave no estaba en el entorno de compilación; el acceso por nombre evita eso.
+ */
+function envString(key: string): string | undefined {
+  const v = process.env[key];
+  if (typeof v !== 'string') return undefined;
+  const t = v.trim();
+  return t.length > 0 ? t : undefined;
+}
+
 export type MarketingBriefInput = {
   snapshot: MarketingInsightsSnapshot | null;
   presence: PresenceRow[];
@@ -41,8 +52,7 @@ function userPromptFromPayload(payload: ReturnType<typeof buildPayload>) {
 export async function generateMarketingBriefWithGemini(input: MarketingBriefInput): Promise<
   { ok: true; text: string } | { ok: false; error: string }
 > {
-  const key =
-    process.env.GEMINI_API_KEY?.trim() || process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
+  const key = envString('GEMINI_API_KEY') || envString('GOOGLE_GENERATIVE_AI_API_KEY');
   if (!key) {
     return {
       ok: false,
@@ -51,8 +61,7 @@ export async function generateMarketingBriefWithGemini(input: MarketingBriefInpu
     };
   }
 
-  const model =
-    process.env.GEMINI_MARKETING_MODEL?.trim() || 'gemini-2.0-flash';
+  const model = envString('GEMINI_MARKETING_MODEL') || 'gemini-2.0-flash';
   const payload = buildPayload(input);
   const user = userPromptFromPayload(payload);
 
@@ -115,12 +124,12 @@ export async function generateMarketingBriefWithGemini(input: MarketingBriefInpu
 export async function generateMarketingBriefWithOpenAI(input: MarketingBriefInput): Promise<
   { ok: true; text: string } | { ok: false; error: string }
 > {
-  const key = process.env.OPENAI_API_KEY?.trim();
+  const key = envString('OPENAI_API_KEY');
   if (!key) {
     return { ok: false, error: 'Configurá OPENAI_API_KEY en Vercel / .env para usar OpenAI.' };
   }
 
-  const model = process.env.OPENAI_MARKETING_MODEL?.trim() || 'gpt-4o-mini';
+  const model = envString('OPENAI_MARKETING_MODEL') || 'gpt-4o-mini';
   const payload = buildPayload(input);
   const user = userPromptFromPayload(payload);
 
@@ -168,8 +177,7 @@ export async function generateMarketingBriefWithOpenAI(input: MarketingBriefInpu
 export async function generateMarketingBriefWithClaude(input: MarketingBriefInput): Promise<
   { ok: true; text: string } | { ok: false; error: string }
 > {
-  const key =
-    process.env.CLAUDE_API_KEY?.trim() || process.env.ANTHROPIC_API_KEY?.trim();
+  const key = envString('CLAUDE_API_KEY') || envString('ANTHROPIC_API_KEY');
   if (!key) {
     return {
       ok: false,
@@ -178,8 +186,7 @@ export async function generateMarketingBriefWithClaude(input: MarketingBriefInpu
     };
   }
 
-  const model =
-    process.env.CLAUDE_MARKETING_MODEL?.trim() || 'claude-3-5-haiku-20241022';
+  const model = envString('CLAUDE_MARKETING_MODEL') || 'claude-3-5-haiku-20241022';
   const payload = buildPayload(input);
   const user = userPromptFromPayload(payload);
 
@@ -229,19 +236,15 @@ export async function generateMarketingBriefWithClaude(input: MarketingBriefInpu
 }
 
 function hasGeminiKey(): boolean {
-  return Boolean(
-    process.env.GEMINI_API_KEY?.trim() || process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim(),
-  );
+  return Boolean(envString('GEMINI_API_KEY') || envString('GOOGLE_GENERATIVE_AI_API_KEY'));
 }
 
 function hasOpenAiKey(): boolean {
-  return Boolean(process.env.OPENAI_API_KEY?.trim());
+  return Boolean(envString('OPENAI_API_KEY'));
 }
 
 function hasClaudeKey(): boolean {
-  return Boolean(
-    process.env.CLAUDE_API_KEY?.trim() || process.env.ANTHROPIC_API_KEY?.trim(),
-  );
+  return Boolean(envString('CLAUDE_API_KEY') || envString('ANTHROPIC_API_KEY'));
 }
 
 /**
@@ -251,7 +254,7 @@ function hasClaudeKey(): boolean {
 export async function generateMarketingAiBrief(
   input: MarketingBriefInput,
 ): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
-  const forced = process.env.MARKETING_AI_PROVIDER?.trim().toLowerCase();
+  const forced = envString('MARKETING_AI_PROVIDER')?.toLowerCase();
 
   if (forced === 'openai') {
     if (!hasOpenAiKey()) {
@@ -299,7 +302,7 @@ export async function generateMarketingAiBrief(
   return {
     ok: false,
     error:
-      'Configurá al menos una clave en el servidor: GEMINI_API_KEY, CLAUDE_API_KEY (o ANTHROPIC_API_KEY), u OPENAI_API_KEY. ' +
+      'No se detectó ninguna clave de IA en el proceso del servidor. Revisá: (1) nombres exactos GEMINI_API_KEY, CLAUDE_API_KEY o OPENAI_API_KEY; (2) en Vercel, que estén en Production y/o Preview según el deploy que usás; (3) redeploy después de agregar variables. ' +
       'Opcional: MARKETING_AI_PROVIDER=gemini|claude|openai si tenés más de una.',
   };
 }
