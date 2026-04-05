@@ -4,7 +4,10 @@
  */
 
 import type { ExpressCheckoutShippingOption } from '@/lib/express-checkout-shipping';
-import { normalizeExpressCheckoutShippingOptions } from '@/lib/express-checkout-shipping';
+import {
+  normalizeExpressCheckoutShippingOptions,
+  MAX_EXPRESS_SHIPPING_OPTIONS,
+} from '@/lib/express-checkout-shipping';
 
 export const STOREFRONT_CONFIG_VERSION = 1 as const;
 
@@ -15,6 +18,7 @@ export type HomeSectionId =
   | 'hero'
   | 'featured_categories'
   | 'new_arrivals'
+  | 'for_you'
   | 'crazy_carousel'
   | 'banner_grid_split'
   | 'shop_the_look'
@@ -152,6 +156,7 @@ const DEFAULT_ORDER: HomeSectionId[] = [
   'hero',
   'featured_categories',
   'new_arrivals',
+  'for_you',
   'crazy_carousel',
   'banner_grid_split',
   'shop_the_look',
@@ -164,6 +169,7 @@ const DEFAULT_ENABLED: Record<HomeSectionId, boolean> = {
   hero: true,
   featured_categories: true,
   new_arrivals: true,
+  for_you: true,
   crazy_carousel: true,
   banner_grid_split: true,
   shop_the_look: true,
@@ -460,7 +466,7 @@ export function parseStorefrontConfigPatch(body: unknown): {
     }
     const opts: ExpressCheckoutShippingOption[] = [];
     const seen = new Set<string>();
-    for (const raw of b.expressCheckoutShipping.slice(0, 12)) {
+    for (const raw of b.expressCheckoutShipping.slice(0, MAX_EXPRESS_SHIPPING_OPTIONS)) {
       if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
       const o = raw as Record<string, unknown>;
       const id = typeof o.id === 'string' ? o.id.trim().slice(0, 64) : '';

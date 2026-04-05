@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useStore } from '../context/StoreContext';
+import { queueStorefrontSignals } from '@/lib/storefront-signals-client';
 
 const WISHLIST_EVENT = 'direchentt-wishlist-changed';
 
@@ -102,6 +103,11 @@ export function useWishlist(storeId: string) {
         return next;
       });
       dispatchWishlistChanged(storeId, productId, inWishlist);
+      if (inWishlist) {
+        queueStorefrontSignals(storeId, [
+          { type: 'wishlist_add', payload: { productId } },
+        ]);
+      }
       return true;
     },
     [isLoggedIn, sessionToken, storeId, setAuthOpen]

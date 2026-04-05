@@ -15,7 +15,8 @@ export type ExpressCheckoutShippingSelection = {
   price: number;
 };
 
-const MAX_OPTIONS = 12;
+/** Límite de opciones en checkout (TN + config). */
+export const MAX_EXPRESS_SHIPPING_OPTIONS = 32;
 
 export function normalizeExpressCheckoutShippingOptions(
   raw: ExpressCheckoutShippingOption[] | undefined | null
@@ -28,7 +29,7 @@ export function normalizeExpressCheckoutShippingOptions(
   }
   const out: ExpressCheckoutShippingOption[] = [];
   const seen = new Set<string>();
-  for (const x of raw.slice(0, MAX_OPTIONS)) {
+  for (const x of raw.slice(0, MAX_EXPRESS_SHIPPING_OPTIONS)) {
     if (!x || typeof x !== 'object') continue;
     const id = typeof x.id === 'string' ? x.id.trim().slice(0, 64) : '';
     const label = typeof x.label === 'string' ? x.label.trim().slice(0, 200) : '';

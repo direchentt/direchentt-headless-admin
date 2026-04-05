@@ -4,6 +4,7 @@ import FeaturedSection from '../FeaturedSection';
 import BannerGrid from '../BannerGrid';
 import ProductGrid from '../ProductGrid';
 import NewArrivals from '../NewArrivals';
+import PersonalizedProductRail from '../PersonalizedProductRail';
 import ShopTheLook from '../ShopTheLook';
 import CrazyCarousel from '../CrazyCarousel';
 import NewsletterHomeStrip from '../NewsletterHomeStrip';
@@ -64,6 +65,18 @@ export default function HomePageBlocks({
         domain={domain}
       />
     ),
+    for_you: (() => {
+      const s = config.homeSections.find((x) => x.id === 'for_you');
+      const title = s?.title?.trim() || 'PARA VOS';
+      return (
+        <PersonalizedProductRail
+          key="for_you"
+          products={products}
+          storeId={storeId}
+          title={title}
+        />
+      );
+    })(),
     crazy_carousel:
       products.length > 0 ? (
         <CrazyCarousel

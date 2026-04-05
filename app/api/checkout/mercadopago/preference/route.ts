@@ -6,8 +6,7 @@ import {
   matchShippingSelectionToOptions,
   parseExpressShippingSelection,
 } from '@/lib/express-checkout-shipping';
-import { getStorefrontConfigStored } from '@/lib/storefront-db';
-import { resolveStorefrontConfig } from '@/lib/storefront-config';
+import { getMergedExpressShippingOptions } from '@/lib/checkout-shipping-resolve';
 
 /**
  * Checkout Pro: crea preferencia con el Access Token (servidor).
@@ -88,9 +87,8 @@ export async function POST(req: NextRequest) {
 
     let shippingNorm: typeof sel | null = null;
     if (Number.isFinite(storeIdNum)) {
-      const storedCfg = await getStorefrontConfigStored(storeIdNum);
-      const resolved = resolveStorefrontConfig(storedCfg);
-      const matched = matchShippingSelectionToOptions(sel, resolved.expressCheckoutShippingResolved);
+      const shippingOptions = await getMergedExpressShippingOptions(storeIdStr);
+      const matched = matchShippingSelectionToOptions(sel, shippingOptions);
       if (!matched) {
         return NextResponse.json(
           { error: 'La opción de envío no es válida. Actualizá la página y probá de nuevo.' },

@@ -16,7 +16,13 @@ export type ExpressCheckoutLineItem = {
   quantity: number;
 };
 
-type ShipOption = { id: string; label: string; price: number };
+type ShipOption = {
+  id: string;
+  label: string;
+  price: number;
+  title?: string;
+  carrier?: string | null;
+};
 
 type Props = {
   open: boolean;
@@ -83,7 +89,14 @@ export default function ExpressCheckoutModal({
         );
         const data = (await r.json().catch(() => ({}))) as { options?: ShipOption[] };
         if (cancel) return;
-        const opts = Array.isArray(data.options) ? data.options : [];
+        const raw = Array.isArray(data.options) ? data.options : [];
+        const opts: ShipOption[] = raw.map((o) => ({
+          id: o.id,
+          label: o.label,
+          price: typeof o.price === 'number' ? o.price : 0,
+          title: o.title,
+          carrier: o.carrier ?? null,
+        }));
         setShipOpts(opts);
         setSelectedShipId(opts[0]?.id ?? '');
         if (!r.ok) {
@@ -261,12 +274,19 @@ export default function ExpressCheckoutModal({
     >
       <div className="ecm-panel" onClick={(e) => e.stopPropagation()}>
         <div className="ecm-head">
+          <div className="ecm-steps" aria-hidden="true">
+            <span className="ecm-step ecm-step--on">1</span>
+            <span className="ecm-step-line" />
+            <span className="ecm-step ecm-step--on">2</span>
+            <span className="ecm-step-line" />
+            <span className="ecm-step">3</span>
+          </div>
+          <p className="ecm-steps-label">Datos → Envío → Pago seguro</p>
           <h2 id="ecm-title" className="ecm-title">
-            Un paso antes de pagar
+            Completá tu pedido
           </h2>
           <p className="ecm-sub">
-            Así dejamos listo tu pedido, el envío y cualquier novedad por mail. Cuando termines acá, seguís en
-            el paso de pago seguro para cerrar la compra.
+            Son pocos datos. Después pasás a Mercado Pago para abonar con la tarjeta o medio que prefieras.
           </p>
           {summary ? <p className="ecm-summary">{summary}</p> : null}
           <button type="button" className="ecm-close" onClick={onClose} aria-label="Cerrar">
@@ -275,14 +295,16 @@ export default function ExpressCheckoutModal({
         </div>
 
         <form className="ecm-form" onSubmit={handleSubmit}>
-          <fieldset className="ecm-fieldset">
-            <legend>Contacto</legend>
+          <div className="ecm-section">
+            <h3 className="ecm-sec-title">Tus datos</h3>
+            <p className="ecm-sec-hint">Para la factura y el seguimiento del envío.</p>
             <label className="ecm-label">
               Email <span className="ecm-req">*</span>
               <input
                 className="ecm-input"
                 type="email"
                 autoComplete="email"
+                placeholder="nombre@ejemplo.com"
                 value={form.email}
                 onChange={(e) => update({ email: e.target.value })}
                 required
@@ -310,32 +332,35 @@ export default function ExpressCheckoutModal({
                 />
               </label>
             </div>
-            <label className="ecm-label">
-              Teléfono <span className="ecm-req">*</span>
-              <input
-                className="ecm-input"
-                type="tel"
-                autoComplete="tel"
-                placeholder="Ej. 11 1234-5678"
-                value={form.phone}
-                onChange={(e) => update({ phone: e.target.value })}
-                required
-              />
-            </label>
-            <label className="ecm-label">
-              DNI / documento <span className="ecm-req">*</span>
-              <input
-                className="ecm-input"
-                autoComplete="off"
-                value={form.document}
-                onChange={(e) => update({ document: e.target.value })}
-                required
-              />
-            </label>
-          </fieldset>
+            <div className="ecm-row2">
+              <label className="ecm-label">
+                Teléfono <span className="ecm-req">*</span>
+                <input
+                  className="ecm-input"
+                  type="tel"
+                  autoComplete="tel"
+                  placeholder="11 1234-5678"
+                  value={form.phone}
+                  onChange={(e) => update({ phone: e.target.value })}
+                  required
+                />
+              </label>
+              <label className="ecm-label">
+                DNI <span className="ecm-req">*</span>
+                <input
+                  className="ecm-input"
+                  autoComplete="off"
+                  inputMode="numeric"
+                  value={form.document}
+                  onChange={(e) => update({ document: e.target.value })}
+                  required
+                />
+              </label>
+            </div>
+          </div>
 
-          <fieldset className="ecm-fieldset">
-            <legend>Envío</legend>
+          <div className="ecm-section">
+            <h3 className="ecm-sec-title">¿Dónde lo enviamos?</h3>
             <div className="ecm-geo">
               <button
                 type="button"
@@ -343,9 +368,9 @@ export default function ExpressCheckoutModal({
                 onClick={fillFromGeolocation}
                 disabled={geoLoading || busy}
               >
-                {geoLoading ? 'Obteniendo ubicación…' : 'Usar mi ubicación'}
+                {geoLoading ? 'Buscando ubicación…' : 'Rellenar con mi ubicación'}
               </button>
-              <span className="ecm-geo-hint">Completá calle y altura con tu GPS (podés editar después).</span>
+              <span className="ecm-geo-hint">Opcional: ahorra tiempo; siempre podés corregir la dirección.</span>
               {geoErr ? <p className="ecm-geo-err">{geoErr}</p> : null}
             </div>
             <div className="ecm-row2">
@@ -370,16 +395,7 @@ export default function ExpressCheckoutModal({
               </label>
             </div>
             <label className="ecm-label">
-              Piso / Depto
-              <input
-                className="ecm-input"
-                autoComplete="off"
-                value={form.floor}
-                onChange={(e) => update({ floor: e.target.value })}
-              />
-            </label>
-            <label className="ecm-label">
-              Barrio / localidad
+              Barrio / localidad <span className="ecm-optional">opcional</span>
               <input
                 className="ecm-input"
                 value={form.locality}
@@ -420,7 +436,7 @@ export default function ExpressCheckoutModal({
                 />
               </label>
               <label className="ecm-label">
-                País (ISO) <span className="ecm-req">*</span>
+                País <span className="ecm-req">*</span>
                 <input
                   className="ecm-input"
                   autoComplete="country"
@@ -431,40 +447,72 @@ export default function ExpressCheckoutModal({
                 />
               </label>
             </div>
-          </fieldset>
 
-          <fieldset className="ecm-fieldset">
-            <legend>Medio de envío</legend>
+            <details className="ecm-more">
+              <summary className="ecm-more-sum">Opcional: piso, depto y notas</summary>
+              <label className="ecm-label ecm-label--tight">
+                Piso / Depto
+                <input
+                  className="ecm-input"
+                  autoComplete="off"
+                  value={form.floor}
+                  onChange={(e) => update({ floor: e.target.value })}
+                />
+              </label>
+              <label className="ecm-label ecm-label--tight">
+                Nota para el envío
+                <textarea
+                  className="ecm-textarea ecm-textarea--sm"
+                  rows={2}
+                  maxLength={2000}
+                  placeholder="Ej. timbre roto, dejar en portería…"
+                  value={form.note}
+                  onChange={(e) => update({ note: e.target.value })}
+                />
+              </label>
+            </details>
+          </div>
+
+          <div className="ecm-section">
+            <h3 className="ecm-sec-title">Elegí el envío</h3>
+            <p className="ecm-sec-hint">Precios según tu tienda en Tiendanube (Andreani, OCA, retiro, etc.).</p>
             {shipLoading ? (
-              <p className="ecm-hint">Cargando opciones de envío…</p>
+              <div className="ecm-ship-skel" aria-busy="true">
+                <span className="ecm-skel-bar" />
+                <span className="ecm-skel-bar ecm-skel-bar--short" />
+              </div>
             ) : shipFetchErr ? (
               <p className="ecm-error ecm-error--inline">{shipFetchErr}</p>
             ) : shipOpts.length === 0 ? (
-              <p className="ecm-hint">No hay envíos configurados para esta tienda.</p>
+              <p className="ecm-hint">No hay métodos de envío disponibles.</p>
             ) : (
-              <ul className="ecm-ship-list">
-                {shipOpts.map((opt) => (
-                  <li key={opt.id} className="ecm-ship-item">
-                    <label className="ecm-ship-label">
-                      <input
-                        type="radio"
-                        name="ecm-shipping"
-                        className="ecm-ship-radio"
-                        checked={selectedShipId === opt.id}
-                        onChange={() => setSelectedShipId(opt.id)}
-                      />
-                      <span className="ecm-ship-text">
-                        <span className="ecm-ship-name">{opt.label}</span>
-                        <span className="ecm-ship-price">
-                          {opt.price > 0 ? formatPrice(opt.price) : 'Gratis'}
-                        </span>
+              <div className="ecm-ship-grid" role="radiogroup" aria-label="Medio de envío">
+                {shipOpts.map((opt) => {
+                  const selected = selectedShipId === opt.id;
+                  const title = opt.title || opt.label;
+                  const sub = opt.carrier || null;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      className={`ecm-ship-card${selected ? ' ecm-ship-card--on' : ''}`}
+                      onClick={() => setSelectedShipId(opt.id)}
+                    >
+                      <span className="ecm-ship-card-main">
+                        {sub ? <span className="ecm-ship-carrier">{sub}</span> : null}
+                        <span className="ecm-ship-title">{title}</span>
                       </span>
-                    </label>
-                  </li>
-                ))}
-              </ul>
+                      <span className={`ecm-ship-pill${opt.price <= 0 ? ' ecm-ship-pill--free' : ''}`}>
+                        {opt.price > 0 ? formatPrice(opt.price) : 'Gratis'}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             )}
-          </fieldset>
+          </div>
 
           <div className="ecm-totals" aria-live="polite">
             {(() => {
@@ -475,38 +523,29 @@ export default function ExpressCheckoutModal({
               const sel = shipOpts.find((s) => s.id === selectedShipId);
               const sc = sel?.price ?? 0;
               const total = subtotal + sc;
+              const shipLabel = sel
+                ? sel.carrier
+                  ? `${sel.carrier} · ${sel.title || sel.label}`
+                  : sel.title || sel.label
+                : '';
               return (
                 <>
                   <div className="ecm-total-row">
-                    <span>Subtotal productos</span>
+                    <span>Productos</span>
                     <span>{formatPrice(subtotal)}</span>
                   </div>
                   <div className="ecm-total-row">
-                    <span>Envío{sel ? ` (${sel.label})` : ''}</span>
+                    <span className="ecm-total-ship-label">{sel ? shipLabel : 'Envío'}</span>
                     <span>{sc > 0 ? formatPrice(sc) : 'Gratis'}</span>
                   </div>
                   <div className="ecm-total-row ecm-total-row--strong">
-                    <span>Total a pagar</span>
+                    <span>Total</span>
                     <span>{formatPrice(total)}</span>
                   </div>
                 </>
               );
             })()}
           </div>
-
-          <fieldset className="ecm-fieldset">
-            <legend>Notas</legend>
-            <label className="ecm-label">
-              Comentarios del pedido (opcional)
-              <textarea
-                className="ecm-textarea"
-                rows={2}
-                maxLength={2000}
-                value={form.note}
-                onChange={(e) => update({ note: e.target.value })}
-              />
-            </label>
-          </fieldset>
 
           {error ? <p className="ecm-error">{error}</p> : null}
 
@@ -541,31 +580,71 @@ export default function ExpressCheckoutModal({
         }
         .ecm-panel {
           width: 100%;
-          max-width: 520px;
+          max-width: 580px;
           background: #fff;
-          border: 1px solid #e0e0e0;
-          border-radius: 8px;
-          box-shadow: 0 16px 48px rgba(0, 0, 0, 0.12);
+          border: 1px solid #e8e8e8;
+          border-radius: 14px;
+          box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
           position: relative;
           margin-top: 8px;
         }
         .ecm-head {
-          padding: 22px 22px 12px;
-          border-bottom: 1px solid #eee;
+          padding: 20px 22px 14px;
+          border-bottom: 1px solid #f0f0f0;
           position: relative;
         }
-        .ecm-title {
-          margin: 0 32px 8px 0;
-          font-size: 18px;
+        .ecm-steps {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0;
+          margin-bottom: 6px;
+        }
+        .ecm-step {
+          width: 26px;
+          height: 26px;
+          border-radius: 50%;
+          border: 2px solid #ddd;
+          color: #999;
+          font-size: 12px;
           font-weight: 700;
-          letter-spacing: 0.02em;
-          color: #000;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #fff;
+        }
+        .ecm-step--on {
+          border-color: #111;
+          background: #111;
+          color: #fff;
+        }
+        .ecm-step-line {
+          width: 28px;
+          height: 2px;
+          background: #e5e5e5;
+          margin: 0 4px;
+        }
+        .ecm-steps-label {
+          margin: 0 0 10px;
+          font-size: 10px;
+          font-weight: 600;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: #999;
+          text-align: center;
+        }
+        .ecm-title {
+          margin: 0 32px 6px 0;
+          font-size: 20px;
+          font-weight: 700;
+          letter-spacing: -0.02em;
+          color: #0a0a0a;
         }
         .ecm-sub {
           margin: 0;
           font-size: 13px;
-          line-height: 1.5;
-          color: #555;
+          line-height: 1.55;
+          color: #666;
         }
         .ecm-summary {
           margin: 10px 0 0;
@@ -592,37 +671,83 @@ export default function ExpressCheckoutModal({
           color: #000;
         }
         .ecm-form {
-          padding: 18px 22px 22px;
+          padding: 20px 22px 24px;
         }
-        .ecm-fieldset {
-          border: none;
-          margin: 0 0 18px;
-          padding: 0;
+        .ecm-section {
+          margin-bottom: 22px;
+          padding-bottom: 22px;
+          border-bottom: 1px solid #f2f2f2;
         }
-        .ecm-fieldset legend {
-          font-size: 11px;
+        .ecm-section:last-of-type {
+          border-bottom: none;
+          padding-bottom: 0;
+          margin-bottom: 16px;
+        }
+        .ecm-sec-title {
+          margin: 0 0 4px;
+          font-size: 15px;
           font-weight: 700;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
+          color: #111;
+          letter-spacing: -0.01em;
+        }
+        .ecm-sec-hint {
+          margin: 0 0 14px;
+          font-size: 12px;
+          line-height: 1.45;
           color: #888;
-          margin-bottom: 12px;
+        }
+        .ecm-optional {
+          font-weight: 500;
+          color: #aaa;
+          text-transform: none;
+          letter-spacing: 0;
+        }
+        .ecm-more {
+          margin-top: 12px;
+          border: 1px dashed #ddd;
+          border-radius: 8px;
+          padding: 0 12px 10px;
+          background: #fafafa;
+        }
+        .ecm-more-sum {
+          padding: 10px 0;
+          font-size: 12px;
+          font-weight: 600;
+          color: #555;
+          cursor: pointer;
+          list-style: none;
+        }
+        .ecm-more-sum::-webkit-details-marker {
+          display: none;
+        }
+        .ecm-label--tight {
+          margin-bottom: 8px;
+        }
+        .ecm-textarea--sm {
+          min-height: 56px;
         }
         .ecm-geo {
           margin-bottom: 14px;
-          padding: 12px;
-          background: #f8fafc;
+          padding: 10px 12px;
+          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
           border: 1px solid #e2e8f0;
-          border-radius: 6px;
+          border-radius: 10px;
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 10px;
         }
         .ecm-geo-btn {
-          display: inline-block;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
           padding: 8px 14px;
           font-size: 12px;
           font-weight: 600;
           border: 1px solid #0f172a;
           background: #fff;
           color: #0f172a;
-          border-radius: 4px;
+          border-radius: 999px;
           cursor: pointer;
           font-family: inherit;
         }
@@ -631,14 +756,16 @@ export default function ExpressCheckoutModal({
           cursor: not-allowed;
         }
         .ecm-geo-hint {
-          display: block;
-          margin-top: 8px;
+          flex: 1;
+          min-width: 140px;
+          margin: 0;
           font-size: 11px;
           color: #64748b;
-          line-height: 1.4;
+          line-height: 1.35;
         }
         .ecm-geo-err {
-          margin: 8px 0 0;
+          flex-basis: 100%;
+          margin: 0;
           font-size: 12px;
           color: #b00000;
         }
@@ -666,9 +793,9 @@ export default function ExpressCheckoutModal({
         }
         .ecm-input:focus,
         .ecm-textarea:focus {
-          outline: 2px solid #000;
-          outline-offset: 1px;
-          border-color: #000;
+          outline: 2px solid #111;
+          outline-offset: 0;
+          border-color: #111;
         }
         .ecm-row2 {
           display: grid;
@@ -704,59 +831,105 @@ export default function ExpressCheckoutModal({
           font-size: 13px;
           color: #666;
         }
-        .ecm-ship-list {
-          list-style: none;
-          margin: 0;
-          padding: 0;
+        .ecm-ship-skel {
           display: flex;
           flex-direction: column;
-          gap: 8px;
-        }
-        .ecm-ship-item {
-          margin: 0;
-        }
-        .ecm-ship-label {
-          display: flex;
-          align-items: flex-start;
           gap: 10px;
-          cursor: pointer;
-          font-size: 13px;
-          padding: 10px 12px;
-          border: 1px solid #ddd;
-          border-radius: 6px;
-          transition: border-color 0.15s, background 0.15s;
+          padding: 8px 0;
         }
-        .ecm-ship-label:hover {
-          border-color: #999;
-          background: #fafafa;
+        .ecm-skel-bar {
+          height: 52px;
+          border-radius: 10px;
+          background: linear-gradient(90deg, #f0f0f0 0%, #e8e8e8 50%, #f0f0f0 100%);
+          background-size: 200% 100%;
+          animation: ecm-pulse 1.2s ease-in-out infinite;
         }
-        .ecm-ship-radio {
-          margin-top: 3px;
-          flex-shrink: 0;
+        .ecm-skel-bar--short {
+          width: 70%;
         }
-        .ecm-ship-text {
-          flex: 1;
+        @keyframes ecm-pulse {
+          0% {
+            background-position: 100% 0;
+          }
+          100% {
+            background-position: -100% 0;
+          }
+        }
+        .ecm-ship-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+        }
+        @media (max-width: 520px) {
+          .ecm-ship-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+        .ecm-ship-card {
           display: flex;
-          flex-wrap: wrap;
-          justify-content: space-between;
+          flex-direction: column;
+          align-items: flex-start;
           gap: 8px;
-          align-items: baseline;
+          text-align: left;
+          padding: 12px 12px 14px;
+          border: 2px solid #eaeaea;
+          border-radius: 12px;
+          background: #fff;
+          cursor: pointer;
+          font-family: inherit;
+          transition: border-color 0.15s, box-shadow 0.15s, transform 0.12s;
         }
-        .ecm-ship-name {
+        .ecm-ship-card:hover {
+          border-color: #ccc;
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+        }
+        .ecm-ship-card--on {
+          border-color: #111;
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+        }
+        .ecm-ship-card-main {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          width: 100%;
+        }
+        .ecm-ship-carrier {
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: #888;
+        }
+        .ecm-ship-title {
+          font-size: 13px;
           font-weight: 600;
           color: #111;
+          line-height: 1.35;
         }
-        .ecm-ship-price {
+        .ecm-ship-pill {
+          align-self: flex-start;
+          font-size: 13px;
+          font-weight: 700;
+          color: #111;
+          padding: 4px 10px;
+          border-radius: 999px;
+          background: #f5f5f5;
+        }
+        .ecm-ship-pill--free {
+          background: #ecfdf5;
+          color: #047857;
+        }
+        .ecm-total-ship-label {
+          max-width: 65%;
           font-size: 12px;
-          color: #555;
-          font-weight: 600;
+          line-height: 1.35;
         }
         .ecm-totals {
           margin: 0 0 18px;
-          padding: 14px 14px;
-          background: #f8f8f8;
-          border: 1px solid #eaeaea;
-          border-radius: 6px;
+          padding: 16px 16px;
+          background: #fafafa;
+          border: 1px solid #eee;
+          border-radius: 12px;
         }
         .ecm-total-row {
           display: flex;
@@ -785,10 +958,10 @@ export default function ExpressCheckoutModal({
           margin-top: 8px;
         }
         .ecm-btn {
-          padding: 12px 20px;
-          font-size: 13px;
+          padding: 13px 22px;
+          font-size: 14px;
           font-weight: 600;
-          border-radius: 4px;
+          border-radius: 999px;
           cursor: pointer;
           border: 1px solid #000;
           font-family: inherit;

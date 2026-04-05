@@ -240,7 +240,12 @@ export default function CartDrawer({ storeId, products = [] }: CartDrawerProps) 
                       <div className="cart-item-quantity" role="group" aria-label={`Cantidad de ${item.name}`}>
                         <button
                           type="button"
-                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                          onClick={() =>
+                            updateQuantity(item.id, item.quantity - 1, {
+                              storeId,
+                              productId: String(item.productId),
+                            })
+                          }
                           aria-label="Quitar una unidad"
                         >
                           −
@@ -248,7 +253,12 @@ export default function CartDrawer({ storeId, products = [] }: CartDrawerProps) 
                         <span aria-live="polite">{item.quantity}</span>
                         <button
                           type="button"
-                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                          onClick={() =>
+                            updateQuantity(item.id, item.quantity + 1, {
+                              storeId,
+                              productId: String(item.productId),
+                            })
+                          }
                           aria-label="Agregar una unidad"
                         >
                           +
@@ -258,7 +268,12 @@ export default function CartDrawer({ storeId, products = [] }: CartDrawerProps) 
                     <button
                       type="button"
                       className="cart-item-remove"
-                      onClick={() => removeFromCart(item.id)}
+                      onClick={() =>
+                        removeFromCart(item.id, {
+                          storeId,
+                          productId: String(item.productId),
+                        })
+                      }
                       aria-label={`Eliminar ${item.name} del carrito`}
                     >
                       ✕
@@ -318,7 +333,14 @@ export default function CartDrawer({ storeId, products = [] }: CartDrawerProps) 
                               className="cart-upsell-card-add"
                               onClick={() => {
                                 const line = lineFromProduct(p);
-                                if (line) addToCart(line);
+                                if (!line) return;
+                                const cat0 = p.categories?.[0];
+                                const categoryId =
+                                  typeof cat0?.id === 'number' ? cat0.id : undefined;
+                                addToCart(line, {
+                                  storeId,
+                                  ...(categoryId != null ? { categoryId } : {}),
+                                });
                               }}
                             >
                               Añadir

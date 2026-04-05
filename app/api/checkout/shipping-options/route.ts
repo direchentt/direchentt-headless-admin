@@ -1,36 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getStorefrontConfigStored } from '@/lib/storefront-db';
-import { resolveStorefrontConfig } from '@/lib/storefront-config';
+import { getMergedExpressShippingOptions } from '@/lib/checkout-shipping-resolve';
 
 export const dynamic = 'force-dynamic';
 
-function parseShopId(request: NextRequest): number | null {
-  const id = request.nextUrl.searchParams.get('shop');
+function parseShopId(request: NextRequest): string | null {
+  const id = request.nextUrl.searchParams.get('shop')?.trim();
   if (!id) return null;
-  const n = parseInt(id, 10);
-  return Number.isFinite(n) ? n : null;
+  return id;
+}
+
+function splitCarrierTitle(label: string): { title: string; carrier: string | null } {
+  const sep = ' — ';
+  const i = label.indexOf(sep);
+  if (i === -1) return { title: label, carrier: null };
+  return {
+    carrier: label.slice(0, i).trim() || null,
+    title: label.slice(i + sep.length).trim() || label,
+  };
 }
 
 /**
- * Opciones de envío para checkout exprés (desde storefront_config).
+ * Opciones de envío: API Tiendanube (shipping_carriers + options) + extras en storefront_config.
  * GET /api/checkout/shipping-options?shop=STORE_ID
  */
 export async function GET(request: NextRequest) {
-  const storeId = parseShopId(request);
-  if (storeId == null) {
+  const shop = parseShopId(request);
+  if (shop == null) {
     return NextResponse.json({ error: 'Query shop requerido' }, { status: 400 });
   }
 
   try {
-    const stored = await getStorefrontConfigStored(storeId);
-    const resolved = resolveStorefrontConfig(stored);
-    const options = resolved.expressCheckoutShippingResolved.map((o) => ({
-      id: o.id,
-      label: o.label,
-      price: o.price,
-    }));
+    const merged = await getMergedExpressShippingOptions(shop);
+    const options = merged.map((o) => {
+      const { title, carrier } = splitCarrierTitle(o.label);
+      return {
+        id: o.id,
+        label: o.label,
+        price: o.price,
+        title,
+        carrier,
+      };
+    });
     return NextResponse.json(
-      { options },
+      { options, source: 'merged' as const },
       {
         headers: {
           'Cache-Control': 'private, max-age=60',

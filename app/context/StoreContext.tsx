@@ -1,6 +1,12 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { queueStorefrontSignals } from '@/lib/storefront-signals-client';
+
+export interface CartTrackingMeta {
+  storeId: string;
+  categoryId?: number;
+}
 
 // =================== TIPOS ===================
 interface CartItem {
@@ -25,9 +31,16 @@ interface StoreContextType {
   cart: CartItem[];
   cartCount: number;
   cartTotal: number;
-  addToCart: (item: Omit<CartItem, 'id'>) => void;
-  removeFromCart: (id: string) => void;
-  updateQuantity: (id: string, quantity: number) => void;
+  addToCart: (item: Omit<CartItem, 'id'>, tracking?: CartTrackingMeta) => void;
+  removeFromCart: (
+    id: string,
+    tracking?: { storeId: string; productId: string }
+  ) => void;
+  updateQuantity: (
+    id: string,
+    quantity: number,
+    tracking?: { storeId: string; productId: string }
+  ) => void;
   clearCart: () => void;
   
   // Auth
@@ -55,6 +68,11 @@ interface StoreContextType {
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
+
+function parseProductIdForSignal(productId: string | number): number | null {
+  const n = typeof productId === 'number' ? productId : parseInt(String(productId), 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
 
 // =================== PROVIDER ===================
 export function StoreProvider({ children }: { children: ReactNode }) {
@@ -136,7 +154,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [cart]);
 
   // =================== CART FUNCTIONS ===================
-  const addToCart = (item: Omit<CartItem, 'id'>) => {
+  const addToCart = (item: Omit<CartItem, 'id'>, tracking?: CartTrackingMeta) => {
     const id = `${item.productId}-${item.variantId}`;
     
     setCart(prev => {
@@ -152,18 +170,48 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       
       return [...prev, { ...item, id }];
     });
+
+    if (tracking?.storeId) {
+      const pid = parseProductIdForSignal(item.productId);
+      if (pid) {
+        queueStorefrontSignals(tracking.storeId, [
+          {
+            type: 'add_to_cart',
+            payload: {
+              productId: pid,
+              ...(tracking.categoryId != null ? { categoryId: tracking.categoryId } : {}),
+            },
+          },
+        ]);
+      }
+    }
     
     // Open cart drawer when adding
     setCartOpen(true);
   };
 
-  const removeFromCart = (id: string) => {
+  const removeFromCart = (
+    id: string,
+    tracking?: { storeId: string; productId: string }
+  ) => {
     setCart(prev => prev.filter(item => item.id !== id));
+    if (tracking?.storeId) {
+      const pid = parseProductIdForSignal(tracking.productId);
+      if (pid) {
+        queueStorefrontSignals(tracking.storeId, [
+          { type: 'remove_from_cart', payload: { productId: pid } },
+        ]);
+      }
+    }
   };
 
-  const updateQuantity = (id: string, quantity: number) => {
+  const updateQuantity = (
+    id: string,
+    quantity: number,
+    tracking?: { storeId: string; productId: string }
+  ) => {
     if (quantity <= 0) {
-      removeFromCart(id);
+      removeFromCart(id, tracking);
       return;
     }
     setCart(prev => prev.map(item => 

@@ -46,15 +46,21 @@ export default function VariantSelector({ product, storeId, domain, onVariantSel
       // Agregar al carrito local
       const { current } = getVariantDisplayPrices(selectedVariant || {});
 
-      addToCart({
-        productId: product.id.toString(),
-        variantId: selectedVariant.id.toString(),
-        name: productName,
-        variant: variantName,
-        price: current,
-        quantity: 1,
-        image: productImage
-      });
+      const cat0 = product.categories?.[0];
+      const categoryId = typeof cat0?.id === 'number' ? cat0.id : undefined;
+
+      addToCart(
+        {
+          productId: product.id.toString(),
+          variantId: selectedVariant.id.toString(),
+          name: productName,
+          variant: variantName,
+          price: current,
+          quantity: 1,
+          image: productImage,
+        },
+        { storeId, ...(categoryId != null ? { categoryId } : {}) }
+      );
 
       // Feedback visual temporal
       const button = document.querySelector('.add-to-cart-btn');

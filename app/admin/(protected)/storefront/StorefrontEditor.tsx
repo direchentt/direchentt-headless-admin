@@ -135,6 +135,7 @@ const LABELS: Record<HomeSectionId, string> = {
   hero: 'Hero (carrusel principal)',
   featured_categories: 'Categorías destacadas',
   new_arrivals: 'Novedades',
+  for_you: 'Para vos (según tu actividad)',
   crazy_carousel: 'Carrusel de productos',
   banner_grid_split: 'Banners (split)',
   shop_the_look: 'Completa el look',

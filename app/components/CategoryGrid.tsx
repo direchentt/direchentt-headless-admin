@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { formatPrice, getVariantDisplayPrices } from '@/lib/product-utils';
 import ProductCucardas from './ProductCucardas';
 import StoreImage from './StoreImage';
+import { queueStorefrontSignals } from '@/lib/storefront-signals-client';
 
 const SORT_OPTIONS: { value: string; label: string }[] = [
   { value: '', label: 'Más recientes' },
@@ -43,6 +44,12 @@ export default function CategoryGrid({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isSortPending, startSortTransition] = useTransition();
+
+  useEffect(() => {
+    const id = parseInt(categoryId, 10);
+    if (!Number.isFinite(id) || id <= 0 || !storeId) return;
+    queueStorefrontSignals(storeId, [{ type: 'category_view', payload: { categoryId: id } }]);
+  }, [categoryId, storeId]);
 
   // Detectar tamaño de pantalla
   useEffect(() => {

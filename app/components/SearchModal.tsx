@@ -5,6 +5,7 @@ import { useStore } from '../context/StoreContext';
 import Link from 'next/link';
 import { formatPrice, getVariantDisplayPrices } from '@/lib/product-utils';
 import StoreImage from './StoreImage';
+import { queueStorefrontSignals } from '@/lib/storefront-signals-client';
 
 interface SearchModalProps {
   products: any[];
@@ -84,6 +85,15 @@ export default function SearchModal({ products, storeId }: SearchModalProps) {
     }).slice(0, 8); // Max 8 para grid
   }, [searchTerm, products]);
 
+  useEffect(() => {
+    if (!isSearchOpen) return;
+    const q = searchTerm.trim();
+    if (q.length < 2) return;
+    const t = setTimeout(() => {
+      queueStorefrontSignals(storeId, [{ type: 'search', payload: { query: q } }]);
+    }, 600);
+    return () => clearTimeout(t);
+  }, [searchTerm, storeId, isSearchOpen]);
 
   if (!isSearchOpen) return null;
 

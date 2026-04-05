@@ -8,6 +8,7 @@ import { formatPrice, getVariantDisplayPrices } from '@/lib/product-utils';
 import ProductCompleteLookSidebar from './ProductCompleteLookSidebar';
 import ExpressCheckoutModal from './ExpressCheckoutModal';
 import StoreImage from './StoreImage';
+import { queueStorefrontSignals } from '@/lib/storefront-signals-client';
 
 interface ProductInfoProps {
   product: any;
@@ -83,6 +84,27 @@ export default function ProductInfo({
       setSelectedVariantId(variants[0].id);
     }
   }, [variants, selectedVariantId]);
+
+  useEffect(() => {
+    if (!storeId || product?.id == null) return;
+    const pid =
+      typeof product.id === 'number' ? product.id : parseInt(String(product.id), 10);
+    if (!Number.isFinite(pid) || pid <= 0) return;
+    const cat0 = product.categories?.[0];
+    const categoryId = typeof cat0?.id === 'number' ? cat0.id : undefined;
+    const t = setTimeout(() => {
+      queueStorefrontSignals(storeId, [
+        {
+          type: 'product_view',
+          payload: {
+            productId: pid,
+            ...(categoryId != null ? { categoryId } : {}),
+          },
+        },
+      ]);
+    }, 1200);
+    return () => clearTimeout(t);
+  }, [product?.id, storeId]);
   
   // Encontrar variante seleccionada
   const selectedVariant = variants.find((v: any) => v.id === selectedVariantId) || variants[0];
@@ -123,16 +145,21 @@ export default function ProductInfo({
       variantDescription = selectedVariant.name || 'Variante seleccionada';
     }
     
-    // Agregar al carrito local para tracking
-    addToLocalCart({
-      productId: product.id,
-      variantId: selectedVariant.id,
-      name: safeGetName(product.name),
-      variant: variantDescription,
-      price: current,
-      quantity: 1,
-      image: getVariantImage(selectedVariant)
-    });
+    const cat0 = product.categories?.[0];
+    const categoryId = typeof cat0?.id === 'number' ? cat0.id : undefined;
+
+    addToLocalCart(
+      {
+        productId: product.id,
+        variantId: selectedVariant.id,
+        name: safeGetName(product.name),
+        variant: variantDescription,
+        price: current,
+        quantity: 1,
+        image: getVariantImage(selectedVariant),
+      },
+      { storeId, ...(categoryId != null ? { categoryId } : {}) }
+    );
 
     setTimeout(() => setIsAdding(false), 500);
   };
@@ -501,7 +528,27 @@ export default function ProductInfo({
           <button
             type="button"
             className="btn-express"
-            onClick={() => setExpressCheckoutOpen(true)}
+            onClick={() => {
+              const pid =
+                typeof product.id === 'number'
+                  ? product.id
+                  : parseInt(String(product.id), 10);
+              if (Number.isFinite(pid) && pid > 0) {
+                const cat0 = product.categories?.[0];
+                const categoryId = typeof cat0?.id === 'number' ? cat0.id : undefined;
+                queueStorefrontSignals(storeId, [
+                  {
+                    type: 'checkout_start',
+                    payload: {
+                      productId: pid,
+                      source: 'pdp_express',
+                      ...(categoryId != null ? { categoryId } : {}),
+                    },
+                  },
+                ]);
+              }
+              setExpressCheckoutOpen(true);
+            }}
             disabled={(variants.length > 1 && !selectedVariantId) || !selectedVariant}
           >
             Pago exprés

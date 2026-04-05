@@ -110,16 +110,21 @@ export default function QuickShop({ product, storeId, domain, isOpen, onClose }:
       variantDescription = selectedVariant.name || 'Variante seleccionada';
     }
 
-    // Agregar al carrito local
-    addToCart({
-      productId: product.id,
-      variantId: selectedVariant.id,
-      name: productName,
-      variant: variantDescription,
-      price: current,
-      quantity: 1,
-      image: currentImage
-    });
+    const cat0 = currentProduct?.categories?.[0];
+    const categoryId = typeof cat0?.id === 'number' ? cat0.id : undefined;
+
+    addToCart(
+      {
+        productId: product.id,
+        variantId: selectedVariant.id,
+        name: productName,
+        variant: variantDescription,
+        price: current,
+        quantity: 1,
+        image: currentImage,
+      },
+      { storeId, ...(categoryId != null ? { categoryId } : {}) }
+    );
 
     setTimeout(() => {
       setIsAdding(false);
