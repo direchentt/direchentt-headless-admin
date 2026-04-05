@@ -280,3 +280,12 @@ select {
     @apply bg-background text-foreground;
   }
 }
+
+/* Vitrina: foco claro en header / iconos (mejora accesibilidad sin :focus en mouse) */
+.scuffers-header .icon-btn:focus-visible,
+.scuffers-header .burger-icon:focus-visible,
+.scuffers-header .desktop-link:focus-visible,
+.scuffers-header .logo-link:focus-visible {
+  outline: 2px solid #111;
+  outline-offset: 3px;
+}

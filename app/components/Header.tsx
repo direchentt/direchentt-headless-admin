@@ -12,7 +12,7 @@ interface HeaderProps {
 }
 
 export default function Header({ logo, storeId, domain, categories }: HeaderProps) {
-  const { setSearchOpen, setAuthOpen, setCartOpen, cartCount, isLoggedIn } = useStore();
+  const { setSearchOpen, setAuthOpen, setCartOpen, cartCount, isLoggedIn, isCartOpen } = useStore();
   const [menuOpen, setMenuOpen] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<number[]>([]);
   const [logoFailed, setLogoFailed] = useState(false);
@@ -163,9 +163,12 @@ export default function Header({ logo, storeId, domain, categories }: HeaderProp
           <div className="header-left">
             {/* Burger solo mobile */}
             <button
+              type="button"
               className="burger-icon"
               onClick={() => setMenuOpen(true)}
-              aria-label="Menú"
+              aria-label="Abrir menú"
+              aria-expanded={menuOpen}
+              aria-controls="site-nav-drawer"
             >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                 <path d="M2 5h16M2 10h16M2 15h16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -191,13 +194,16 @@ export default function Header({ logo, storeId, domain, categories }: HeaderProp
           </div>
 
           {/* CENTER - Logo */}
-          <Link href={`/?shop=${storeId}`} className="logo-link">
+          <Link href={`/?shop=${storeId}`} className="logo-link" aria-label="Inicio">
             {logo && !logoFailed ? (
               <img
                 src={logo}
                 alt=""
                 className="logo-img"
                 referrerPolicy="no-referrer"
+                width={120}
+                height={32}
+                decoding="async"
                 onError={() => setLogoFailed(true)}
               />
             ) : (
@@ -208,20 +214,27 @@ export default function Header({ logo, storeId, domain, categories }: HeaderProp
           {/* RIGHT SIDE - Actions */}
           <div className="header-right">
             <span className="country-label">País</span>
-            <button onClick={() => setSearchOpen(true)} className="icon-btn" aria-label="Buscar">
+            <button type="button" onClick={() => setSearchOpen(true)} className="icon-btn" aria-label="Buscar">
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                 <circle cx="9" cy="9" r="7" stroke="currentColor" strokeWidth="1.5" />
                 <path d="M15 15l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
             </button>
-            <button onClick={() => setAuthOpen(true)} className="icon-btn" aria-label="Cuenta">
+            <button type="button" onClick={() => setAuthOpen(true)} className="icon-btn" aria-label="Cuenta">
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                 <path d="M16 17v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                 <circle cx="10" cy="6" r="4" stroke="currentColor" strokeWidth="1.5" />
               </svg>
               {isLoggedIn && <span className="user-indicator" />}
             </button>
-            <button onClick={() => setCartOpen(true)} className="icon-btn" aria-label="Carrito">
+            <button
+              type="button"
+              onClick={() => setCartOpen(true)}
+              className="icon-btn"
+              aria-label={`Carrito${cartCount > 0 ? `, ${cartCount} productos` : ''}`}
+              aria-expanded={isCartOpen}
+              aria-haspopup="dialog"
+            >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                 <path d="M5 1L4 5H19l-2 9H6L4 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 <circle cx="8" cy="17" r="1.5" stroke="currentColor" strokeWidth="1.5" />
@@ -285,16 +298,23 @@ export default function Header({ logo, storeId, domain, categories }: HeaderProp
       />
 
       {/* DRAWER MENU - Estilo Scuffers */}
-      <div className={`drawer-menu ${menuOpen ? 'open' : ''}`}>
+      <div
+        id="site-nav-drawer"
+        className={`drawer-menu ${menuOpen ? 'open' : ''}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Menú de navegación"
+        hidden={!menuOpen}
+      >
         {/* Drawer Header - Solo botón cerrar */}
         <div className="drawer-header">
-          <button className="close-btn" onClick={() => setMenuOpen(false)}>
+          <button type="button" className="close-btn" onClick={() => setMenuOpen(false)} aria-label="Cerrar menú">
             ✕ CERRAR
           </button>
         </div>
 
         {/* Drawer Navigation */}
-        <nav className="drawer-nav">
+        <nav className="drawer-nav" aria-label="Categorías y enlaces">
           {/* Links destacados */}
           <Link href={`/?shop=${storeId}`} className="nav-link featured" onClick={() => setMenuOpen(false)}>
             NOVEDADES

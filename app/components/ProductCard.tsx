@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { formatPrice, getVariantDisplayPrices } from '@/lib/product-utils';
 import ProductCucardas from './ProductCucardas';
+import StoreImage from './StoreImage';
 
 interface ProductCardProps {
   product: any;
@@ -85,22 +86,22 @@ export default function ProductCard({ product, storeId }: ProductCardProps) {
         >
           {images.length > 0 ? (
             <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={images[currentImageIndex].src}
-                alt={productName}
+              <div
                 style={{
                   position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                  transition: 'opacity 0.3s ease'
+                  inset: 0,
+                  transition: 'opacity 0.3s ease',
                 }}
-                referrerPolicy="no-referrer"
-                crossOrigin="anonymous"
-              />
+              >
+                <StoreImage
+                  src={images[currentImageIndex].src}
+                  alt={productName}
+                  fill
+                  className="product-card-img"
+                  style={{ objectFit: 'cover' }}
+                  sizes="(max-width: 600px) 50vw, (max-width: 1024px) 33vw, 280px"
+                />
+              </div>
 
               {/* DOTS INDICATORS (Solo si hay más de 1 imagen) */}
               {images.length > 1 && (

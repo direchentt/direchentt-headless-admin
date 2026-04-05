@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import ProductImageLightbox from './ProductImageLightbox';
 import ProductReviewsDrawer from './ProductReviewsDrawer';
+import StoreImage from './StoreImage';
 
 interface Image {
   id: string | number;
@@ -56,11 +57,14 @@ export default function ImageGallery({ images, productName, productId = 0 }: Ima
           onClick={() => openLightbox(mainIndex)}
           aria-label="Ampliar galería"
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <StoreImage
             src={images[mainIndex].src}
             alt={`${productName} — vista principal`}
+            fill
             className="gallery-hero-img"
+            style={{ objectFit: 'cover', objectPosition: 'center top' }}
+            sizes="(max-width: 1023px) 100vw, 50vw"
+            priority
           />
         </button>
 
@@ -74,9 +78,16 @@ export default function ImageGallery({ images, productName, productId = 0 }: Ima
                 aria-selected={idx === mainIndex}
                 className={`gallery-thumb-cell ${idx === mainIndex ? 'active' : ''}`}
                 onClick={() => setMainIndex(idx)}
+                aria-label={`Vista ${idx + 1} de ${images.length}`}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={img.src} alt="" />
+                <StoreImage
+                  src={img.src}
+                  alt=""
+                  width={52}
+                  height={52}
+                  className="gallery-thumb-img"
+                  sizes="64px"
+                />
               </button>
             ))}
           </div>
@@ -96,10 +107,14 @@ export default function ImageGallery({ images, productName, productId = 0 }: Ima
       <div className="gallery-desktop">
         {images.map((img, idx) => (
           <div key={img.id} className="gallery-item">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <StoreImage
               src={img.src}
               alt={`${productName} — ${idx + 1}`}
+              fill
+              className="gallery-desktop-img"
+              style={{ objectFit: 'cover' }}
+              sizes="(max-width: 1400px) 50vw, 700px"
+              priority={idx < 2}
               loading={idx < 2 ? 'eager' : 'lazy'}
             />
           </div>
@@ -145,13 +160,13 @@ export default function ImageGallery({ images, productName, productId = 0 }: Ima
           border: none;
           background: #f0f0f0;
           cursor: zoom-in;
+          position: relative;
+          aspect-ratio: 3/4;
         }
 
         .gallery-hero-img {
           width: 100%;
-          aspect-ratio: 3/4;
-          object-fit: cover;
-          object-position: center top;
+          height: 100%;
           display: block;
         }
 
@@ -181,7 +196,7 @@ export default function ImageGallery({ images, productName, productId = 0 }: Ima
           background: #f5f5f5;
           box-sizing: border-box;
         }
-        .gallery-thumb-cell img {
+        .gallery-thumb-img {
           width: 100%;
           height: 100%;
           object-fit: cover;
@@ -232,17 +247,18 @@ export default function ImageGallery({ images, productName, productId = 0 }: Ima
           width: 100%;
           overflow: hidden;
           background: #f5f5f5;
+          position: relative;
+          aspect-ratio: 3/4;
         }
 
-        .gallery-item img {
+        .gallery-desktop-img {
           width: 100%;
-          aspect-ratio: 3/4;
-          object-fit: cover;
+          height: 100%;
           display: block;
           transition: transform 0.45s ease;
         }
 
-        .gallery-item:hover img {
+        .gallery-item:hover .gallery-desktop-img {
           transform: scale(1.015);
         }
 

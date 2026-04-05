@@ -3,8 +3,9 @@
 import { useStore } from '../context/StoreContext';
 import { useCheckout } from '../hooks/useCheckout';
 import Link from 'next/link';
-import { useEffect } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { formatPrice } from '@/lib/product-utils';
+import StoreImage from './StoreImage';
 
 interface CartDrawerProps {
   storeId: string;
@@ -19,39 +20,83 @@ export default function CartDrawer({ storeId }: CartDrawerProps) {
     cartTotal,
     removeFromCart,
     updateQuantity,
-    clearCart
   } = useStore();
 
-  // Hook de checkout para manejar la creación del carrito y redirección
   const { createCartAndCheckout, loading: checkoutLoading, error: checkoutError } = useCheckout(storeId);
 
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
+  const prevFocusRef = useRef<HTMLElement | null>(null);
+
+  const handleClose = useCallback(() => setCartOpen(false), [setCartOpen]);
 
   useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setCartOpen(false);
-    };
-    window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
-  }, [setCartOpen]);
+    if (!isCartOpen) return;
 
-  // Bloquear scroll cuando está abierto
+    prevFocusRef.current = document.activeElement as HTMLElement | null;
+    const id = window.requestAnimationFrame(() => closeBtnRef.current?.focus());
+
+    const drawer = drawerRef.current;
+    const getFocusable = () => {
+      if (!drawer) return [];
+      return Array.from(
+        drawer.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((el) => !el.hasAttribute('aria-hidden') && el.offsetParent !== null);
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        handleClose();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const list = getFocusable();
+      if (list.length === 0) return;
+      const first = list[0];
+      const last = list[list.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey) {
+        if (active === first || !drawer?.contains(active)) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (active === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.cancelAnimationFrame(id);
+      window.removeEventListener('keydown', onKeyDown);
+      prevFocusRef.current?.focus?.();
+      prevFocusRef.current = null;
+    };
+  }, [isCartOpen, handleClose]);
+
   useEffect(() => {
     if (isCartOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
     }
-    return () => { document.body.style.overflow = ''; };
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [isCartOpen]);
 
-  // Manejar el checkout
   const handleCheckout = async () => {
     if (cart.length === 0) {
       alert('Tu carrito está vacío');
       return;
     }
 
-    // Transformar items del carrito al formato esperado por la API
     const checkoutItems = cart.map((item) => ({
       variantId: parseInt(item.variantId.toString(), 10),
       quantity: item.quantity,
@@ -64,7 +109,6 @@ export default function CartDrawer({ storeId }: CartDrawerProps) {
       await createCartAndCheckout(checkoutItems);
     } catch (error) {
       console.error('Error en checkout:', error);
-      // El error ya se muestra via onError del hook
     }
   };
 
@@ -72,20 +116,45 @@ export default function CartDrawer({ storeId }: CartDrawerProps) {
 
   return (
     <>
-      <div className="cart-overlay" onClick={() => setCartOpen(false)} />
-      <div className="cart-drawer">
+      <button
+        type="button"
+        className="cart-overlay"
+        aria-label="Cerrar carrito"
+        onClick={handleClose}
+      />
+      <div
+        ref={drawerRef}
+        className="cart-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="cart-drawer-title"
+      >
         <div className="cart-header">
-          <h2>CARRITO ({cartCount})</h2>
-          <button className="cart-close" onClick={() => setCartOpen(false)}>✕</button>
+          <h2 id="cart-drawer-title">CARRITO ({cartCount})</h2>
+          <button
+            ref={closeBtnRef}
+            type="button"
+            className="cart-close"
+            onClick={handleClose}
+            aria-label="Cerrar carrito"
+          >
+            ✕
+          </button>
         </div>
+
+        {checkoutError ? (
+          <div className="cart-live-region" role="status" aria-live="polite">
+            {checkoutError}
+          </div>
+        ) : null}
 
         {cart.length === 0 ? (
           <div className="cart-empty">
-            <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1">
+            <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1" aria-hidden>
               <path d="M3 3h2l.4 2M7 13h10l2-7H6l-1.6-8M7 13L5.4 5M7 13l-1.293 1.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-10 0a2 2 0 100 4 2 2 0 000-4z" />
             </svg>
             <p>Tu carrito está vacío</p>
-            <button className="cart-continue" onClick={() => setCartOpen(false)}>
+            <button type="button" className="cart-continue" onClick={handleClose}>
               SEGUIR COMPRANDO
             </button>
           </div>
@@ -96,7 +165,14 @@ export default function CartDrawer({ storeId }: CartDrawerProps) {
                 <div key={item.id} className="cart-item">
                   <div className="cart-item-image">
                     {item.image ? (
-                      <img src={item.image} alt={item.name} />
+                      <StoreImage
+                        src={item.image}
+                        alt=""
+                        width={100}
+                        height={120}
+                        className="cart-line-image"
+                        sizes="100px"
+                      />
                     ) : (
                       <div className="cart-item-placeholder">Sin imagen</div>
                     )}
@@ -105,23 +181,36 @@ export default function CartDrawer({ storeId }: CartDrawerProps) {
                     <Link
                       href={`/product/${item.productId}?shop=${storeId}`}
                       className="cart-item-name"
-                      onClick={() => setCartOpen(false)}
+                      onClick={handleClose}
                     >
                       {item.name.toUpperCase()}
                     </Link>
                     {item.variant && <p className="cart-item-variant">{item.variant}</p>}
                     <p className="cart-item-price">{formatPrice(item.price)}</p>
 
-                    <div className="cart-item-quantity">
-                      <button onClick={() => updateQuantity(item.id, item.quantity - 1)}>−</button>
-                      <span>{item.quantity}</span>
-                      <button onClick={() => updateQuantity(item.id, item.quantity + 1)}>+</button>
+                    <div className="cart-item-quantity" role="group" aria-label={`Cantidad de ${item.name}`}>
+                      <button
+                        type="button"
+                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                        aria-label="Quitar una unidad"
+                      >
+                        −
+                      </button>
+                      <span aria-live="polite">{item.quantity}</span>
+                      <button
+                        type="button"
+                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                        aria-label="Agregar una unidad"
+                      >
+                        +
+                      </button>
                     </div>
                   </div>
                   <button
+                    type="button"
                     className="cart-item-remove"
                     onClick={() => removeFromCart(item.id)}
-                    aria-label="Eliminar"
+                    aria-label={`Eliminar ${item.name} del carrito`}
                   >
                     ✕
                   </button>
@@ -137,14 +226,15 @@ export default function CartDrawer({ storeId }: CartDrawerProps) {
               <p className="cart-shipping">Envío calculado en el checkout</p>
 
               <button
+                type="button"
                 className="cart-checkout"
-                onClick={handleCheckout}
+                onClick={() => void handleCheckout()}
                 disabled={checkoutLoading || cart.length === 0}
               >
                 {checkoutLoading ? 'PROCESANDO...' : 'FINALIZAR COMPRA'}
               </button>
 
-              <button className="cart-continue-shopping" onClick={() => setCartOpen(false)}>
+              <button type="button" className="cart-continue-shopping" onClick={handleClose}>
                 SEGUIR COMPRANDO
               </button>
             </div>
@@ -160,6 +250,13 @@ export default function CartDrawer({ storeId }: CartDrawerProps) {
           background: rgba(0,0,0,0.5);
           z-index: 9998;
           animation: fadeIn 0.2s ease;
+          border: none;
+          padding: 0;
+          cursor: pointer;
+        }
+        .cart-overlay:focus-visible {
+          outline: 2px solid #fff;
+          outline-offset: 2px;
         }
         .cart-drawer {
           position: fixed;
@@ -173,6 +270,23 @@ export default function CartDrawer({ storeId }: CartDrawerProps) {
           display: flex;
           flex-direction: column;
           animation: slideInRight 0.3s ease;
+          outline: none;
+        }
+        .cart-drawer:focus-visible {
+          outline: none;
+        }
+        .cart-live-region {
+          padding: 10px 20px;
+          font-size: 13px;
+          color: #b00020;
+          background: #fff5f5;
+          border-bottom: 1px solid #f0f0f0;
+        }
+        .cart-line-image {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
         }
         @keyframes slideInRight {
           from { transform: translateX(100%); }
@@ -202,6 +316,10 @@ export default function CartDrawer({ storeId }: CartDrawerProps) {
           cursor: pointer;
           color: #999;
         }
+        .cart-close:focus-visible {
+          outline: 2px solid #000;
+          outline-offset: 2px;
+        }
         .cart-empty {
           flex: 1;
           display: flex;
@@ -226,6 +344,13 @@ export default function CartDrawer({ storeId }: CartDrawerProps) {
           letter-spacing: 2px;
           cursor: pointer;
         }
+        .cart-continue:focus-visible,
+        .cart-checkout:focus-visible,
+        .cart-continue-shopping:focus-visible,
+        .cart-item-quantity button:focus-visible {
+          outline: 2px solid #000;
+          outline-offset: 2px;
+        }
         .cart-items {
           flex: 1;
           overflow-y: auto;
@@ -243,6 +368,7 @@ export default function CartDrawer({ storeId }: CartDrawerProps) {
           height: 120px;
           background: #f5f5f5;
           flex-shrink: 0;
+          overflow: hidden;
         }
         .cart-item-image img {
           width: 100%;
@@ -326,6 +452,10 @@ export default function CartDrawer({ storeId }: CartDrawerProps) {
         }
         .cart-item-remove:hover {
           color: #000;
+        }
+        .cart-item-remove:focus-visible {
+          outline: 2px solid #000;
+          outline-offset: 2px;
         }
         .cart-footer {
           padding: 20px;
