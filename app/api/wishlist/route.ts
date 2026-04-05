@@ -117,7 +117,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 
-  let body: { shop?: string; productId?: number; action?: string };
+  let body: { shop?: string; productId?: unknown; action?: string };
   try {
     body = await req.json();
   } catch {
@@ -125,10 +125,17 @@ export async function POST(req: Request) {
   }
 
   const storeId = parseShopId(typeof body.shop === 'string' ? body.shop : null);
-  const productId =
-    typeof body.productId === 'number' && Number.isFinite(body.productId)
-      ? Math.floor(body.productId)
-      : null;
+  const rawPid = body.productId;
+  let productId: number | null = null;
+  if (typeof rawPid === 'number' && Number.isFinite(rawPid)) {
+    productId = Math.floor(rawPid);
+  } else if (typeof rawPid === 'string') {
+    const t = rawPid.trim();
+    if (t) {
+      const n = parseInt(t, 10);
+      productId = Number.isFinite(n) && n > 0 ? n : null;
+    }
+  }
   const action =
     typeof body.action === 'string' ? body.action.toLowerCase() : 'toggle';
 

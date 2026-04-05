@@ -17,7 +17,7 @@ type WishlistApiItem = {
   unavailable: boolean;
 };
 
-export default function AuthModal() {
+export default function AuthModal({ defaultShopId = '5112334' }: { defaultShopId?: string }) {
   const { isAuthOpen, setAuthOpen, login, logout, user, isLoggedIn, sessionToken } = useStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -26,17 +26,20 @@ export default function AuthModal() {
   const [error, setError] = useState('');
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [activeSection, setActiveSection] = useState<UserSection>('main');
-  const [panelShopId, setPanelShopId] = useState('5112334');
+  const [panelShopId, setPanelShopId] = useState(() => String(defaultShopId));
   const [wishItems, setWishItems] = useState<WishlistApiItem[]>([]);
   const [wishLoading, setWishLoading] = useState(false);
 
   const { count: wishlistCount, refresh: refreshWishlistIds } = useWishlist(panelShopId);
 
+  /** Misma tienda que la página (ModalsWrapper); si la URL no trae ?shop= no perder el id real. */
   useEffect(() => {
-    if (!isAuthOpen) return;
-    const q = new URLSearchParams(window.location.search).get('shop');
-    if (q) setPanelShopId(q);
-  }, [isAuthOpen]);
+    const fromUrl =
+      typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('shop')
+        : null;
+    setPanelShopId(fromUrl?.trim() || String(defaultShopId));
+  }, [defaultShopId, isAuthOpen]);
 
   useEffect(() => {
     if (activeSection !== 'wishlist' || !sessionToken || !isAuthOpen) return;

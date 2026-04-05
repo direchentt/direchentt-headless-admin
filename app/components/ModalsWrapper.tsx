@@ -8,15 +8,16 @@ const CartDrawer = dynamic(() => import('./CartDrawer'), { ssr: false });
 
 interface ModalsWrapperProps {
   products: any[];
-  storeId: string;
+  storeId: string | number;
 }
 
 export default function ModalsWrapper({ products, storeId }: ModalsWrapperProps) {
+  const sid = String(storeId);
   return (
     <>
-      <SearchModal products={products} storeId={storeId} />
-      <AuthModal />
-      <CartDrawer storeId={storeId} products={products} />
+      <SearchModal products={products} storeId={sid} />
+      <AuthModal defaultShopId={sid} />
+      <CartDrawer storeId={sid} products={products} />
     </>
   );
 }

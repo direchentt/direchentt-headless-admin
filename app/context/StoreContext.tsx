@@ -302,7 +302,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // Auth
     user,
     sessionToken,
-    isLoggedIn: !!user,
+    /** Wishlist y APIs storefront requieren JWT; sin token no cuenta como sesión válida. */
+    isLoggedIn: !!(user && sessionToken),
     login,
     logout,
     
