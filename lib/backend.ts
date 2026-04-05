@@ -122,11 +122,23 @@ const CACHE_TTL = 30000; // 30 segundos
  * @param query Parámetros de consulta adicionales
  * @returns Datos de la API o array vacío en caso de error
  */
-export async function fetchTN(endpoint: string, shopId: string, token: string, query: string = "") {
+export type FetchTNOptions = {
+  /** Sin caché de módulo ni de Next (p. ej. categoría con ?sort=) */
+  bypassCache?: boolean;
+};
+
+export async function fetchTN(
+  endpoint: string,
+  shopId: string,
+  token: string,
+  query: string = "",
+  options?: FetchTNOptions
+) {
+  const bypass = options?.bypassCache === true;
   const cacheKey = `${shopId}-${endpoint}-${query}`;
   const now = Date.now();
-  
-  if (apiCache.has(cacheKey)) {
+
+  if (!bypass && apiCache.has(cacheKey)) {
     const cached = apiCache.get(cacheKey)!;
     if (now - cached.timestamp < CACHE_TTL) {
       return cached.data;
@@ -142,21 +154,23 @@ export async function fetchTN(endpoint: string, shopId: string, token: string, q
   const timeoutId = setTimeout(() => controller.abort(), 10000);
 
   try {
-    const res = await fetch(
-      `https://api.tiendanube.com/v1/${shopId}/${endpoint}${qsSep}per_page=${perPage}${queryPrefix}`,
-      {
-        headers: {
-          Authentication: `bearer ${token}`,
-          'User-Agent': 'Direchentt',
-        },
-        signal: controller.signal,
-        next: { revalidate: 60 },
-      }
-    );
+    const url = `https://api.tiendanube.com/v1/${shopId}/${endpoint}${qsSep}per_page=${perPage}${queryPrefix}`;
+    const res = await fetch(url, {
+      headers: {
+        Authentication: `bearer ${token}`,
+        'User-Agent': 'Direchentt',
+      },
+      signal: controller.signal,
+      ...(bypass
+        ? { cache: 'no-store' as RequestCache }
+        : { next: { revalidate: 60 } }),
+    });
 
     clearTimeout(timeoutId);
     const data = res.ok ? await res.json() : [];
-    apiCache.set(cacheKey, { data, timestamp: now });
+    if (!bypass) {
+      apiCache.set(cacheKey, { data, timestamp: now });
+    }
 
     const count = Array.isArray(data) ? data.length : data && typeof data === 'object' ? 1 : 0;
     console.log(`📦 Traídos ${count} ${endpoint} de TiendaNube`);

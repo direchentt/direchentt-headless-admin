@@ -1,4 +1,5 @@
 import { getLocalizedText } from '@/lib/product-utils';
+import { decodeHtmlEntities } from '@/lib/html-text';
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -7,7 +8,7 @@ function stripHtml(html: string): string {
 function tipFromDescription(description: unknown, fallback: string, maxLen = 140): string {
   const raw = getLocalizedText(description, '');
   if (!raw) return fallback;
-  const plain = stripHtml(raw);
+  const plain = decodeHtmlEntities(stripHtml(raw));
   if (plain.length <= maxLen) return plain;
   const cut = plain.slice(0, maxLen);
   const lastSpace = cut.lastIndexOf(' ');
@@ -49,7 +50,7 @@ export function buildRoutineShowcaseSteps(
   steps.push({
     stepIndex: 0,
     stepLabel: 'BASE',
-    productName: processedMainName,
+    productName: decodeHtmlEntities(processedMainName),
     tip: tipFromDescription(
       mainProduct.description,
       'Empezá con este esencial como primer paso de tu rutina.'
@@ -61,7 +62,7 @@ export function buildRoutineShowcaseSteps(
 
   const rel = (relatedProducts || []).filter((p) => p && p.id !== mainProduct.id).slice(0, 4);
   rel.forEach((p, i) => {
-    const name = getLocalizedText(p.name, 'Producto');
+    const name = decodeHtmlEntities(getLocalizedText(p.name, 'Producto'));
     steps.push({
       stepIndex: i + 1,
       stepLabel: EXTRA_LABELS[i] || `PASO ${i + 2}`,

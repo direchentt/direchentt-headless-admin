@@ -35,33 +35,40 @@ export default function RoutineShowcase({
   if (!safe || n < 2) return null;
 
   const shopQ = `shop=${encodeURIComponent(storeId)}`;
+  const productHref = `/product/${safe.productId}?${shopQ}`;
 
   return (
     <section className="routine-root" aria-label={title}>
       <div className="routine-card">
-        <div className="routine-visual-col">
-          {steps.map((s, i) => (
-            <div
-              key={s.productId + String(i)}
-              className={`routine-hero-wrap${i === active ? ' routine-hero-wrap--on' : ''}`}
-              aria-hidden={i !== active}
-            >
-              {s.heroImage ? (
-                <StoreImage
-                  src={s.heroImage}
-                  alt=""
-                  fill
-                  className="routine-hero-img"
-                  style={{ objectFit: 'cover' }}
-                  sizes="(max-width: 900px) 100vw, 44vw"
-                  loading="lazy"
-                />
-              ) : (
-                <div className="routine-hero-ph" />
-              )}
-            </div>
-          ))}
-        </div>
+        <Link
+          href={productHref}
+          className="routine-visual-link"
+          aria-label={`Ver ${safe.productName} — look en escena`}
+        >
+          <div className="routine-visual-col">
+            {steps.map((s, i) => (
+              <div
+                key={s.productId + String(i)}
+                className={`routine-hero-wrap${i === active ? ' routine-hero-wrap--on' : ''}`}
+                aria-hidden={i !== active}
+              >
+                {s.heroImage ? (
+                  <StoreImage
+                    src={s.heroImage}
+                    alt=""
+                    fill
+                    className="routine-hero-img"
+                    style={{ objectFit: 'cover' }}
+                    sizes="(max-width: 900px) 100vw, 44vw"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="routine-hero-ph" />
+                )}
+              </div>
+            ))}
+          </div>
+        </Link>
 
         <div className="routine-panel">
           <header className="routine-head">
@@ -71,34 +78,35 @@ export default function RoutineShowcase({
 
           <div className="routine-stage" aria-live="polite">
             <div className="routine-swatch-block" key={active}>
-              <div className="routine-callout" key={`tip-${active}`}>
-                <span className="routine-line" aria-hidden />
-                <div className="routine-callout-text">
-                  <Link
-                    href={`/product/${safe.productId}?${shopQ}`}
-                    className="routine-prod-name"
-                  >
-                    {safe.productName}
-                  </Link>
-                  <p className="routine-tip">{safe.tip}</p>
+              <Link
+                href={productHref}
+                className="routine-spotlight-link routine-spotlight-grid"
+                aria-label={`Ver ${safe.productName} — ficha del producto`}
+              >
+                <div className="routine-swatch-large">
+                  {safe.swatchImage ? (
+                    <StoreImage
+                      src={safe.swatchImage}
+                      alt={safe.productName}
+                      fill
+                      className="routine-swatch-fill"
+                      style={{ objectFit: 'cover', objectPosition: 'center' }}
+                      sizes="(max-width: 899px) 100vw, 50vw"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="routine-swatch-ph" />
+                  )}
                 </div>
-              </div>
-              <div className="routine-swatch" key={`sw-${active}`}>
-                {safe.swatchImage ? (
-                  <StoreImage
-                    src={safe.swatchImage}
-                    alt=""
-                    width={280}
-                    height={200}
-                    className="routine-swatch-img"
-                    style={{ objectFit: 'cover', width: '100%', height: 'auto', maxHeight: 200 }}
-                    sizes="(max-width: 600px) 70vw, 280px"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="routine-swatch-ph" />
-                )}
-              </div>
+                <div className="routine-callout">
+                  <span className="routine-line" aria-hidden />
+                  <div className="routine-callout-text">
+                    <span className="routine-prod-kicker">Producto</span>
+                    <span className="routine-prod-name">{safe.productName}</span>
+                    <p className="routine-tip">{safe.tip}</p>
+                  </div>
+                </div>
+              </Link>
             </div>
           </div>
 
@@ -127,33 +135,70 @@ export default function RoutineShowcase({
       <style dangerouslySetInnerHTML={{
         __html: `
         .routine-root {
-          padding: 56px 20px 72px;
-          background: #f4f2ef;
+          padding: clamp(40px, 6vw, 72px) clamp(16px, 4vw, 28px) clamp(48px, 8vw, 88px);
+          background: #fafafa;
+          font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+          -webkit-font-smoothing: antialiased;
         }
         .routine-card {
-          max-width: 1120px;
+          max-width: 1180px;
           margin: 0 auto;
-          background: #eeece8;
-          border-radius: 20px;
+          background: #fff;
+          border: 1px solid #e8e8e8;
+          border-radius: 16px;
           overflow: hidden;
           display: grid;
           grid-template-columns: 1fr;
-          box-shadow: 0 12px 40px rgba(0,0,0,0.06);
+          box-shadow: 0 8px 32px rgba(0,0,0,0.06);
+          position: relative;
+          animation: routineCardAmbient 9s ease-in-out infinite;
+        }
+        @keyframes routineCardAmbient {
+          0%, 100% {
+            box-shadow: 0 8px 32px rgba(0,0,0,0.06);
+          }
+          40% {
+            box-shadow: 0 10px 40px rgba(0,0,0,0.07), 0 0 0 1px rgba(176,0,0,0.14);
+          }
+          55% {
+            box-shadow: 0 8px 32px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.06);
+          }
+        }
+        .routine-visual-link {
+          display: block;
+          min-width: 0;
+          text-decoration: none;
+          color: inherit;
+          touch-action: manipulation;
+        }
+        .routine-visual-link:focus-visible {
+          outline: 2px solid #000;
+          outline-offset: 2px;
+          border-radius: 2px;
+        }
+        .routine-spotlight-link {
+          touch-action: manipulation;
+        }
+        .routine-spotlight-link:focus-visible {
+          outline: 2px solid #000;
+          outline-offset: 4px;
+          border-radius: 8px;
         }
         @media (min-width: 900px) {
           .routine-card {
-            grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
-            min-height: 420px;
+            grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+            min-height: 480px;
           }
         }
         .routine-visual-col {
           position: relative;
-          min-height: 320px;
-          background: #e0ddd8;
+          min-height: min(88vw, 420px);
+          background: #f0f0f0;
         }
         @media (min-width: 900px) {
           .routine-visual-col {
-            min-height: 100%;
+            min-height: 480px;
+            height: 100%;
           }
         }
         .routine-hero-wrap {
@@ -161,12 +206,18 @@ export default function RoutineShowcase({
           inset: 0;
           opacity: 0;
           pointer-events: none;
-          transition: opacity 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+          transform: scale(1.045);
+          filter: saturate(0.92);
+          transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+            transform 0.65s cubic-bezier(0.22, 1, 0.36, 1),
+            filter 0.5s ease;
         }
         .routine-hero-wrap--on {
           opacity: 1;
           pointer-events: auto;
           z-index: 1;
+          transform: scale(1);
+          filter: saturate(1);
         }
         .routine-hero-img {
           display: block;
@@ -177,41 +228,93 @@ export default function RoutineShowcase({
           background: linear-gradient(160deg, #d8d4cf, #c5c0b8);
         }
         .routine-panel {
-          padding: 28px 22px 32px;
+          padding: clamp(22px, 4vw, 36px) clamp(18px, 3vw, 40px) clamp(24px, 4vw, 36px);
           display: flex;
           flex-direction: column;
           justify-content: space-between;
-          gap: 20px;
+          gap: clamp(18px, 3vw, 26px);
         }
-        @media (min-width: 900px) {
-          .routine-panel {
-            padding: 36px 40px 40px;
-          }
+        .routine-head {
+          position: relative;
+          padding-bottom: 14px;
+          margin-bottom: 2px;
+        }
+        .routine-head::after {
+          content: '';
+          position: absolute;
+          left: 0;
+          bottom: 0;
+          width: 100%;
+          height: 2px;
+          background: linear-gradient(90deg, #000 0%, #b00000 50%, #e0e0e0 100%);
+          background-size: 200% 100%;
+          animation: routineAccentLine 6s ease-in-out infinite;
+        }
+        @keyframes routineAccentLine {
+          0%, 100% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
         }
         .routine-title {
-          font-size: clamp(22px, 3.2vw, 30px);
-          font-weight: 600;
-          letter-spacing: -0.02em;
-          margin: 0 0 8px 0;
-          line-height: 1.15;
-          color: #1a1a1a;
+          font-size: clamp(20px, 2.8vw, 26px);
+          font-weight: 700;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          margin: 0 0 10px 0;
+          line-height: 1.2;
+          color: #000;
         }
         .routine-sub {
           margin: 0;
-          font-size: 14px;
-          color: #5c5c5c;
-          line-height: 1.45;
-          max-width: 32em;
+          font-size: clamp(13px, 1.8vw, 14px);
+          color: #555;
+          line-height: 1.55;
+          max-width: 36em;
         }
         .routine-stage {
           flex: 1;
           display: flex;
-          align-items: center;
-          min-height: 200px;
+          align-items: stretch;
+          min-height: 0;
         }
         .routine-swatch-block {
           width: 100%;
           animation: routineFadeSlide 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .routine-spotlight-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: clamp(20px, 4vw, 28px);
+          align-items: start;
+          width: 100%;
+        }
+        @media (min-width: 900px) {
+          .routine-spotlight-grid {
+            grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
+            align-items: center;
+            gap: 32px;
+          }
+        }
+        .routine-swatch-large {
+          position: relative;
+          width: 100%;
+          min-height: min(78vw, 380px);
+          max-height: 480px;
+          aspect-ratio: 4 / 5;
+          border-radius: 12px;
+          overflow: hidden;
+          background: #f5f5f5;
+          border: 1px solid #ebebeb;
+        }
+        @media (min-width: 900px) {
+          .routine-swatch-large {
+            min-height: 420px;
+            max-height: none;
+            height: 100%;
+            aspect-ratio: auto;
+          }
+        }
+        .routine-swatch-fill {
+          display: block;
         }
         @keyframes routineFadeSlide {
           from {
@@ -226,15 +329,20 @@ export default function RoutineShowcase({
         .routine-callout {
           display: flex;
           align-items: flex-start;
-          gap: 12px;
-          margin-bottom: 18px;
+          gap: 14px;
+          margin-bottom: 0;
         }
         .routine-line {
-          flex: 0 0 48px;
+          flex: 0 0 40px;
           height: 1px;
-          background: #1a1a1a;
-          margin-top: 10px;
+          background: #000;
+          margin-top: 12px;
           position: relative;
+        }
+        @media (min-width: 900px) {
+          .routine-line {
+            flex-basis: 48px;
+          }
         }
         .routine-line::after {
           content: '';
@@ -245,41 +353,50 @@ export default function RoutineShowcase({
           width: 6px;
           height: 6px;
           border-radius: 50%;
-          background: #1a1a1a;
+          background: #000;
+        }
+        .routine-prod-kicker {
+          display: block;
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+          color: #888;
+          margin-bottom: 6px;
         }
         .routine-prod-name {
-          font-size: 15px;
-          font-weight: 600;
-          text-decoration: underline;
-          text-underline-offset: 3px;
-          color: #1a1a1a;
-        }
-        .routine-prod-name:hover {
+          font-size: clamp(15px, 2vw, 17px);
+          font-weight: 700;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+          text-decoration: none;
+          border-bottom: 1px solid #000;
+          padding-bottom: 2px;
           color: #000;
+          display: inline-block;
+          line-height: 1.3;
+        }
+        .routine-spotlight-link:hover .routine-prod-name {
+          opacity: 0.75;
         }
         .routine-tip {
-          margin: 8px 0 0 0;
-          font-size: 13px;
-          line-height: 1.55;
-          color: #4a4a4a;
-        }
-        .routine-swatch {
-          border-radius: 12px;
-          overflow: hidden;
-          background: #fff;
-          max-width: 320px;
+          margin: 12px 0 0 0;
+          font-size: clamp(13px, 1.6vw, 14px);
+          line-height: 1.6;
+          color: #444;
         }
         .routine-swatch-ph {
-          height: 180px;
-          background: #ddd9d4;
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(145deg, #ececec, #ddd);
         }
         .routine-steps {
           display: flex;
           flex-wrap: wrap;
-          gap: 12px 16px;
+          gap: 10px 12px;
           justify-content: flex-start;
-          padding-top: 8px;
-          border-top: 1px solid rgba(0,0,0,0.08);
+          padding-top: clamp(12px, 2vw, 18px);
+          border-top: 1px solid #e8e8e8;
         }
         .routine-step-btn {
           display: flex;
@@ -312,8 +429,8 @@ export default function RoutineShowcase({
           transition: background 0.35s ease, color 0.35s ease, border-color 0.35s ease;
         }
         .routine-step-btn--active .routine-step-num {
-          background: #c4a4a0;
-          border-color: #c4a4a0;
+          background: #000;
+          border-color: #000;
           color: #fff;
         }
         .routine-step-label {

@@ -111,7 +111,7 @@ export default async function ProductPage({ params, searchParams }: any) {
         <RoutineShowcase
           storeId={String(storeLocal.storeId)}
           title="ARMÁ TU RUTINA"
-          subtitle="Recorré los pasos como en una rutina de maquillaje: cada número cambia el foco y la imagen con una transición suave."
+          subtitle="Una vitrina editorial: cada paso cuenta cómo se lleva la prenda, con silueta en escena y detalle de producto. Mové el look con los números y entra al ítem cuando quieras llevarlo."
           steps={routineSteps}
         />
       ) : null}

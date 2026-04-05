@@ -1,11 +1,20 @@
 'use client';
- 
-import { useState, useEffect } from 'react';
+
+import { useState, useEffect, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { formatPrice, getVariantDisplayPrices } from '@/lib/product-utils';
 import ProductCucardas from './ProductCucardas';
 import StoreImage from './StoreImage';
+
+const SORT_OPTIONS: { value: string; label: string }[] = [
+  { value: '', label: 'Más recientes' },
+  { value: 'price-ascending', label: 'Menor precio' },
+  { value: 'price-descending', label: 'Mayor precio' },
+  { value: 'alpha-ascending', label: 'A → Z' },
+  { value: 'alpha-descending', label: 'Z → A' },
+  { value: 'best-selling', label: 'Más vendidos' },
+];
 
 interface CategoryGridProps {
   products: any[];
@@ -33,6 +42,7 @@ export default function CategoryGrid({
   const [isTablet, setIsTablet] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [isSortPending, startSortTransition] = useTransition();
 
   // Detectar tamaño de pantalla
   useEffect(() => {
@@ -53,15 +63,16 @@ export default function CategoryGrid({
     return gridColumns;
   };
 
-  // Manejar cambio de ordenamiento
   const handleSortChange = (sort: string) => {
     const params = new URLSearchParams(searchParams.toString());
-    if (sort) {
-      params.set('sort', sort);
-    } else {
-      params.delete('sort');
-    }
-    router.push(`/categoria/${categoryId}?${params.toString()}`);
+    params.set('shop', String(storeId));
+    if (sort) params.set('sort', sort);
+    else params.delete('sort');
+    const qs = params.toString();
+    startSortTransition(() => {
+      router.push(`/categoria/${categoryId}?${qs}`);
+      router.refresh();
+    });
   };
 
   // Calcular cuotas (ejemplo: 3, 6, 12 cuotas sin interés) — monto ya redondeado
@@ -87,19 +98,43 @@ export default function CategoryGrid({
 
         {/* BARRA DE CONTROLES */}
         <div className="controls-bar">
-          <div className="controls-left">
-            {/* Selector de ordenamiento */}
-            <select 
-              className="sort-select"
+          <div className="controls-left controls-sort">
+            <span className="sort-label" id="category-sort-label">
+              Ordenar
+            </span>
+            <div
+              className="sort-pills"
+              role="group"
+              aria-labelledby="category-sort-label"
+            >
+              {SORT_OPTIONS.map((o) => {
+                const active = currentSort === o.value;
+                return (
+                  <button
+                    key={o.value || 'default'}
+                    type="button"
+                    className={`sort-pill${active ? ' sort-pill--active' : ''}`}
+                    aria-pressed={active}
+                    disabled={isSortPending}
+                    onClick={() => handleSortChange(o.value)}
+                  >
+                    {o.label}
+                  </button>
+                );
+              })}
+            </div>
+            <select
+              className="sort-select-native"
+              aria-label="Ordenar productos"
               value={currentSort}
+              disabled={isSortPending}
               onChange={(e) => handleSortChange(e.target.value)}
             >
-              <option value="">Más recientes</option>
-              <option value="price-ascending">Menor precio</option>
-              <option value="price-descending">Mayor precio</option>
-              <option value="alpha-ascending">A - Z</option>
-              <option value="alpha-descending">Z - A</option>
-              <option value="best-selling">Más vendidos</option>
+              {SORT_OPTIONS.map((o) => (
+                <option key={o.value || 'default'} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -298,20 +333,79 @@ export default function CategoryGrid({
           align-items: center;
           gap: 15px;
         }
-        .sort-select {
-          padding: 10px 35px 10px 15px;
+        .controls-sort {
+          flex-direction: column;
+          align-items: stretch;
+          gap: 10px;
+          width: 100%;
+          max-width: 100%;
+        }
+        .sort-label {
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: 0.2em;
+          text-transform: uppercase;
+          color: #666;
+        }
+        .sort-pills {
+          display: none;
+          flex-wrap: wrap;
+          gap: 8px;
+          align-items: center;
+        }
+        .sort-pill {
+          padding: 8px 14px;
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.04em;
+          border: 1px solid #d0d0d0;
+          border-radius: 999px;
+          background: #fff;
+          color: #333;
+          cursor: pointer;
+          transition: background 0.2s, color 0.2s, border-color 0.2s;
+        }
+        .sort-pill:hover:not(:disabled) {
+          border-color: #888;
+        }
+        .sort-pill:disabled {
+          opacity: 0.55;
+          cursor: wait;
+        }
+        .sort-pill--active {
+          background: #111;
+          color: #fff;
+          border-color: #111;
+        }
+        .sort-pill:focus-visible {
+          outline: 2px solid #111;
+          outline-offset: 2px;
+        }
+        .sort-select-native {
+          width: 100%;
+          padding: 10px 36px 10px 14px;
           font-size: 12px;
           font-weight: 500;
           border: 1px solid #ddd;
-          border-radius: 4px;
+          border-radius: 8px;
           background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 12px center;
           cursor: pointer;
           appearance: none;
-          min-width: 150px;
         }
-        .sort-select:focus {
+        .sort-select-native:focus {
           outline: none;
           border-color: #000;
+        }
+        @media (min-width: 768px) {
+          .sort-pills {
+            display: flex;
+          }
+          .sort-select-native {
+            display: none;
+          }
+          .controls-sort {
+            max-width: none;
+          }
         }
 
         /* GRID SELECTOR */
@@ -542,7 +636,8 @@ export default function CategoryGrid({
             align-items: stretch;
           }
           .controls-left, .controls-right {
-            justify-content: center;
+            justify-content: stretch;
+            width: 100%;
           }
           .payment-banner {
             flex-direction: column;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import StoreImage from './StoreImage';
 
 interface Image {
@@ -16,27 +16,20 @@ interface ImageCarouselProps {
 
 export default function ImageCarousel({ images, productName, variantName }: ImageCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [touchStart, setTouchStart] = useState(0);
-  const [touchEnd, setTouchEnd] = useState(0);
+  const touchStartX = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchStart(e.targetTouches[0].clientX);
+    touchStartX.current = e.targetTouches[0].clientX;
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    setTouchEnd(e.changedTouches[0].clientX);
-    handleSwipe();
-  };
-
-  const handleSwipe = () => {
-    if (touchStart - touchEnd > 50) {
-      // Swipe left - siguiente imagen
+    const endX = e.changedTouches[0].clientX;
+    const dx = endX - touchStartX.current;
+    const t = 50;
+    if (dx < -t) {
       setCurrentIndex((prev) => (prev + 1) % images.length);
-    }
-
-    if (touchEnd - touchStart > 50) {
-      // Swipe right - imagen anterior
+    } else if (dx > t) {
       setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
     }
   };

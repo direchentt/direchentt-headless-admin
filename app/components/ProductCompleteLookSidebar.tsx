@@ -6,6 +6,8 @@ import {
   getVariantDisplayPrices,
   getProductTagsArray,
 } from '@/lib/product-utils';
+import { decodeHtmlEntities } from '@/lib/html-text';
+import { normalizeStoreImageUrl } from '@/lib/store-image-url';
 import StoreImage from './StoreImage';
 
 interface ProductCompleteLookSidebarProps {
@@ -18,6 +20,10 @@ function productName(prod: any): string {
     return String(prod.name.es || prod.name.en || prod.name.pt || '');
   }
   return String(prod.name ?? '');
+}
+
+function displayName(prod: any): string {
+  return decodeHtmlEntities(productName(prod)).trim();
 }
 
 function hasVariantStock(prod: any): boolean {
@@ -45,10 +51,7 @@ export default function ProductCompleteLookSidebar({
   if (list.length === 0) return null;
 
   return (
-    <section
-      className="pdp-ctl"
-      aria-label="Completa el look"
-    >
+    <section className="pdp-ctl" aria-label="Completa el look">
       <h2 className="pdp-ctl-title">Completa el look</h2>
 
       <div className="pdp-ctl-inner">
@@ -58,53 +61,41 @@ export default function ProductCompleteLookSidebar({
           const inStock = hasVariantStock(prod);
           const backBadge = showBackInStockBadge(prod) && inStock;
           const desktopHidden = index >= DESKTOP_MAX;
+          const name = displayName(prod);
+          const rawImg = prod.images?.[0]?.src;
+          const imgUrl = normalizeStoreImageUrl(rawImg);
 
           return (
             <article
               key={prod.id}
               className={`pdp-ctl-card${desktopHidden ? ' pdp-ctl-card-desktop-extra' : ''}`}
             >
-              <div className="pdp-ctl-thumb">
-                <Link href={`/product/${prod.id}?shop=${sid}`} className="pdp-ctl-visual">
-                  {prod.images?.[0]?.src ? (
+              <Link
+                href={`/product/${prod.id}?shop=${sid}`}
+                className="pdp-ctl-card-link"
+              >
+                <div className="pdp-ctl-visual">
+                  {imgUrl ? (
                     <StoreImage
-                      src={prod.images[0].src}
-                      alt={productName(prod)}
+                      src={rawImg}
+                      alt={name || 'Producto'}
                       fill
                       className="pdp-ctl-img"
-                      style={{ objectFit: 'cover' }}
-                      sizes="120px"
+                      style={{ objectFit: 'cover', objectPosition: 'center top' }}
+                      sizes="(max-width: 1023px) 72vw, (max-width: 1400px) 28vw, 320px"
+                      loading="lazy"
                     />
-                  ) : null}
+                  ) : (
+                    <div className="pdp-ctl-ph" aria-hidden />
+                  )}
                   {backBadge && (
                     <span className="pdp-ctl-badge">Back in stock</span>
                   )}
-                </Link>
-                <button
-                  type="button"
-                  className="pdp-ctl-wl"
-                  aria-label="Guardar en lista de deseos"
-                  title="Guardar"
-                >
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.4"
-                    aria-hidden
-                  >
-                    <path d="M6 4h12a1 1 0 011 1v14l-7-4-7 4V5a1 1 0 011-1z" />
-                  </svg>
-                </button>
-              </div>
-              <div className="pdp-ctl-meta">
-                <div className="pdp-ctl-text">
-                  <Link href={`/product/${prod.id}?shop=${sid}`} className="pdp-ctl-name">
-                    {productName(prod)}
-                  </Link>
-                  <div className="pdp-ctl-prices">
+                </div>
+                <div className="pdp-ctl-meta">
+                  <span className="pdp-ctl-kicker">Incluído en el look</span>
+                  <span className="pdp-ctl-name">{name}</span>
+                  <div className="pdp-ctl-prices" aria-label="Precio">
                     {hasPromo && (
                       <span className="pdp-ctl-old">{formatPrice(listPrice)}</span>
                     )}
@@ -113,7 +104,7 @@ export default function ProductCompleteLookSidebar({
                     </span>
                   </div>
                 </div>
-              </div>
+              </Link>
             </article>
           );
         })}
@@ -126,6 +117,8 @@ export default function ProductCompleteLookSidebar({
           margin-top: 20px;
           padding-top: 22px;
           border-top: 1px solid #e8e8e8;
+          font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+          -webkit-font-smoothing: antialiased;
         }
 
         @media (min-width: 1024px) {
@@ -136,69 +129,75 @@ export default function ProductCompleteLookSidebar({
         }
 
         .pdp-ctl-title {
-          margin: 0 0 14px;
-          font-size: 11px;
-          font-weight: 600;
-          letter-spacing: 0.12em;
+          margin: 0 0 16px;
+          font-size: clamp(12px, 2.5cqw, 13px);
+          font-weight: 700;
+          letter-spacing: 0.14em;
           text-transform: uppercase;
-          color: #111;
+          color: #000;
         }
 
         @media (min-width: 1024px) {
           .pdp-ctl-title {
-            margin-bottom: 18px;
+            margin-bottom: 20px;
           }
         }
 
-        /* Móvil / tablet: fila con scroll horizontal */
         .pdp-ctl-inner {
           display: flex;
           flex-wrap: nowrap;
-          gap: 12px;
+          gap: 14px;
           overflow-x: auto;
           overflow-y: hidden;
           -webkit-overflow-scrolling: touch;
-          scrollbar-width: none;
-          padding: 0 0 10px;
-          margin: 0 -4px;
-          padding-left: 4px;
-          padding-right: 4px;
+          scrollbar-width: thin;
+          padding: 0 0 12px;
+          margin: 0 -2px;
+          padding-left: 2px;
+          padding-right: 2px;
+          scroll-snap-type: x mandatory;
         }
 
         .pdp-ctl-inner::-webkit-scrollbar {
-          display: none;
+          height: 4px;
+        }
+
+        .pdp-ctl-inner::-webkit-scrollbar-thumb {
+          background: #ccc;
+          border-radius: 2px;
         }
 
         .pdp-ctl-card {
-          flex: 0 0 calc(45vw - 12px);
-          max-width: 200px;
-          min-width: 0;
-          display: flex;
-          flex-direction: column;
+          flex: 0 0 min(78vw, 280px);
+          min-width: min(78vw, 280px);
+          max-width: 280px;
+          scroll-snap-align: start;
         }
 
         @media (min-width: 480px) {
           .pdp-ctl-card {
-            flex: 0 0 180px;
-            max-width: 200px;
+            flex: 0 0 240px;
+            min-width: 240px;
           }
         }
 
-        /* Desktop: rejilla 2×2, sin scroll */
         @media (min-width: 1024px) {
           .pdp-ctl-inner {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 18px 14px;
+            gap: 20px 16px;
             overflow: visible;
             margin: 0;
             padding: 0 0 4px;
+            scroll-snap-type: none;
           }
 
           .pdp-ctl-card {
             flex: unset;
+            min-width: 0;
             max-width: none;
             width: auto;
+            scroll-snap-align: unset;
           }
 
           .pdp-ctl-card-desktop-extra {
@@ -206,25 +205,29 @@ export default function ProductCompleteLookSidebar({
           }
         }
 
-        /* Columna lateral muy estrecha → una sola columna */
         @container pdp-ctl (max-width: 300px) {
           .pdp-ctl-inner {
             grid-template-columns: 1fr;
           }
         }
 
-        .pdp-ctl-thumb {
+        .pdp-ctl-card-link {
+          display: block;
+          text-decoration: none;
+          color: inherit;
+          touch-action: manipulation;
           position: relative;
+          z-index: 1;
+          -webkit-tap-highlight-color: transparent;
         }
 
         .pdp-ctl-visual {
           position: relative;
-          display: block;
-          aspect-ratio: 1;
+          aspect-ratio: 3 / 4;
           overflow: hidden;
-          background: #ececec;
-          text-decoration: none;
-          color: inherit;
+          background: #f0f0f0;
+          border: 1px solid #ebebeb;
+          border-radius: 2px;
         }
 
         .pdp-ctl-img {
@@ -232,105 +235,93 @@ export default function ProductCompleteLookSidebar({
           height: 100%;
           object-fit: cover;
           display: block;
-          transition: transform 0.4s ease;
+          transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .pdp-ctl-visual:hover .pdp-ctl-img {
-          transform: scale(1.03);
+        .pdp-ctl-card-link:hover .pdp-ctl-img {
+          transform: scale(1.04);
+        }
+
+        .pdp-ctl-ph {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(160deg, #e8e8e8, #d4d4d4);
         }
 
         .pdp-ctl-badge {
           position: absolute;
-          top: 8px;
-          left: 8px;
+          top: 10px;
+          left: 10px;
           font-size: 8px;
           font-weight: 700;
-          letter-spacing: 0.08em;
+          letter-spacing: 0.1em;
           text-transform: uppercase;
-          padding: 5px 7px;
+          padding: 6px 8px;
           background: #fff;
           color: #000;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-          max-width: calc(100% - 56px);
+          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+          max-width: calc(100% - 24px);
           line-height: 1.2;
           z-index: 1;
         }
 
-        .pdp-ctl-wl {
-          position: absolute;
-          top: 6px;
-          right: 6px;
-          z-index: 2;
-          width: 34px;
-          height: 34px;
-          padding: 0;
-          border: none;
-          border-radius: 2px;
-          background: rgba(255, 255, 255, 0.92);
-          color: #111;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
-          opacity: 0.95;
-        }
-
-        .pdp-ctl-wl:hover {
-          opacity: 1;
-        }
-
         .pdp-ctl-meta {
+          margin-top: 12px;
           display: flex;
+          flex-direction: column;
+          gap: 4px;
           align-items: flex-start;
-          justify-content: space-between;
-          gap: 8px;
-          margin-top: 10px;
         }
 
-        .pdp-ctl-text {
-          min-width: 0;
-          flex: 1;
+        .pdp-ctl-kicker {
+          font-size: 9px;
+          font-weight: 700;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          color: #888;
         }
 
         .pdp-ctl-name {
-          font-size: 11px;
-          font-weight: 500;
+          font-size: 12px;
+          font-weight: 700;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
           line-height: 1.35;
-          color: #111;
-          text-decoration: none;
+          color: #000;
           display: -webkit-box;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
           overflow: hidden;
         }
 
-        .pdp-ctl-name:hover {
+        .pdp-ctl-card-link:hover .pdp-ctl-name {
           text-decoration: underline;
+          text-underline-offset: 3px;
         }
 
         .pdp-ctl-prices {
           display: flex;
           flex-wrap: wrap;
           align-items: baseline;
-          gap: 6px;
-          margin-top: 4px;
-          font-size: 11px;
+          gap: 8px;
+          margin-top: 2px;
+          font-size: 12px;
         }
 
         .pdp-ctl-old {
           text-decoration: line-through;
           color: #999;
-          font-size: 10px;
+          font-size: 11px;
+          font-weight: 500;
         }
 
         .pdp-ctl-price,
         .pdp-ctl-curr {
-          color: #111;
+          color: #000;
         }
 
         .pdp-ctl-curr {
-          font-weight: 600;
+          font-weight: 700;
         }
       `}</style>
     </section>

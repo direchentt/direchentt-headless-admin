@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import ProductImageLightbox from './ProductImageLightbox';
 import ProductReviewsDrawer from './ProductReviewsDrawer';
 import StoreImage from './StoreImage';
+
+const SWIPE_HINT_KEY = 'pdp-gallery-swipe-hint-dismissed';
 
 interface Image {
   id: string | number;
@@ -21,6 +23,35 @@ export default function ImageGallery({ images, productName, productId = 0 }: Ima
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [reviewsOpen, setReviewsOpen] = useState(false);
+  const [showSwipeHint, setShowSwipeHint] = useState(false);
+
+  const touchStartX = useRef(0);
+  const touchEndX = useRef(0);
+  const suppressClickRef = useRef(false);
+
+  useEffect(() => {
+    if (!images || images.length <= 1) return;
+    try {
+      if (!localStorage.getItem(SWIPE_HINT_KEY)) setShowSwipeHint(true);
+    } catch {
+      setShowSwipeHint(true);
+    }
+  }, [images?.length]);
+
+  const dismissSwipeHint = useCallback(() => {
+    setShowSwipeHint(false);
+    try {
+      localStorage.setItem(SWIPE_HINT_KEY, '1');
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!showSwipeHint) return;
+    const t = window.setTimeout(() => dismissSwipeHint(), 7000);
+    return () => clearTimeout(t);
+  }, [showSwipeHint, dismissSwipeHint]);
 
   if (!images || images.length === 0) {
     return (
@@ -47,26 +78,99 @@ export default function ImageGallery({ images, productName, productId = 0 }: Ima
     setLightboxOpen(true);
   };
 
+  const goNext = useCallback(() => {
+    setMainIndex((i) => (i + 1) % images.length);
+  }, [images.length]);
+
+  const goPrev = useCallback(() => {
+    setMainIndex((i) => (i - 1 + images.length) % images.length);
+  }, [images.length]);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchEndX.current = e.targetTouches[0].clientX;
+    touchStartX.current = e.targetTouches[0].clientX;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.targetTouches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    const start = touchStartX.current;
+    const end = touchEndX.current;
+    const dx = end - start;
+    const threshold = 42;
+    if (Math.abs(dx) < threshold) return;
+    suppressClickRef.current = true;
+    window.setTimeout(() => {
+      suppressClickRef.current = false;
+    }, 400);
+    dismissSwipeHint();
+    if (dx < 0) goNext();
+    else goPrev();
+  };
+
+  const handleHeroClick = () => {
+    if (suppressClickRef.current) return;
+    openLightbox(mainIndex);
+  };
+
   return (
     <div className="pdp-gallery">
-      {/* MOBILE: imagen principal + franja horizontal de miniaturas (referencia EME) */}
       <div className="gallery-mobile-eme">
-        <button
-          type="button"
-          className="gallery-hero-btn"
-          onClick={() => openLightbox(mainIndex)}
-          aria-label="Ampliar galería"
+        <div
+          className="gallery-hero-frame"
+          role="group"
+          aria-label={`Galería del producto, imagen ${mainIndex + 1} de ${images.length}`}
         >
-          <StoreImage
-            src={images[mainIndex].src}
-            alt={`${productName} — vista principal`}
-            fill
-            className="gallery-hero-img"
-            style={{ objectFit: 'cover', objectPosition: 'center top' }}
-            sizes="(max-width: 1023px) 100vw, 50vw"
-            priority
-          />
-        </button>
+          <button
+            type="button"
+            className="gallery-hero-btn"
+            onClick={handleHeroClick}
+            onTouchStart={images.length > 1 ? handleTouchStart : undefined}
+            onTouchMove={images.length > 1 ? handleTouchMove : undefined}
+            onTouchEnd={images.length > 1 ? handleTouchEnd : undefined}
+            aria-label={`Ampliar imagen ${mainIndex + 1} de ${images.length}. Deslizá para otras fotos.`}
+          >
+            <div className="gallery-hero-track" key={mainIndex}>
+              <StoreImage
+                src={images[mainIndex].src}
+                alt={`${productName} — vista ${mainIndex + 1} de ${images.length}`}
+                fill
+                className="gallery-hero-img"
+                style={{ objectFit: 'cover', objectPosition: 'center top' }}
+                sizes="(max-width: 1023px) 100vw, 50vw"
+                priority={mainIndex === 0}
+                loading={mainIndex === 0 ? 'eager' : 'lazy'}
+              />
+            </div>
+          </button>
+
+          {images.length > 1 && showSwipeHint && (
+            <div className="gallery-swipe-hint" role="status">
+              <span className="gallery-swipe-hint-text">Deslizá para más fotos</span>
+              <span className="gallery-swipe-hint-arrows" aria-hidden>
+                ‹ ›
+              </span>
+              <button
+                type="button"
+                className="gallery-swipe-hint-close"
+                onClick={dismissSwipeHint}
+                aria-label="Cerrar indicación"
+              >
+                ×
+              </button>
+            </div>
+          )}
+
+          {images.length > 1 && (
+            <div className="gallery-hero-chrome" aria-hidden="false">
+              <span className="gallery-hero-counter">
+                {mainIndex + 1} / {images.length}
+              </span>
+            </div>
+          )}
+        </div>
 
         {images.length > 1 && (
           <div className="gallery-thumb-strip" role="tablist" aria-label="Vistas del producto">
@@ -77,7 +181,10 @@ export default function ImageGallery({ images, productName, productId = 0 }: Ima
                 role="tab"
                 aria-selected={idx === mainIndex}
                 className={`gallery-thumb-cell ${idx === mainIndex ? 'active' : ''}`}
-                onClick={() => setMainIndex(idx)}
+                onClick={() => {
+                  setMainIndex(idx);
+                  dismissSwipeHint();
+                }}
                 aria-label={`Vista ${idx + 1} de ${images.length}`}
               >
                 <StoreImage
@@ -103,7 +210,6 @@ export default function ImageGallery({ images, productName, productId = 0 }: Ima
         </button>
       </div>
 
-      {/* DESKTOP: grid 2 columnas */}
       <div className="gallery-desktop">
         {images.map((img, idx) => (
           <div key={img.id} className="gallery-item">
@@ -152,6 +258,11 @@ export default function ImageGallery({ images, productName, productId = 0 }: Ima
           }
         }
 
+        .gallery-hero-frame {
+          position: relative;
+          touch-action: pan-y;
+        }
+
         .gallery-hero-btn {
           display: block;
           width: 100%;
@@ -162,12 +273,113 @@ export default function ImageGallery({ images, productName, productId = 0 }: Ima
           cursor: zoom-in;
           position: relative;
           aspect-ratio: 3/4;
+          touch-action: pan-y pinch-zoom;
+        }
+
+        .gallery-hero-track {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+          animation: galleryHeroSwap 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes galleryHeroSwap {
+          from {
+            opacity: 0.65;
+            transform: scale(1.02);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
         }
 
         .gallery-hero-img {
           width: 100%;
           height: 100%;
           display: block;
+        }
+
+        .gallery-swipe-hint {
+          position: absolute;
+          left: 50%;
+          bottom: 18px;
+          transform: translateX(-50%);
+          z-index: 4;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 10px 14px 10px 16px;
+          background: rgba(255,255,255,0.94);
+          border: 1px solid #e0e0e0;
+          border-radius: 999px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+          animation: galleryHintIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both,
+            galleryHintPulse 2.2s ease-in-out 0.6s infinite;
+          max-width: calc(100% - 48px);
+          pointer-events: auto;
+        }
+
+        @keyframes galleryHintIn {
+          from {
+            opacity: 0;
+            transform: translateX(-50%) translateY(8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+          }
+        }
+
+        @keyframes galleryHintPulse {
+          0%, 100% { box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+          50% { box-shadow: 0 4px 24px rgba(180, 0, 0, 0.12); }
+        }
+
+        .gallery-swipe-hint-text {
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          color: #111;
+          white-space: nowrap;
+        }
+
+        .gallery-swipe-hint-arrows {
+          font-size: 14px;
+          font-weight: 600;
+          color: #b00000;
+          letter-spacing: 0.2em;
+        }
+
+        .gallery-swipe-hint-close {
+          margin-left: 4px;
+          padding: 0 4px;
+          border: none;
+          background: none;
+          font-size: 18px;
+          line-height: 1;
+          color: #666;
+          cursor: pointer;
+        }
+
+        .gallery-hero-chrome {
+          position: absolute;
+          top: 12px;
+          left: 12px;
+          z-index: 3;
+          pointer-events: none;
+        }
+
+        .gallery-hero-counter {
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: #fff;
+          background: rgba(0,0,0,0.55);
+          padding: 6px 10px;
+          border-radius: 2px;
         }
 
         .gallery-thumb-strip {
@@ -212,7 +424,7 @@ export default function ImageGallery({ images, productName, productId = 0 }: Ima
           top: 12%;
           bottom: 28%;
           width: 26px;
-          z-index: 2;
+          z-index: 5;
           display: flex;
           align-items: center;
           justify-content: center;

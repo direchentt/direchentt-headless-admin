@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import ModalsWrapper from '../../components/ModalsWrapper';
@@ -12,6 +13,12 @@ import {
 } from '../../../lib/backend';
 import { getStorefrontConfigStored } from '../../../lib/storefront-db';
 import { newsletterFooterImageUrl, resolveStorefrontConfig } from '../../../lib/storefront-config';
+import {
+  normalizeCategorySortParam,
+  sortCategoryProducts,
+} from '../../../lib/category-sort';
+
+export const dynamic = 'force-dynamic';
 
 interface CategoryPageProps {
   params: Promise<{ id: string }>;
@@ -26,16 +33,17 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
   const storeLocal = await getStoreData(shopParam);
   if (!storeLocal) return <StoreUnavailable shopId={String(shopParam)} />;
 
-  // Construir query para productos de la categoría
-  // TiendaNube usa category_id para filtrar
-  let apiQuery = `&category_id=${id}`;
-  if (query.sort) apiQuery += `&sort_by=${query.sort}`;
+  const sortSafe = normalizeCategorySortParam(query.sort);
 
-  // Fetch productos de la categoría, categorías y info de la tienda
+  let apiQuery = `&category_id=${encodeURIComponent(id)}&published=true`;
+  if (sortSafe) apiQuery += `&sort_by=${encodeURIComponent(sortSafe)}`;
+
   const storeIdNum = Number(storeLocal.storeId);
 
   const [productsRaw, categories, storeInfo, tnStore, storedFront] = await Promise.all([
-    fetchTN('products', storeLocal.storeId, storeLocal.accessToken, apiQuery),
+    fetchTN('products', storeLocal.storeId, storeLocal.accessToken, apiQuery, {
+      bypassCache: true,
+    }),
     fetchTN('categories', storeLocal.storeId, storeLocal.accessToken),
     fetchTN('', storeLocal.storeId, storeLocal.accessToken),
     fetchTiendanubeStore(storeLocal.storeId, storeLocal.accessToken),
@@ -44,7 +52,12 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
 
   const storefrontConfig = resolveStorefrontConfig(storedFront);
 
-  const products = processProducts(productsRaw);
+  const rawList = Array.isArray(productsRaw) ? productsRaw : [];
+  const processed = processProducts(rawList);
+  const products = sortCategoryProducts(processed, sortSafe);
+
+  const gridParsed = query.grid ? parseInt(query.grid, 10) : 4;
+  const gridColumns = [3, 4, 5].includes(gridParsed) ? gridParsed : 4;
   const displayLogo = normalizeTiendanubeLogo(tnStore?.logo) || storeLocal.logo;
   
   // Obtener nombre de la categoría actual
@@ -70,16 +83,24 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
         categories={categories}
       />
       
-      <CategoryGrid 
-        products={products}
-        storeId={storeLocal.storeId}
-        categoryName={categoryName}
-        categoryId={id}
-        initialGrid={query.grid ? parseInt(query.grid) : 4}
-        currentSort={query.sort || ''}
-        paymentInfo={paymentInfo}
-        installmentsInfo={installmentsInfo}
-      />
+      <Suspense
+        fallback={
+          <div style={{ padding: '48px 20px', textAlign: 'center', color: '#888', fontSize: 14 }}>
+            Cargando categoría…
+          </div>
+        }
+      >
+        <CategoryGrid
+          products={products}
+          storeId={storeLocal.storeId}
+          categoryName={categoryName}
+          categoryId={id}
+          initialGrid={gridColumns}
+          currentSort={sortSafe}
+          paymentInfo={paymentInfo}
+          installmentsInfo={installmentsInfo}
+        />
+      </Suspense>
       
       <Footer
         logo={displayLogo}
