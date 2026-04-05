@@ -23,8 +23,9 @@ export default async function AdminReglasPage({
     <div className={styles.wrap}>
       <h1 className={styles.pageTitle}>Reglas y módulos</h1>
       <p className={styles.lead}>
-        Configuración avanzada guardada en tu base (MongoDB). Los pedidos y el catálogo siguen viviendo en
-        Tiendanube; acá definís flags, textos de referencia y notas para el equipo.
+        Configuración avanzada en MongoDB: mantenimiento, checkout, flags técnicos y{' '}
+        <strong>playbook de marketing</strong> (anuncios, UTMs, notas de campaña). El guardado fusiona con
+        lo existente para no perder campos.
       </p>
       <div className={styles.shopBar}>
         <span>

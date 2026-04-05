@@ -7,14 +7,23 @@ import { useEffect, useMemo, useState } from 'react';
 const nav = [
   { href: '/admin', label: 'Inicio', desc: 'Resumen y accesos', icon: '⌂' },
   { href: '/admin/storefront', label: 'Tienda en línea', desc: 'Home, banners y tema', icon: '◉' },
+  { href: '/admin/marketing', label: 'Marketing', desc: 'Métricas y embudo', icon: '◎' },
   { href: '/admin/pedidos', label: 'Pedidos', desc: 'Lectura vía API Tiendanube', icon: '▤' },
   { href: '/admin/catalogo', label: 'Catálogo', desc: 'Productos y buscador', icon: '▣' },
-  { href: '/admin/reglas', label: 'Reglas y módulos', desc: 'Flags y textos avanzados', icon: '⚙' },
+  { href: '/admin/reglas', label: 'Reglas y módulos', desc: 'Flags, marketing y textos', icon: '⚙' },
+];
+
+const dockNav = [
+  { href: '/admin', label: 'Inicio', icon: '⌂' },
+  { href: '/admin/storefront', label: 'Vitrina', icon: '◉' },
+  { href: '/admin/marketing', label: 'Mkt', icon: '◎' },
+  { href: '/admin/pedidos', label: 'Pedidos', icon: '▤' },
 ];
 
 const PAGE_TITLE: Record<string, string> = {
   '/admin': 'Inicio',
   '/admin/storefront': 'Tienda en línea',
+  '/admin/marketing': 'Marketing',
   '/admin/pedidos': 'Pedidos',
   '/admin/catalogo': 'Catálogo',
   '/admin/reglas': 'Reglas y módulos',
@@ -49,7 +58,9 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     };
   }, [navOpen]);
 
-  const pageTitle = PAGE_TITLE[pathname] ?? 'Administración';
+  const pageTitle =
+    PAGE_TITLE[pathname] ??
+    (pathname.startsWith('/admin/marketing') ? 'Marketing' : 'Administración');
 
   async function logout() {
     await fetch('/api/admin/logout', { method: 'POST' });
@@ -141,6 +152,38 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         </header>
         <div className="adm-content">{children}</div>
       </div>
+
+      <nav className="adm-dock" aria-label="Acceso rápido móvil">
+        {dockNav.map((item) => {
+          const active =
+            item.href === '/admin'
+              ? pathname === '/admin'
+              : pathname === item.href || pathname.startsWith(`${item.href}/`);
+          return (
+            <Link
+              key={item.href}
+              href={navHref(item.href, adminShop)}
+              className={`adm-dock-item ${active ? 'active' : ''}`}
+            >
+              <span className="adm-dock-ico" aria-hidden>
+                {item.icon}
+              </span>
+              <span className="adm-dock-label">{item.label}</span>
+            </Link>
+          );
+        })}
+        <button
+          type="button"
+          className="adm-dock-item adm-dock-more"
+          aria-label="Abrir menú completo"
+          onClick={() => setNavOpen(true)}
+        >
+          <span className="adm-dock-ico" aria-hidden>
+            ≡
+          </span>
+          <span className="adm-dock-label">Menú</span>
+        </button>
+      </nav>
 
       <style jsx global>{`
         .adm-root {
@@ -373,6 +416,66 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           padding: 16px;
           padding-bottom: max(24px, env(safe-area-inset-bottom));
           overflow: auto;
+        }
+        .adm-dock {
+          display: none;
+        }
+        @media (max-width: 767px) {
+          .adm-content {
+            padding-bottom: calc(72px + env(safe-area-inset-bottom));
+          }
+          .adm-dock {
+            display: flex;
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 140;
+            background: #fff;
+            border-top: 1px solid #e1e3e5;
+            padding: 6px 8px calc(8px + env(safe-area-inset-bottom));
+            gap: 4px;
+            justify-content: space-around;
+            align-items: stretch;
+            box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.06);
+          }
+          .adm-dock-item {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            padding: 6px 4px;
+            border: none;
+            border-radius: 10px;
+            background: transparent;
+            color: #6d7175;
+            text-decoration: none;
+            font-size: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+          }
+          .adm-dock-item.active {
+            color: #004c3f;
+            background: #e3f1ed;
+          }
+          .adm-dock-ico {
+            font-size: 18px;
+            line-height: 1;
+            opacity: 0.9;
+          }
+          .adm-dock-label {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+          }
+          .adm-dock-more {
+            color: #202223;
+          }
         }
         @media (min-width: 768px) {
           .adm-content {

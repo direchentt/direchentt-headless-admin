@@ -248,3 +248,135 @@ export function topCategoryIdsFromProfile(profile: ShopperProfileDoc | null, lim
     .map(([k]) => parseInt(k, 10));
   return entries.filter((n) => Number.isFinite(n));
 }
+
+/** Resumen para el panel admin (últimos 7 días vs 7 anteriores). */
+export type MarketingInsightsSnapshot = {
+  generatedAt: string;
+  storeId: number;
+  windowDays: 7;
+  eventsByType: Record<string, number>;
+  eventsByTypePrevPeriod: Record<string, number>;
+  topCartProductIds: { productId: number; count: number }[];
+  topSearches: { query: string; count: number }[];
+  activeVisitorsApprox: number;
+  profileCount: number;
+  wishlistAdds: number;
+  /** Heurística: más carritos/checkout y búsquedas suman; solo orientativa */
+  activityPulse: number;
+  funnel: {
+    productViews: number;
+    addToCart: number;
+    checkoutStart: number;
+    searches: number;
+  };
+};
+
+export async function getMarketingInsightsSnapshot(
+  storeId: number
+): Promise<MarketingInsightsSnapshot | null> {
+  try {
+    await ensureIndexes();
+    const client = await getMongoClient();
+    const coll = client.db(DB_NAME).collection<StorefrontEventDoc>(COL_EVENTS);
+    const profColl = client.db(DB_NAME).collection<ShopperProfileDoc>(COL_PROFILES);
+    const now = Date.now();
+    const d7 = new Date(now - 7 * 86400000);
+    const d14 = new Date(now - 14 * 86400000);
+
+    const [byType, byTypePrev, topCart, topSearch, visitors, wishCount, profCount] =
+      await Promise.all([
+        coll
+          .aggregate<{ _id: string; c: number }>([
+            { $match: { storeId, createdAt: { $gte: d7 } } },
+            { $group: { _id: '$type', c: { $sum: 1 } } },
+          ])
+          .toArray(),
+        coll
+          .aggregate<{ _id: string; c: number }>([
+            { $match: { storeId, createdAt: { $gte: d14, $lt: d7 } } },
+            { $group: { _id: '$type', c: { $sum: 1 } } },
+          ])
+          .toArray(),
+        coll
+          .aggregate<{ _id: unknown; c: number }>([
+            { $match: { storeId, type: 'add_to_cart', createdAt: { $gte: d7 } } },
+            { $group: { _id: '$payload.productId', c: { $sum: 1 } } },
+            { $match: { _id: { $ne: null } } },
+            { $sort: { c: -1 } },
+            { $limit: 12 },
+          ])
+          .toArray(),
+        coll
+          .aggregate<{ _id: unknown; c: number }>([
+            { $match: { storeId, type: 'search', createdAt: { $gte: d7 } } },
+            { $group: { _id: '$payload.query', c: { $sum: 1 } } },
+            { $match: { _id: { $type: 'string' } } },
+            { $sort: { c: -1 } },
+            { $limit: 15 },
+          ])
+          .toArray(),
+        coll.distinct('visitorId', { storeId, createdAt: { $gte: d7 } }),
+        coll.countDocuments({ storeId, type: 'wishlist_add', createdAt: { $gte: d7 } }),
+        profColl.countDocuments({ storeId }),
+      ]);
+
+    const eventsByType: Record<string, number> = {};
+    for (const r of byType) {
+      if (r._id) eventsByType[r._id] = r.c;
+    }
+    const eventsByTypePrevPeriod: Record<string, number> = {};
+    for (const r of byTypePrev) {
+      if (r._id) eventsByTypePrevPeriod[r._id] = r.c;
+    }
+
+    const topCartProductIds: { productId: number; count: number }[] = [];
+    for (const r of topCart) {
+      const id =
+        typeof r._id === 'number'
+          ? r._id
+          : typeof r._id === 'string'
+            ? parseInt(r._id, 10)
+            : NaN;
+      if (Number.isFinite(id) && id > 0) topCartProductIds.push({ productId: id, count: r.c });
+    }
+
+    const topSearches: { query: string; count: number }[] = [];
+    for (const r of topSearch) {
+      const q = String(r._id ?? '')
+        .trim()
+        .slice(0, 120);
+      if (q.length >= 2) topSearches.push({ query: q, count: r.c });
+    }
+
+    const funnel = {
+      productViews: eventsByType.product_view ?? 0,
+      addToCart: eventsByType.add_to_cart ?? 0,
+      checkoutStart: eventsByType.checkout_start ?? 0,
+      searches: eventsByType.search ?? 0,
+    };
+    const activityPulse = Math.round(
+      funnel.addToCart * 3 +
+        funnel.checkoutStart * 5 +
+        funnel.searches * 0.6 +
+        funnel.productViews * 0.08
+    );
+
+    return {
+      generatedAt: new Date().toISOString(),
+      storeId,
+      windowDays: 7,
+      eventsByType,
+      eventsByTypePrevPeriod,
+      topCartProductIds,
+      topSearches,
+      activeVisitorsApprox: Array.isArray(visitors) ? visitors.length : 0,
+      profileCount: profCount,
+      wishlistAdds: wishCount,
+      activityPulse,
+      funnel,
+    };
+  } catch (e) {
+    console.error('[marketing-insights]', e);
+    return null;
+  }
+}

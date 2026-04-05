@@ -6,7 +6,9 @@ import {
   upsertAdminPanelSettings,
   type AdminPanelStored,
   type AdminPanelFlags,
+  type AdminMarketingPlaybook,
 } from '@/lib/admin-panel-db';
+import { getMarketingInsightsSnapshot } from '@/lib/shopper-intelligence-db';
 import { getStoreData } from '@/lib/backend';
 import { parseAdminStoreIdParam } from '@/lib/admin-shop';
 import { listMpPaymentsByStore } from '@/lib/mp-payments-db';
@@ -90,31 +92,47 @@ export async function loadAdminPanelRules(storeId: number) {
   return s ?? {};
 }
 
-export async function saveAdminPanelRules(
-  storeId: number,
-  patch: {
-    maintenanceMode: boolean;
-    maintenanceMessage: string;
-    internalNotes: string;
-    checkoutSuccessNote: string;
-    checkoutLegalHint: string;
-    flags: AdminPanelFlags;
-  }
-) {
+export type SaveAdminPanelRulesPatch = {
+  maintenanceMode: boolean;
+  maintenanceMessage: string;
+  internalNotes: string;
+  checkoutSuccessNote: string;
+  checkoutLegalHint: string;
+  flags: AdminPanelFlags;
+  marketing: AdminMarketingPlaybook;
+};
+
+export async function saveAdminPanelRules(storeId: number, patch: SaveAdminPanelRulesPatch) {
   if (!(await isAdminAuthenticated())) {
     return { ok: false as const, error: 'No autorizado' };
   }
   try {
+    const prev = (await getAdminPanelSettings(storeId)) ?? {};
+    const m = patch.marketing;
     const next: AdminPanelStored = {
+      ...prev,
       maintenanceMode: patch.maintenanceMode,
       maintenanceMessage: strField(patch.maintenanceMessage),
       internalNotes: strField(patch.internalNotes),
       checkoutSuccessNote: strField(patch.checkoutSuccessNote),
       checkoutLegalHint: strField(patch.checkoutLegalHint),
       flags: {
+        ...prev.flags,
         experimentalCartSync: Boolean(patch.flags.experimentalCartSync),
         strictStockMessages: Boolean(patch.flags.strictStockMessages),
         logCheckoutErrors: Boolean(patch.flags.logCheckoutErrors),
+        preferExpressShipping: Boolean(patch.flags.preferExpressShipping),
+        lowStockUrgencyCopy: Boolean(patch.flags.lowStockUrgencyCopy),
+        verboseStorefrontLogs: Boolean(patch.flags.verboseStorefrontLogs),
+      },
+      marketing: {
+        ...prev.marketing,
+        announcementEnabled: Boolean(m.announcementEnabled),
+        announcementText: strField(m.announcementText),
+        announcementLink: strField(m.announcementLink),
+        utmCampaignTemplate: strField(m.utmCampaignTemplate),
+        notasCampanas: strField(m.notasCampanas),
+        objetivoConversion: strField(m.objetivoConversion),
       },
     };
     await upsertAdminPanelSettings(storeId, next);
@@ -123,6 +141,14 @@ export async function saveAdminPanelRules(
     const msg = e instanceof Error ? e.message : 'Error al guardar';
     return { ok: false as const, error: msg };
   }
+}
+
+/** Métricas agregadas desde señales del storefront (Mongo). Solo admin autenticado. */
+export async function loadMarketingInsights(storeId: number) {
+  if (!(await isAdminAuthenticated())) {
+    return null;
+  }
+  return getMarketingInsightsSnapshot(storeId);
 }
 
 /** Pagos registrados vía webhook de Mercado Pago (Mongo), por tienda. */

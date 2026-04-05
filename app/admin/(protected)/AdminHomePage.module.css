@@ -38,8 +38,83 @@
   font-size: 12px;
 }
 
+.pulseStrip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 10px;
+  margin-bottom: 22px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid #e1e3e5;
+  border-radius: 14px;
+}
+
+.pulseCard {
+  flex: 1 1 calc(50% - 10px);
+  min-width: 100px;
+  padding: 12px 14px;
+  background: #f8faf9;
+  border-radius: 12px;
+  border: 1px solid #e3f1ed;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+@media (min-width: 640px) {
+  .pulseCard {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
+.pulseLabel {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6d7175;
+}
+
+.pulseVal {
+  font-size: 22px;
+  font-weight: 800;
+  color: #004c3f;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.pulseCta {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 16px;
+  background: #008060;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  text-decoration: none;
+  border-radius: 10px;
+  align-self: center;
+}
+
+@media (min-width: 640px) {
+  .pulseCta {
+    flex: 0 0 auto;
+    margin-left: auto;
+  }
+}
+
+.pulseCta:hover {
+  background: #006e52;
+  color: #fff;
+}
+
 .steps {
-  margin: 0;
+  margin: 0 0 22px;
   padding: 0;
   list-style: none;
   display: flex;

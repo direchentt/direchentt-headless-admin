@@ -8,6 +8,25 @@ export type AdminPanelFlags = {
   experimentalCartSync?: boolean;
   strictStockMessages?: boolean;
   logCheckoutErrors?: boolean;
+  /** Priorizar opciones de envío exprés cuando existan (intención de despliegue) */
+  preferExpressShipping?: boolean;
+  /** Copy de urgencia por stock bajo en PDP / fichas (cuando esté cableado) */
+  lowStockUrgencyCopy?: boolean;
+  /** Registrar más detalle de interacción en servidor (debug) */
+  verboseStorefrontLogs?: boolean;
+};
+
+/**
+ * Playbook de marketing guardado en Mongo (referencia para el equipo; parte puede cablearse al storefront).
+ */
+export type AdminMarketingPlaybook = {
+  announcementEnabled?: boolean;
+  announcementText?: string;
+  announcementLink?: string;
+  /** Plantilla de campaña UTM (ej. primavera_2026) */
+  utmCampaignTemplate?: string;
+  notasCampanas?: string;
+  objetivoConversion?: string;
 };
 
 /**
@@ -22,6 +41,7 @@ export type AdminPanelStored = {
   /** Texto legal extra en checkout (referencia interna; integración en UI aparte) */
   checkoutLegalHint?: string;
   flags?: AdminPanelFlags;
+  marketing?: AdminMarketingPlaybook;
 };
 
 export type AdminPanelDoc = {
