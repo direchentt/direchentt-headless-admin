@@ -186,7 +186,8 @@ export async function generateMarketingBriefWithClaude(input: MarketingBriefInpu
     };
   }
 
-  const model = envString('CLAUDE_MARKETING_MODEL') || 'claude-3-5-haiku-20241022';
+  // Default: alias oficial Haiku 4.5 (ver modelos en docs.anthropic.com). El 3.5 Haiku snapshot viejo ya no existe en la API.
+  const model = envString('CLAUDE_MARKETING_MODEL') || 'claude-haiku-4-5';
   const payload = buildPayload(input);
   const user = userPromptFromPayload(payload);
 
