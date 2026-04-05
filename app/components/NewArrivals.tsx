@@ -745,11 +745,11 @@ function NewArrivalsCard({ product, storeId, showAlternateImages, onQuickShop, f
                 .quick-add:hover { transform: scale(1.06); background: #111; color: #fff; border-color: #111; }
 
                 .product-info { padding: 0 5px; }
-                .product-name-price { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
-                .product-name { font-size: 11px; font-weight: 500; color: #000; line-height: 1.3; flex: 1; text-transform: uppercase; }
-                .price-container { display: flex; flex-direction: column; align-items: flex-end; }
-                .product-price-old { font-size: 11px; color: #999; text-decoration: line-through; }
-                .product-price { font-size: 11px; font-weight: 500; color: #000; }
+                .product-name-price { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+                .product-name { font-size: 11px; font-weight: 500; color: #000; line-height: 1.2; flex: 1; min-width: 0; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+                .price-container { display: inline-flex; flex-direction: row; flex-wrap: nowrap; align-items: baseline; justify-content: flex-end; gap: 6px; flex-shrink: 0; white-space: nowrap; }
+                .product-price-old { font-size: 10px; font-weight: 500; color: #999; text-decoration: line-through; }
+                .product-price { font-size: 11px; font-weight: 700; color: #000; line-height: 1.2; }
                 .product-price.sale { color: #c00; }
                 .no-image { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #f0f0f0; color: #999; font-size: 12px; }
             `}</style>

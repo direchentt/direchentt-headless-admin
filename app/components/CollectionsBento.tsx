@@ -128,12 +128,11 @@ export default function CollectionsBento({
           min-height: 0;
           background: #fafafa;
         }
-        .bento-product-slot :global(.product-card-link) {
-          height: 100%;
-          display: flex;
-        }
         .bento-product-slot :global(.product-card) {
           width: 100%;
+          height: 100%;
+          display: flex;
+          flex-direction: column;
         }
         .bento-editorial-slot {
           position: relative;

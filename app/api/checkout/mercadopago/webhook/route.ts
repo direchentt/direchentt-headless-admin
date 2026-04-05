@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { MercadoPagoConfig, Payment } from 'mercadopago';
+import { MercadoPagoConfig, Payment, Preference } from 'mercadopago';
 import { getStoreData } from '@/lib/backend';
 import {
   upsertMpPaymentFromWebhook,
   cartLinesForTiendanubeOrder,
   type MpPaymentTiendanubeSync,
 } from '@/lib/mp-payments-db';
+import type { ExpressCheckoutBuyerInput } from '@/lib/express-checkout-buyer';
+import {
+  buildTiendanubeOrderBodyFromBuyer,
+  validateExpressCheckoutBuyer,
+} from '@/lib/express-checkout-buyer';
+import { parseShippingSnapshotFromMetadata } from '@/lib/express-checkout-shipping';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,15 +62,41 @@ function asMetaRecord(meta: unknown): Record<string, unknown> | null {
   return meta as Record<string, unknown>;
 }
 
+function parseBuyerSnapshotFromMetadata(meta: Record<string, unknown> | null): ExpressCheckoutBuyerInput | null {
+  if (!meta) return null;
+  const raw = meta.buyer_snapshot;
+  if (typeof raw !== 'string' || !raw.trim()) return null;
+  try {
+    const o = JSON.parse(raw) as ExpressCheckoutBuyerInput;
+    if (!o || typeof o !== 'object') return null;
+    if (validateExpressCheckoutBuyer(o) !== null) return null;
+    return o;
+  } catch {
+    return null;
+  }
+}
+
 async function tryCreateTiendanubeOrder(
   storeIdStr: string,
   lines: { variant_id: number; quantity: number }[],
-  accessToken: string
+  accessToken: string,
+  meta: Record<string, unknown> | null
 ): Promise<MpPaymentTiendanubeSync> {
   if (lines.length === 0) {
     return { attempted: false };
   }
   const API_BASE = `https://api.tiendanube.com/v1/${storeIdStr}`;
+  const buyer = parseBuyerSnapshotFromMetadata(meta);
+  const shippingSel = parseShippingSnapshotFromMetadata(meta);
+  const orderBody = buyer
+    ? buildTiendanubeOrderBodyFromBuyer(lines, buyer, {
+        shippingSelection: shippingSel ?? undefined,
+      })
+    : {
+        products: lines,
+        payment_status: 'paid',
+        shipping_status: 'unpacked',
+      };
   try {
     const res = await fetch(`${API_BASE}/orders`, {
       method: 'POST',
@@ -73,11 +105,7 @@ async function tryCreateTiendanubeOrder(
         Authentication: `bearer ${accessToken}`,
         'User-Agent': 'direchentt-headless',
       },
-      body: JSON.stringify({
-        products: lines,
-        payment_status: 'paid',
-        shipping_status: 'unpacked',
-      }),
+      body: JSON.stringify(orderBody),
     });
     const text = await res.text();
     let parsed: unknown;
@@ -151,7 +179,20 @@ export async function POST(req: NextRequest) {
     const paymentApi = new Payment(mpClient);
     const p = await paymentApi.get({ id: String(paymentId) });
 
-    const meta = asMetaRecord(p.metadata);
+    let meta = asMetaRecord(p.metadata);
+    const prefRaw = (p as unknown as Record<string, unknown>).preference_id;
+    if (!meta?.buyer_snapshot && prefRaw != null) {
+      try {
+        const prefApi = new Preference(mpClient);
+        const pref = await prefApi.get({ preferenceId: String(prefRaw) });
+        const pm = asMetaRecord(pref.metadata);
+        if (pm && Object.keys(pm).length > 0) {
+          meta = { ...(meta || {}), ...pm };
+        }
+      } catch (e) {
+        console.warn('[MP webhook] No se pudo obtener metadata de la preferencia:', e);
+      }
+    }
     const storeRaw = meta?.store_id ?? meta?.storeId;
     const storeIdNum = parseInt(String(storeRaw ?? ''), 10);
     const storeIdForDb = Number.isFinite(storeIdNum) ? storeIdNum : 0;
@@ -180,7 +221,8 @@ export async function POST(req: NextRequest) {
         tiendanubeSync = await tryCreateTiendanubeOrder(
           String(storeIdForDb),
           lines,
-          storeData.accessToken
+          storeData.accessToken,
+          meta
         );
         if (tiendanubeSync.ok) {
           console.log(`🎉 Orden TN tras MP payment ${paymentId}:`, tiendanubeSync.orderId);
@@ -195,8 +237,6 @@ export async function POST(req: NextRequest) {
         console.warn(`⚠️ MP aprobado sin token TN para tienda ${storeIdForDb}`);
       }
     }
-
-    const prefRaw = (p as unknown as Record<string, unknown>).preference_id;
 
     await upsertMpPaymentFromWebhook({
       paymentId: String(p.id ?? paymentId),

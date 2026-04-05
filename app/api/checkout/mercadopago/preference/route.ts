@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createMercadoPagoCheckoutProPreference } from '@/lib/mercadopago-checkout-pro';
+import type { ExpressCheckoutBuyerInput } from '@/lib/express-checkout-buyer';
+import { validateExpressCheckoutBuyer } from '@/lib/express-checkout-buyer';
+import {
+  matchShippingSelectionToOptions,
+  parseExpressShippingSelection,
+} from '@/lib/express-checkout-shipping';
+import { getStorefrontConfigStored } from '@/lib/storefront-db';
+import { resolveStorefrontConfig } from '@/lib/storefront-config';
 
 /**
  * Checkout Pro: crea preferencia con el Access Token (servidor).
@@ -18,10 +26,46 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { items, storeId } = await req.json();
+    const body = await req.json();
+    const { items, storeId, buyer, shipping } = body as {
+      items?: unknown;
+      storeId?: string;
+      buyer?: ExpressCheckoutBuyerInput;
+      shipping?: unknown;
+    };
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'El carrito está vacío' }, { status: 400 });
+    }
+
+    let buyerNorm: ExpressCheckoutBuyerInput | null = null;
+    if (buyer && typeof buyer === 'object') {
+      const b = buyer as ExpressCheckoutBuyerInput;
+      const err = validateExpressCheckoutBuyer(b);
+      if (err) {
+        return NextResponse.json({ error: err }, { status: 400 });
+      }
+      buyerNorm = {
+        email: b.email.trim(),
+        firstName: b.firstName.trim(),
+        lastName: b.lastName.trim(),
+        phone: b.phone.trim(),
+        document: b.document.trim(),
+        address: b.address.trim(),
+        streetNumber: b.streetNumber.trim(),
+        floor: (b.floor || '').trim(),
+        locality: (b.locality || '').trim(),
+        city: b.city.trim(),
+        province: b.province.trim(),
+        zipcode: b.zipcode.trim(),
+        country: (b.country || 'AR').trim().toUpperCase(),
+        note: (b.note || '').trim(),
+      };
+    } else {
+      return NextResponse.json(
+        { error: 'Faltan los datos del comprador. Completá el formulario de checkout.' },
+        { status: 400 }
+      );
     }
 
     const mpItems = items.map((item: any) => ({
@@ -32,11 +76,43 @@ export async function POST(req: NextRequest) {
       quantity: item.quantity ?? 1,
     }));
 
+    const storeIdStr = String(storeId || '5112334');
+    const storeIdNum = parseInt(storeIdStr, 10);
+    const sel = parseExpressShippingSelection(shipping);
+    if (!sel) {
+      return NextResponse.json(
+        { error: 'Elegí un medio de envío válido.' },
+        { status: 400 }
+      );
+    }
+
+    let shippingNorm: typeof sel | null = null;
+    if (Number.isFinite(storeIdNum)) {
+      const storedCfg = await getStorefrontConfigStored(storeIdNum);
+      const resolved = resolveStorefrontConfig(storedCfg);
+      const matched = matchShippingSelectionToOptions(sel, resolved.expressCheckoutShippingResolved);
+      if (!matched) {
+        return NextResponse.json(
+          { error: 'La opción de envío no es válida. Actualizá la página y probá de nuevo.' },
+          { status: 400 }
+        );
+      }
+      shippingNorm = {
+        id: matched.id,
+        label: matched.label,
+        price: matched.price,
+      };
+    } else {
+      return NextResponse.json({ error: 'storeId inválido' }, { status: 400 });
+    }
+
     const result = await createMercadoPagoCheckoutProPreference(
       req,
       accessToken,
-      String(storeId || '5112334'),
-      mpItems
+      storeIdStr,
+      mpItems,
+      buyerNorm,
+      shippingNorm
     );
 
     if (!result.ok) {

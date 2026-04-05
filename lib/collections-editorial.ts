@@ -107,13 +107,70 @@ function resolveOneBlock(
   };
 }
 
-/** Si hay `editorialBlocks` en config, devuelve bloques resueltos; si no, null. */
+function editorialKindFromUrl(url: string): 'image' | 'video' {
+  const u = url.toLowerCase();
+  if (/\.(mp4|webm|ogg)(\?|$)/i.test(u)) return 'video';
+  return 'image';
+}
+
+function fourProductCells(pool: any[], used: Set<number>): ResolvedCollectionsCell[] | null {
+  const cells: ResolvedCollectionsCell[] = [];
+  for (let i = 0; i < 4; i++) {
+    const p = takeProductLoose(pool, used);
+    if (!p) return null;
+    cells.push({ type: 'product', product: p });
+  }
+  return cells;
+}
+
+/**
+ * URLs legacy (sin editorialBlocks): cada URL = un banner + grilla 2×2 de productos.
+ * Orden: primero editorialLeftUrl, luego editorialGridUrl (si es distinta).
+ */
+function resolveLegacyUrlBlocks(
+  col: CollectionsPageStored,
+  pool: any[],
+  used: Set<number>
+): ResolvedCollectionsEditorialBlock[] {
+  const left = col.editorialLeftUrl?.trim() || '';
+  const grid = col.editorialGridUrl?.trim() || '';
+  const urls: string[] = [];
+  if (left) urls.push(left);
+  if (grid && grid !== left) urls.push(grid);
+
+  const out: ResolvedCollectionsEditorialBlock[] = [];
+  for (const url of urls) {
+    const cells = fourProductCells(pool, used);
+    if (!cells) break;
+    out.push({
+      layout: 'editorial-left',
+      editorial: { kind: editorialKindFromUrl(url), url },
+      cells,
+    });
+  }
+  return out;
+}
+
+/** Fila visual: banner | 4 productos (2×2); la siguiente invierte el lado del banner. */
+function applyAlternatingBannerLayout(blocks: ResolvedCollectionsEditorialBlock[]): void {
+  blocks.forEach((b, i) => {
+    b.layout = i % 2 === 0 ? 'editorial-left' : 'editorial-right';
+  });
+}
+
+/**
+ * Bloques para /collections:
+ * - Con `editorialBlocks` en storefront: cada bloque = banner + 2×2 (según celdas configuradas).
+ * - Sin bloques pero con URLs legacy: 1–2 filas banner+2×2 desde editorialLeftUrl / editorialGridUrl.
+ * - Si no hay banners ni URLs: null → la página muestra solo grilla aleatoria.
+ *
+ * Siempre alterna izquierda/derecha por índice de fila (0: banner izq., 1: banner der., …).
+ */
 export function resolveCollectionsEditorialBlocks(
   col: CollectionsPageStored | undefined,
   productsShuffled: any[]
 ): ResolvedCollectionsEditorialBlock[] | null {
-  const blocks = col?.editorialBlocks;
-  if (!Array.isArray(blocks) || blocks.length === 0) return null;
+  if (!col) return null;
 
   const pool = [...productsShuffled];
   const productById = new Map<number, any>();
@@ -122,14 +179,22 @@ export function resolveCollectionsEditorialBlocks(
   }
 
   const used = new Set<number>();
-  const out: ResolvedCollectionsEditorialBlock[] = [];
+  let out: ResolvedCollectionsEditorialBlock[] = [];
 
-  for (const b of blocks) {
-    const resolved = resolveOneBlock(b, pool, productById, used);
-    if (resolved) out.push(resolved);
+  const configured = col.editorialBlocks;
+  if (Array.isArray(configured) && configured.length > 0) {
+    for (const b of configured) {
+      const resolved = resolveOneBlock(b, pool, productById, used);
+      if (resolved) out.push(resolved);
+    }
+  } else {
+    out = resolveLegacyUrlBlocks(col, pool, used);
   }
 
-  return out.length ? out : null;
+  if (out.length === 0) return null;
+
+  applyAlternatingBannerLayout(out);
+  return out;
 }
 
 export function collectUsedProductIds(blocks: ResolvedCollectionsEditorialBlock[]): Set<number> {

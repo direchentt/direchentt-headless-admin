@@ -19,7 +19,7 @@ function EditorialHero({ kind, url }: { kind: 'image' | 'video'; url: string }) 
           alt=""
           fill
           style={{ objectFit: 'cover', objectPosition: 'center' }}
-          sizes="(max-width: 900px) 100vw, 50vw"
+          sizes="(max-width: 959px) 100vw, 48vw"
           priority
         />
       )}
@@ -28,10 +28,10 @@ function EditorialHero({ kind, url }: { kind: 'image' | 'video'; url: string }) 
           position: relative;
           width: 100%;
           height: 100%;
-          min-height: 320px;
+          min-height: 260px;
           overflow: hidden;
         }
-        @media (min-width: 900px) {
+        @media (min-width: 960px) {
           .ce-hero-wrap {
             min-height: 100%;
             position: absolute;
@@ -41,12 +41,12 @@ function EditorialHero({ kind, url }: { kind: 'image' | 'video'; url: string }) 
         .ce-hero-media {
           width: 100%;
           height: 100%;
-          min-height: 320px;
+          min-height: 260px;
           object-fit: cover;
           object-position: center;
           display: block;
         }
-        @media (min-width: 900px) {
+        @media (min-width: 960px) {
           .ce-hero-media {
             min-height: 100%;
             position: absolute;
@@ -64,12 +64,20 @@ function GridCell({ cell, storeId }: { cell: ResolvedCollectionsCell; storeId: s
       <div className="ce-cell ce-cell--product">
         <ProductCard product={cell.product} storeId={storeId} />
         <style jsx>{`
-          .ce-cell--product :global(.product-card-link) {
-            height: 100%;
+          .ce-cell--product {
             display: flex;
+            flex-direction: column;
+            min-height: 0;
+            min-width: 0;
+            height: 100%;
           }
           .ce-cell--product :global(.product-card) {
             width: 100%;
+            height: 100%;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
           }
         `}</style>
       </div>
@@ -86,25 +94,32 @@ function GridCell({ cell, storeId }: { cell: ResolvedCollectionsCell; storeId: s
           alt=""
           fill
           style={{ objectFit: 'cover', objectPosition: 'center' }}
-          sizes="(max-width: 900px) 50vw, 25vw"
+          sizes="(max-width: 959px) 45vw, 22vw"
         />
       )}
       <style jsx>{`
         .ce-cell--media {
           position: relative;
+          flex: 1 1 0;
+          min-height: 140px;
           background: #fafafa;
-          min-height: 0;
           overflow: hidden;
+        }
+        @media (min-width: 960px) {
+          .ce-cell--media {
+            min-height: 0;
+            height: 100%;
+          }
         }
         .ce-slot-media {
           width: 100%;
           height: 100%;
-          min-height: 180px;
+          min-height: 140px;
           object-fit: cover;
           object-position: center;
           display: block;
         }
-        @media (min-width: 900px) {
+        @media (min-width: 960px) {
           .ce-slot-media {
             min-height: 0;
             position: absolute;
@@ -140,21 +155,66 @@ export default function CollectionsEditorialBlock({
       </div>
 
       <style jsx>{`
+        /* ——— Móvil / tablet: banner arriba, grilla 2×2 abajo ——— */
         .ce-block {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 1px;
-          margin-bottom: 24px;
-          background: rgba(0, 0, 0, 0.1);
-          border: 1px solid rgba(0, 0, 0, 0.12);
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+          margin: 0 auto 32px;
+          max-width: 1400px;
+          padding: 0 12px;
+          box-sizing: border-box;
+          background: transparent;
+          border: none;
         }
-        @media (min-width: 900px) {
+        .ce-editorial {
+          position: relative;
+          background: #f0f0f0;
+          border-radius: 14px;
+          overflow: hidden;
+          width: 100%;
+          min-height: min(52vw, 420px);
+          max-height: 70vh;
+          aspect-ratio: 3 / 4;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.07);
+        }
+        @supports not (aspect-ratio: 1) {
+          .ce-editorial {
+            min-height: 320px;
+            max-height: 520px;
+          }
+        }
+        .ce-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          grid-template-rows: repeat(2, auto);
+          gap: 10px;
+          width: 100%;
+          align-items: stretch;
+        }
+        .ce-cell {
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+          background: #fff;
+          border-radius: 12px;
+          overflow: hidden;
+          border: 1px solid #ebebeb;
+          box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+        }
+
+        /* ——— Desktop: mitad banner | mitad 2×2, misma altura ——— */
+        @media (min-width: 960px) {
           .ce-block {
+            display: grid;
             grid-template-columns: 1fr 1fr;
-            grid-template-rows: minmax(360px, min(78vh, 820px));
-            max-height: 900px;
+            grid-template-rows: minmax(460px, min(62vh, 720px));
+            column-gap: 22px;
+            row-gap: 0;
             align-items: stretch;
-            margin-bottom: 28px;
+            margin-bottom: 44px;
+            padding: 0 20px;
+            gap: 0;
           }
           .ce-block--inv .ce-editorial {
             order: 2;
@@ -162,30 +222,42 @@ export default function CollectionsEditorialBlock({
           .ce-block--inv .ce-grid {
             order: 1;
           }
-        }
-        .ce-editorial {
-          position: relative;
-          background: #f2f2f2;
-          min-height: 320px;
-          overflow: hidden;
-        }
-        @media (min-width: 900px) {
           .ce-editorial {
+            aspect-ratio: auto;
             min-height: 0;
+            max-height: none;
+            height: 100%;
+            border-radius: 16px;
+            align-self: stretch;
+          }
+          .ce-grid {
+            gap: 12px;
+            height: 100%;
+            min-height: 0;
+            align-self: stretch;
+            grid-template-rows: 1fr 1fr;
+          }
+          .ce-cell {
+            border-radius: 12px;
           }
         }
-        .ce-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          grid-template-rows: 1fr 1fr;
-          gap: 1px;
-          background: rgba(0, 0, 0, 0.1);
-          min-height: 0;
+
+        @media (min-width: 768px) {
+          .ce-grid {
+            gap: 15px;
+          }
         }
-        .ce-cell {
-          background: #fff;
-          min-width: 0;
-          min-height: 0;
+        @media (min-width: 1024px) {
+          .ce-grid {
+            gap: 20px;
+          }
+        }
+
+        @media (min-width: 1200px) {
+          .ce-block {
+            column-gap: 28px;
+            padding: 0 28px;
+          }
         }
       `}</style>
     </section>

@@ -3,7 +3,6 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import ModalsWrapper from '../components/ModalsWrapper';
 import ProductGrid from '../components/ProductGrid';
-import CollectionsBento from '../components/CollectionsBento';
 import CollectionsEditorialBlock from '../components/CollectionsEditorialBlock';
 import {
   getStoreData,
@@ -49,25 +48,18 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
 
   const sf = resolveStorefrontConfig(storedFront);
   const col = sf.collections;
-  const editorialLeft = col?.editorialLeftUrl?.trim() || '';
-  const editorialGrid = col?.editorialGridUrl?.trim() || '';
 
   const products = processProducts(productsRaw as any[]);
   const categories = processCategories(categoriesRaw);
   const shuffled = shuffleArray([...products]).slice(0, PRODUCTS_LIMIT);
 
+  /** Banner + 4 productos (2×2) por fila; filas alternadas izq/der si hay varias (URLs legacy o editorialBlocks). */
   const editorialResolved = resolveCollectionsEditorialBlocks(col, shuffled);
   const usedIds = editorialResolved?.length ? collectUsedProductIds(editorialResolved) : null;
   const restAfterEditorial = usedIds
     ? shuffled.filter((p) => p?.id != null && !usedIds.has(Number(p.id)))
-    : shuffled;
-
-  const bentoProductSlots =
-    !editorialResolved?.length && editorialLeft ? (editorialGrid ? 3 : 4) : 0;
-  const bentoTake = bentoProductSlots ? Math.min(bentoProductSlots, shuffled.length) : 0;
-  const bentoProducts = bentoTake ? shuffled.slice(0, bentoTake) : [];
-  const restProducts =
-    editorialResolved?.length ? restAfterEditorial : bentoTake ? shuffled.slice(bentoTake) : shuffled;
+    : [];
+  const restProducts = editorialResolved?.length ? restAfterEditorial : [];
 
   const mainLang = tnStore?.main_language || 'es';
   const logoFromApi = normalizeTiendanubeLogo(tnStore?.logo);
@@ -108,7 +100,8 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
             Collections
           </h1>
           <p className="collections-lead">
-            Selección de la tienda; el orden de los productos cambia en cada visita.
+            Curamos la vitrina como en tienda física: el orden se renueva en cada visita para que
+            descubras piezas con ojos frescos.
           </p>
         </div>
       </section>
@@ -119,23 +112,6 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
             {editorialResolved.map((block, idx) => (
               <CollectionsEditorialBlock key={idx} block={block} storeId={sid} />
             ))}
-            {restProducts.length > 0 && (
-              <>
-                <h2 className="collections-more-title">Más productos</h2>
-                <div className="collections-grid-wrap">
-                  <ProductGrid products={restProducts} storeId={sid} />
-                </div>
-              </>
-            )}
-          </>
-        ) : editorialLeft && bentoProducts.length > 0 ? (
-          <>
-            <CollectionsBento
-              editorialLeftUrl={editorialLeft}
-              editorialGridUrl={editorialGrid || undefined}
-              products={bentoProducts}
-              storeId={sid}
-            />
             {restProducts.length > 0 && (
               <>
                 <h2 className="collections-more-title">Más productos</h2>
@@ -165,17 +141,19 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
           min-height: 100vh;
           background: #fff;
           color: #0a0a0a;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+          font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+          -webkit-font-smoothing: antialiased;
         }
         .collections-hero {
           position: relative;
-          padding: 28px 20px 40px;
+          padding: 28px max(16px, env(safe-area-inset-left)) 36px max(16px, env(safe-area-inset-right));
           overflow: hidden;
-          border-bottom: 1px solid rgba(0,0,0,0.08);
+          border-bottom: 1px solid rgba(0,0,0,0.06);
+          background: linear-gradient(180deg, #f7f7f7 0%, #ffffff 55%);
         }
         @media (min-width: 768px) {
           .collections-hero {
-            padding: 40px 32px 48px;
+            padding: 40px 28px 44px;
           }
         }
         .collections-hero-inner {
@@ -240,21 +218,23 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
         .collections-lead {
           position: relative;
           z-index: 2;
-          max-width: 560px;
+          max-width: 520px;
           margin: 0 auto;
           text-align: center;
-          font-size: 14px;
-          line-height: 1.65;
+          font-size: clamp(13px, 2.8vw, 15px);
+          line-height: 1.6;
           color: #555;
         }
         .collections-body {
-          max-width: 1400px;
+          width: 100%;
+          max-width: 100%;
           margin: 0 auto;
-          padding: 20px 16px 64px;
+          padding: 12px 0 56px;
+          box-sizing: border-box;
         }
-        @media (min-width: 1024px) {
+        @media (min-width: 960px) {
           .collections-body {
-            padding: 24px 30px 80px;
+            padding: 16px 0 72px;
           }
         }
         .collections-more-title {
@@ -263,9 +243,16 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
           letter-spacing: 0.14em;
           text-transform: uppercase;
           color: #111;
-          margin: 0 0 20px;
-          padding-top: 8px;
+          margin: 0 auto 20px;
+          padding: 16px max(16px, env(safe-area-inset-left)) 0 max(16px, env(safe-area-inset-right));
+          max-width: 1400px;
           border-top: 1px solid rgba(0,0,0,0.08);
+        }
+        .collections-grid-wrap {
+          padding: 0 max(12px, env(safe-area-inset-left)) 0 max(12px, env(safe-area-inset-right));
+          max-width: 1400px;
+          margin: 0 auto;
+          box-sizing: border-box;
         }
         .collections-grid-wrap .products-section {
           padding-top: 0;

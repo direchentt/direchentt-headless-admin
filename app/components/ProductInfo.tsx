@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 import { useAddToCart } from '../hooks/useAddToCart';
+import { useWishlist } from '../hooks/useWishlist';
 import { formatPrice, getVariantDisplayPrices } from '@/lib/product-utils';
 import ProductCompleteLookSidebar from './ProductCompleteLookSidebar';
+import ExpressCheckoutModal from './ExpressCheckoutModal';
 import StoreImage from './StoreImage';
 
 interface ProductInfoProps {
@@ -58,11 +60,16 @@ export default function ProductInfo({
 }: ProductInfoProps) {
   const { addToCart: addToLocalCart } = useStore();
   const { addToCart: redirectToCheckout, isLoading: checkoutRedirectLoading } = useAddToCart(storeId);
+  const {
+    isWishlisted,
+    toggle: toggleWishlist,
+  } = useWishlist(storeId);
+  const [wishlistBusy, setWishlistBusy] = useState(false);
   const variants = product.variants || [];
   const images = product.images || [];
   const [selectedVariantId, setSelectedVariantId] = useState<number | null>(null);
   const [isAdding, setIsAdding] = useState(false);
-  const [expressBusy, setExpressBusy] = useState(false);
+  const [expressCheckoutOpen, setExpressCheckoutOpen] = useState(false);
   /** Móvil: hasta que el usuario toque una variante, solo se muestra el CTA crema tipo EME */
   const [pdpVariantAck, setPdpVariantAck] = useState(false);
 
@@ -130,70 +137,6 @@ export default function ProductInfo({
     setTimeout(() => setIsAdding(false), 500);
   };
 
-  /**
-   * Pago exprés: Mercado Pago Checkout Pro (preferencia con MP_ACCESS_TOKEN en servidor).
-   * La Public Key de MP no se usa en este flujo; sirve para Bricks u otros SDK en el front.
-   * Si MP no está configurado o falla → checkout TiendaNube (/api/checkout).
-   */
-  const handlePagoExpres = async () => {
-    if (!selectedVariant) return;
-    setExpressBusy(true);
-    try {
-      const { current } = getVariantDisplayPrices(selectedVariant);
-      const prefUrl = `${window.location.origin}/api/checkout/mercadopago/preference`;
-      const res = await fetch(prefUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          storeId,
-          items: [
-            {
-              variantId: selectedVariant.id,
-              name: safeGetName(product.name),
-              price: current,
-              quantity: 1,
-            },
-          ],
-        }),
-      });
-      const data = (await res.json().catch(() => ({}))) as {
-        init_point?: string;
-        sandbox_init_point?: string;
-        error?: string;
-      };
-      const payUrl =
-        (typeof data.init_point === 'string' && data.init_point) ||
-        (typeof data.sandbox_init_point === 'string' && data.sandbox_init_point) ||
-        '';
-      if (res.ok && payUrl) {
-        window.location.href = payUrl;
-        return;
-      }
-      console.error('[Pago exprés MP]', res.status, data);
-      const msg =
-        typeof data.error === 'string' && data.error
-          ? data.error
-          : !res.ok
-            ? `Respuesta ${res.status}`
-            : 'MP no devolvió URL de pago (init_point).';
-      window.alert(`Mercado Pago: ${msg}`);
-    } catch (e) {
-      console.error('[Pago exprés MP] red', e);
-      window.alert('No se pudo conectar con Mercado Pago. Revisá tu conexión o probá más tarde.');
-    } finally {
-      setExpressBusy(false);
-    }
-    // Solo Tienda Nube si lo habilitás (por defecto: no confundir con checkout MP).
-    if (process.env.NEXT_PUBLIC_MP_EXPRESS_FALLBACK_TN === 'true') {
-      const { current } = getVariantDisplayPrices(selectedVariant);
-      redirectToCheckout(selectedVariant.id.toString(), 1, undefined, {
-        productId: product.id,
-        name: safeGetName(product.name),
-        price: current,
-      });
-    }
-  };
-
   const handleSelectSizeCta = () => {
     const el = document.querySelector('.pdp-size-options');
     if (el) {
@@ -208,6 +151,17 @@ export default function ProductInfo({
   const showLeadCopy = Boolean(leadCopy && (!modelNote || leadCopy !== modelNote));
   const mobileGateCta = variants.length > 1 && !pdpVariantAck;
 
+  const inWishlist = isWishlisted(Number(product.id));
+
+  const handleWishlistClick = async () => {
+    setWishlistBusy(true);
+    try {
+      await toggleWishlist(Number(product.id));
+    } finally {
+      setWishlistBusy(false);
+    }
+  };
+
   return (
     <div className="product-info pdp-eme">
       <div className="product-header">
@@ -215,11 +169,15 @@ export default function ProductInfo({
           <h1 className="product-title">{safeGetName(product.name)}</h1>
           <button
             type="button"
-            className="pdp-wishlist"
-            aria-label="Guardar en lista de deseos"
-            title="Guardar"
+            className={`pdp-wishlist${inWishlist ? ' pdp-wishlist--active' : ''}`}
+            aria-label={
+              inWishlist ? 'Quitar de lista de deseos' : 'Guardar en lista de deseos'
+            }
+            title={inWishlist ? 'En favoritos' : 'Guardar'}
+            disabled={wishlistBusy}
+            onClick={() => void handleWishlistClick()}
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill={inWishlist ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.4" aria-hidden>
               <path d="M6 4h12a1 1 0 011 1v14l-7-4-7 4V5a1 1 0 011-1z" />
             </svg>
           </button>
@@ -543,15 +501,10 @@ export default function ProductInfo({
           <button
             type="button"
             className="btn-express"
-            onClick={() => void handlePagoExpres()}
-            disabled={
-              expressBusy ||
-              checkoutRedirectLoading ||
-              (variants.length > 1 && !selectedVariantId) ||
-              !selectedVariant
-            }
+            onClick={() => setExpressCheckoutOpen(true)}
+            disabled={(variants.length > 1 && !selectedVariantId) || !selectedVariant}
           >
-            {expressBusy || checkoutRedirectLoading ? '…' : 'Pago exprés'}
+            Pago exprés
           </button>
         </div>
       </div>
@@ -590,6 +543,23 @@ export default function ProductInfo({
           <p>Para cambios y devoluciones, consultá las políticas de la tienda.</p>
         </div>
       </details>
+
+      {selectedVariant ? (
+        <ExpressCheckoutModal
+          open={expressCheckoutOpen}
+          onClose={() => setExpressCheckoutOpen(false)}
+          storeId={storeId}
+          summary={`${safeGetName(product.name)} × 1 — ${formatPrice(getVariantDisplayPrices(selectedVariant).current)}`}
+          items={[
+            {
+              variantId: selectedVariant.id,
+              name: safeGetName(product.name),
+              price: getVariantDisplayPrices(selectedVariant).current,
+              quantity: 1,
+            },
+          ]}
+        />
+      ) : null}
 
       <ProductCompleteLookSidebar products={completeLookProducts} storeId={storeId} />
 
@@ -672,6 +642,14 @@ export default function ProductInfo({
           opacity: 0.85;
         }
         .pdp-wishlist:hover {
+          opacity: 1;
+        }
+        .pdp-wishlist:disabled {
+          opacity: 0.45;
+          cursor: wait;
+        }
+        .pdp-wishlist--active {
+          color: #b00000;
           opacity: 1;
         }
 

@@ -2,11 +2,23 @@
 
 import { useStore } from '../context/StoreContext';
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { formatPrice } from '@/lib/product-utils';
+import { useWishlist, dispatchWishlistChanged } from '../hooks/useWishlist';
 
-type UserSection = 'main' | 'orders' | 'profile' | 'addresses';
+type UserSection = 'main' | 'orders' | 'profile' | 'addresses' | 'wishlist';
+
+type WishlistApiItem = {
+  productId: number;
+  addedAt: string;
+  name: string;
+  inStock: boolean;
+  price: number;
+  unavailable: boolean;
+};
 
 export default function AuthModal() {
-  const { isAuthOpen, setAuthOpen, login, logout, user, isLoggedIn } = useStore();
+  const { isAuthOpen, setAuthOpen, login, logout, user, isLoggedIn, sessionToken } = useStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -14,6 +26,59 @@ export default function AuthModal() {
   const [error, setError] = useState('');
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [activeSection, setActiveSection] = useState<UserSection>('main');
+  const [panelShopId, setPanelShopId] = useState('5112334');
+  const [wishItems, setWishItems] = useState<WishlistApiItem[]>([]);
+  const [wishLoading, setWishLoading] = useState(false);
+
+  const { count: wishlistCount, refresh: refreshWishlistIds } = useWishlist(panelShopId);
+
+  useEffect(() => {
+    if (!isAuthOpen) return;
+    const q = new URLSearchParams(window.location.search).get('shop');
+    if (q) setPanelShopId(q);
+  }, [isAuthOpen]);
+
+  useEffect(() => {
+    if (activeSection !== 'wishlist' || !sessionToken || !isAuthOpen) return;
+    let cancel = false;
+    setWishLoading(true);
+    void (async () => {
+      try {
+        const r = await fetch(
+          `/api/wishlist?shop=${encodeURIComponent(panelShopId)}`,
+          { headers: { Authorization: `Bearer ${sessionToken}` } }
+        );
+        if (!r.ok || cancel) return;
+        const data = (await r.json()) as { items?: WishlistApiItem[] };
+        if (!cancel) setWishItems(Array.isArray(data.items) ? data.items : []);
+      } finally {
+        if (!cancel) setWishLoading(false);
+      }
+    })();
+    return () => {
+      cancel = true;
+    };
+  }, [activeSection, sessionToken, panelShopId, isAuthOpen]);
+
+  const removeWishlistItem = async (productId: number) => {
+    if (!sessionToken) return;
+    const r = await fetch('/api/wishlist', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${sessionToken}`,
+      },
+      body: JSON.stringify({
+        shop: panelShopId,
+        productId,
+        action: 'remove',
+      }),
+    });
+    if (!r.ok) return;
+    dispatchWishlistChanged(panelShopId, productId, false);
+    setWishItems((prev) => prev.filter((x) => x.productId !== productId));
+    void refreshWishlistIds();
+  };
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -115,6 +180,83 @@ export default function AuthModal() {
             <button className="add-address-btn">+ AGREGAR DIRECCIÓN</button>
           </div>
         );
+
+      case 'wishlist':
+        if (!sessionToken) {
+          return (
+            <div className="user-section user-section--left">
+              <button className="back-btn" onClick={() => setActiveSection('main')}>
+                ← VOLVER
+              </button>
+              <h3>MIS FAVORITOS</h3>
+              <div className="empty-state">
+                <span className="empty-icon">🔐</span>
+                <p>Sincronizá tu cuenta</p>
+                <small>
+                  Cerrá sesión e iniciá de nuevo para guardar y ver tus favoritos en todos los
+                  dispositivos.
+                </small>
+              </div>
+            </div>
+          );
+        }
+        return (
+          <div className="user-section user-section--left">
+            <button className="back-btn" onClick={() => setActiveSection('main')}>
+              ← VOLVER
+            </button>
+            <h3>MIS FAVORITOS</h3>
+            {wishLoading ? (
+              <p className="wishlist-hint">Cargando…</p>
+            ) : wishItems.length === 0 ? (
+              <div className="empty-state">
+                <span className="empty-icon">♡</span>
+                <p>Todavía no guardaste productos</p>
+                <small>Tocá el ícono de favorito en una ficha o en el producto</small>
+              </div>
+            ) : (
+              <ul className="wishlist-list">
+                {wishItems.map((row) => (
+                  <li key={row.productId} className="wishlist-row">
+                    <div className="wishlist-row-main">
+                      {row.unavailable ? (
+                        <span className="wishlist-name">{row.name}</span>
+                      ) : (
+                        <Link
+                          href={`/product/${row.productId}?shop=${encodeURIComponent(panelShopId)}`}
+                          className="wishlist-name wishlist-name--link"
+                          onClick={() => setAuthOpen(false)}
+                        >
+                          {row.name}
+                        </Link>
+                      )}
+                      <div className="wishlist-meta">
+                        {!row.unavailable && (
+                          <span className="wishlist-price">{formatPrice(row.price)}</span>
+                        )}
+                        {row.unavailable ? (
+                          <span className="wishlist-badge wishlist-badge--muted">Ya no disponible</span>
+                        ) : row.inStock ? (
+                          <span className="wishlist-badge wishlist-badge--ok">En stock</span>
+                        ) : (
+                          <span className="wishlist-badge wishlist-badge--warn">Sin stock</span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="wishlist-remove"
+                      aria-label="Quitar de favoritos"
+                      onClick={() => void removeWishlistItem(row.productId)}
+                    >
+                      ✕
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        );
       
       default:
         return (
@@ -131,7 +273,7 @@ export default function AuthModal() {
                 <span className="stat-label">Pedidos</span>
               </div>
               <div className="stat-item">
-                <span className="stat-number">0</span>
+                <span className="stat-number">{sessionToken ? wishlistCount : '—'}</span>
                 <span className="stat-label">Favoritos</span>
               </div>
               <div className="stat-item">
@@ -141,6 +283,11 @@ export default function AuthModal() {
             </div>
             
             <div className="auth-menu">
+              <button className="auth-menu-item" onClick={() => setActiveSection('wishlist')}>
+                <span className="menu-icon">♡</span>
+                MIS FAVORITOS
+                <span className="menu-arrow">→</span>
+              </button>
               <button className="auth-menu-item" onClick={() => setActiveSection('orders')}>
                 <span className="menu-icon">📦</span>
                 MIS PEDIDOS
@@ -520,6 +667,93 @@ export default function AuthModal() {
         .profile-field p {
           font-size: 14px;
           margin: 0;
+        }
+        .user-section--left {
+          text-align: left;
+        }
+        .wishlist-hint {
+          font-size: 13px;
+          color: #666;
+          margin: 0 0 16px;
+        }
+        .wishlist-list {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          max-height: min(52vh, 360px);
+          overflow-y: auto;
+        }
+        .wishlist-row {
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+          padding: 14px 0;
+          border-bottom: 1px solid #f0f0f0;
+        }
+        .wishlist-row-main {
+          flex: 1;
+          min-width: 0;
+        }
+        .wishlist-name {
+          font-size: 13px;
+          font-weight: 600;
+          line-height: 1.35;
+          display: block;
+          color: #111;
+        }
+        .wishlist-name--link {
+          text-decoration: none;
+          color: #111;
+        }
+        .wishlist-name--link:hover {
+          text-decoration: underline;
+        }
+        .wishlist-meta {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          align-items: center;
+          margin-top: 6px;
+        }
+        .wishlist-price {
+          font-size: 12px;
+          color: #333;
+        }
+        .wishlist-badge {
+          font-size: 9px;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          padding: 3px 8px;
+          border-radius: 2px;
+        }
+        .wishlist-badge--ok {
+          background: #e8f5e9;
+          color: #1b5e20;
+        }
+        .wishlist-badge--warn {
+          background: #fff3e0;
+          color: #e65100;
+        }
+        .wishlist-badge--muted {
+          background: #f5f5f5;
+          color: #757575;
+        }
+        .wishlist-remove {
+          flex-shrink: 0;
+          width: 32px;
+          height: 32px;
+          border: 1px solid #e0e0e0;
+          background: #fff;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 14px;
+          line-height: 1;
+          color: #666;
+        }
+        .wishlist-remove:hover {
+          border-color: #000;
+          color: #000;
         }
       `}} />
     </>

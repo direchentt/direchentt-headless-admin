@@ -32,6 +32,8 @@ interface StoreContextType {
   
   // Auth
   user: User | null;
+  /** JWT firmado para API storefront (wishlist, etc.). */
+  sessionToken: string | null;
   isLoggedIn: boolean;
   login: (email: string, password: string, name?: string) => Promise<boolean>;
   logout: () => void;
@@ -61,6 +63,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   
   // Auth State
   const [user, setUser] = useState<User | null>(null);
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
   
   // UI State
   const [isCartOpen, setCartOpen] = useState(false);
@@ -83,15 +86,49 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     }
     
-    const savedUser = localStorage.getItem('direchentt_user');
-    if (savedUser) {
+    const savedSession = localStorage.getItem('direchentt_session');
+    if (savedSession) {
       try {
-        setUser(JSON.parse(savedUser));
+        const parsed = JSON.parse(savedSession) as {
+          user?: User;
+          token?: string;
+        };
+        if (parsed.user && typeof parsed.token === 'string') {
+          setUser(parsed.user);
+          setSessionToken(parsed.token);
+        }
       } catch (e) {
-        console.error('Error loading user:', e);
+        console.error('Error loading session:', e);
+      }
+    } else {
+      const savedUser = localStorage.getItem('direchentt_user');
+      if (savedUser) {
+        try {
+          setUser(JSON.parse(savedUser));
+          setSessionToken(null);
+        } catch (e) {
+          console.error('Error loading user:', e);
+        }
       }
     }
   }, []);
+
+  useEffect(() => {
+    if (user && sessionToken) {
+      localStorage.setItem(
+        'direchentt_session',
+        JSON.stringify({ user, token: sessionToken })
+      );
+      localStorage.removeItem('direchentt_user');
+    }
+  }, [user, sessionToken]);
+
+  useEffect(() => {
+    if (!user) {
+      localStorage.removeItem('direchentt_session');
+      localStorage.removeItem('direchentt_user');
+    }
+  }, [user]);
 
   // Save cart to localStorage when it changes
   useEffect(() => {
@@ -143,17 +180,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // =================== AUTH FUNCTIONS ===================
   const login = async (email: string, password: string, name?: string): Promise<boolean> => {
-    // Simulación de login - en producción esto llamaría a TiendaNube API
     try {
-      // Por ahora, aceptamos cualquier email/password para demo
-      const mockUser: User = {
-        id: Date.now().toString(),
-        email: email,
-        name: name || email.split('@')[0]
+      const res = await fetch('/api/storefront/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          password,
+          ...(name ? { name } : {}),
+        }),
+      });
+      if (!res.ok) return false;
+      const data = (await res.json()) as {
+        user?: User;
+        token?: string;
       };
-      
-      setUser(mockUser);
-      localStorage.setItem('direchentt_user', JSON.stringify(mockUser));
+      if (!data.user || typeof data.token !== 'string') return false;
+      setUser(data.user);
+      setSessionToken(data.token);
       setAuthOpen(false);
       return true;
     } catch (e) {
@@ -164,7 +208,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('direchentt_user');
+    setSessionToken(null);
   };
 
   // =================== SEARCH FUNCTIONS ===================
@@ -209,6 +253,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     
     // Auth
     user,
+    sessionToken,
     isLoggedIn: !!user,
     login,
     logout,

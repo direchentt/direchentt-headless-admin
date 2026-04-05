@@ -1,6 +1,9 @@
 import type { NextRequest } from 'next/server';
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 import { parseMoney } from '@/lib/product-utils';
+import type { ExpressCheckoutBuyerInput } from '@/lib/express-checkout-buyer';
+import { digitsOnly, splitPhoneForMercadoPago } from '@/lib/express-checkout-buyer';
+import type { ExpressCheckoutShippingSelection } from '@/lib/express-checkout-shipping';
 
 export function mercadoPagoErrorMessage(err: unknown): string {
   if (err instanceof Error && err.message) return err.message;
@@ -44,7 +47,9 @@ export async function createMercadoPagoCheckoutProPreference(
   req: NextRequest,
   accessToken: string,
   storeId: string,
-  items: MpPreferenceInputItem[]
+  items: MpPreferenceInputItem[],
+  buyer?: ExpressCheckoutBuyerInput | null,
+  shipping?: ExpressCheckoutShippingSelection | null
 ): Promise<
   | { ok: true; init_point: string; preference_id?: string; sandbox_init_point?: string }
   | { ok: false; error: string; statusCode: number }
@@ -88,6 +93,21 @@ export async function createMercadoPagoCheckoutProPreference(
       };
     });
 
+    const shipPrice =
+      shipping && typeof shipping.price === 'number' && Number.isFinite(shipping.price)
+        ? Math.round(Math.max(0, shipping.price) * 100) / 100
+        : 0;
+    if (shipPrice > 0) {
+      const shipTitle = `Envío: ${String(shipping!.label || 'Envío').slice(0, 220)}`;
+      mapped.push({
+        id: 'express-shipping',
+        title: shipTitle,
+        unit_price: shipPrice,
+        quantity: 1,
+        currency_id: currencyId,
+      });
+    }
+
     const client = new MercadoPagoConfig({ accessToken: token });
     const preference = new Preference(client);
 
@@ -97,17 +117,74 @@ export async function createMercadoPagoCheckoutProPreference(
       pending: `${baseUrl}/checkout/pending`,
     };
 
+    const metadata: Record<string, string> = {
+      store_id: String(storeId || '5112334'),
+      cart_items: JSON.stringify(
+        items.map((i) => ({ id: i.variantId ?? i.id, q: i.quantity }))
+      ),
+    };
+
+    if (buyer) {
+      metadata.buyer_snapshot = JSON.stringify({
+        email: buyer.email.trim(),
+        firstName: buyer.firstName.trim(),
+        lastName: buyer.lastName.trim(),
+        phone: buyer.phone.trim(),
+        document: buyer.document.trim(),
+        address: buyer.address.trim(),
+        streetNumber: buyer.streetNumber.trim(),
+        floor: (buyer.floor || '').trim(),
+        locality: (buyer.locality || '').trim(),
+        city: buyer.city.trim(),
+        province: buyer.province.trim(),
+        zipcode: buyer.zipcode.trim(),
+        country: (buyer.country || 'AR').trim().toUpperCase(),
+        note: (buyer.note || '').trim(),
+      });
+    }
+
+    if (shipping) {
+      metadata.shipping_snapshot = JSON.stringify({
+        id: shipping.id,
+        label: shipping.label,
+        price: shipPrice,
+      });
+    }
+
     const body: Parameters<Preference['create']>[0]['body'] = {
       items: mapped,
       back_urls: backUrls,
       notification_url: `${baseUrl}/api/checkout/mercadopago/webhook`,
-      metadata: {
-        store_id: String(storeId || '5112334'),
-        cart_items: JSON.stringify(
-          items.map((i) => ({ id: i.variantId ?? i.id, q: i.quantity }))
-        ),
-      },
+      metadata,
+      external_reference: `headless-${storeId}-${Date.now()}`,
     };
+
+    if (buyer) {
+      const { area_code, number } = splitPhoneForMercadoPago(buyer.phone);
+      const idNum = digitsOnly(buyer.document);
+      body.payer = {
+        email: buyer.email.trim(),
+        name: buyer.firstName.trim().slice(0, 100),
+        surname: buyer.lastName.trim().slice(0, 100),
+        ...(area_code && number
+          ? {
+              phone: {
+                area_code: area_code.slice(0, 6),
+                number: number.slice(0, 20),
+              },
+            }
+          : {}),
+        ...(idNum
+          ? {
+              identification: {
+                type: 'DNI',
+                number: idNum.slice(0, 20),
+              },
+            }
+          : {}),
+      };
+    }
+
     if (baseUrl.startsWith('https://')) {
       body.auto_return = 'approved';
     }

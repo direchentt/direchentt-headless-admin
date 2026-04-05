@@ -3,7 +3,12 @@
  * Persistida en MongoDB; la API expone GET público y PUT con secreto admin.
  */
 
+import type { ExpressCheckoutShippingOption } from '@/lib/express-checkout-shipping';
+import { normalizeExpressCheckoutShippingOptions } from '@/lib/express-checkout-shipping';
+
 export const STOREFRONT_CONFIG_VERSION = 1 as const;
+
+export type { ExpressCheckoutShippingOption };
 
 /** Identificadores de bloques de la home (deben coincidir con HomePageBlocks). */
 export type HomeSectionId =
@@ -97,6 +102,11 @@ export interface StorefrontConfigStored {
   bannerSplit?: HomeBannerSplitStored;
   /** Página /collections: imagen editorial + slot en grilla (moderás vos las URLs) */
   collections?: CollectionsPageStored;
+  /**
+   * Medios de envío en checkout exprés (MP + orden TN). Vacío en Mongo = defaults en runtime.
+   * PUT `/api/storefront-config` con `expressCheckoutShipping: [{ id, label, price }]`.
+   */
+  expressCheckoutShipping?: ExpressCheckoutShippingOption[];
 }
 
 export type CollectionsGridCellMode = 'random' | 'product' | 'media';
@@ -134,6 +144,8 @@ export interface StorefrontConfigResolved extends StorefrontConfigStored {
   homeSections: HomeSectionResolved[];
   /** Slides efectivos del hero (homeHeroSlides o derivado de heroBannerUrls) */
   homeHeroSlidesResolved: HomeHeroSlideStored[];
+  /** Opciones efectivas para checkout exprés (normalizadas, nunca vacías) */
+  expressCheckoutShippingResolved: ExpressCheckoutShippingOption[];
 }
 
 const DEFAULT_ORDER: HomeSectionId[] = [
@@ -244,8 +256,12 @@ export function resolveStorefrontConfig(
     homeHeroSlides: stored?.homeHeroSlides,
     bannerSplit: stored?.bannerSplit,
     collections: stored?.collections,
+    expressCheckoutShipping: stored?.expressCheckoutShipping,
     homeSections,
     homeHeroSlidesResolved: computeHomeHeroSlides(stored),
+    expressCheckoutShippingResolved: normalizeExpressCheckoutShippingOptions(
+      stored?.expressCheckoutShipping
+    ),
   };
 }
 
@@ -438,6 +454,30 @@ export function parseStorefrontConfigPatch(body: unknown): {
     patch.version = b.version;
   }
 
+  if (b.expressCheckoutShipping !== undefined) {
+    if (!Array.isArray(b.expressCheckoutShipping)) {
+      return { ok: false, error: 'expressCheckoutShipping debe ser un array' };
+    }
+    const opts: ExpressCheckoutShippingOption[] = [];
+    const seen = new Set<string>();
+    for (const raw of b.expressCheckoutShipping.slice(0, 12)) {
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
+      const o = raw as Record<string, unknown>;
+      const id = typeof o.id === 'string' ? o.id.trim().slice(0, 64) : '';
+      const label = typeof o.label === 'string' ? o.label.trim().slice(0, 200) : '';
+      const pr = o.price;
+      const price =
+        typeof pr === 'number' && Number.isFinite(pr)
+          ? Math.round(Math.max(0, pr) * 100) / 100
+          : 0;
+      if (!id || !label) continue;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      opts.push({ id, label, price });
+    }
+    patch.expressCheckoutShipping = opts;
+  }
+
   if (b.collections !== undefined) {
     if (typeof b.collections !== 'object' || b.collections === null || Array.isArray(b.collections)) {
       return { ok: false, error: 'collections debe ser un objeto' };
@@ -569,6 +609,11 @@ export function mergeStorefrontPatch(
       else delete (next as Record<string, string>)[key];
     }
     merged.bannerSplit = Object.keys(next).length ? next : undefined;
+  }
+
+  if (patch.expressCheckoutShipping !== undefined) {
+    merged.expressCheckoutShipping =
+      patch.expressCheckoutShipping.length > 0 ? patch.expressCheckoutShipping : undefined;
   }
 
   if (patch.collections !== undefined) {

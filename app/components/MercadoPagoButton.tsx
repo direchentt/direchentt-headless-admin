@@ -2,56 +2,54 @@
 
 import Image from 'next/image';
 import { useState } from 'react';
+import ExpressCheckoutModal from './ExpressCheckoutModal';
+import type { ExpressCheckoutLineItem } from './ExpressCheckoutModal';
 
-export default function MercadoPagoButton({ items, storeId }: { items: any[], storeId: string }) {
-    const [loading, setLoading] = useState(false);
+export default function MercadoPagoButton({
+  items,
+  storeId,
+  summary,
+}: {
+  items: ExpressCheckoutLineItem[];
+  storeId: string;
+  summary?: string;
+}) {
+  const [open, setOpen] = useState(false);
 
-    const handlePayment = async () => {
-        setLoading(true);
-        try {
-            const res = await fetch(`${window.location.origin}/api/checkout/mercadopago/preference`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ items, storeId }),
-            });
+  const mpItems: ExpressCheckoutLineItem[] = (items || []).map((item: any) => ({
+    variantId: item.variantId ?? item.id,
+    id: item.id,
+    name: String(item.name || 'Producto'),
+    price: item.price,
+    quantity: item.quantity ?? 1,
+  }));
 
-            const data = await res.json();
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        disabled={!mpItems.length}
+        className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-[#009EE3] hover:bg-[#0089c7] text-white rounded-full transition-all font-bold shadow-sm disabled:opacity-50"
+      >
+        <Image
+          src="https://http2.mlstatic.com/frontend-assets/marketplace-web/mkt-web-navigation/current/mp-logo.svg"
+          alt="Mercado Pago"
+          width={120}
+          height={32}
+          className="h-6 w-auto invert brightness-0"
+          unoptimized
+        />
+        Pagar con Mercado Pago
+      </button>
 
-            if (data.init_point) {
-                // Redirigir al Checkout Pro de Mercado Pago
-                window.location.href = data.init_point;
-            } else {
-                alert('Error al iniciar el pago con Mercado Pago');
-            }
-        } catch (error) {
-            console.error('Error:', error);
-            alert('Error de conexión');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <button
-            onClick={handlePayment}
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-[#009EE3] hover:bg-[#0089c7] text-white rounded-full transition-all font-bold shadow-sm disabled:opacity-50"
-        >
-            {loading ? (
-                <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
-            ) : (
-                <>
-                    <Image
-                        src="https://http2.mlstatic.com/frontend-assets/marketplace-web/mkt-web-navigation/current/mp-logo.svg"
-                        alt="Mercado Pago"
-                        width={120}
-                        height={32}
-                        className="h-6 w-auto invert brightness-0"
-                        unoptimized
-                    />
-                    Pagar con Mercado Pago
-                </>
-            )}
-        </button>
-    );
+      <ExpressCheckoutModal
+        open={open}
+        onClose={() => setOpen(false)}
+        storeId={storeId}
+        items={mpItems}
+        summary={summary}
+      />
+    </>
+  );
 }
